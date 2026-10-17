@@ -14,7 +14,7 @@ import (
 // relay running in the HTTP process can deliver them to clients in both
 // topologies (single-process APP_MODE=all and split http/worker). Publishing is
 // best-effort: a Redis failure is logged and swallowed so it never blocks or
-// fails the business flow (feature 023, FR-025).
+// fails the business flow.
 type RedisRealtimePublisher struct {
 	client *redis.Client
 	log    logger.Interface
@@ -25,17 +25,18 @@ func NewRedisRealtimePublisher(client *redis.Client, log logger.Interface) *Redi
 	return &RedisRealtimePublisher{client: client, log: log}
 }
 
-// Publish sends the event bytes to the task's channel. It always returns nil to
-// keep the caller's business flow uninterrupted; transport errors are logged.
-func (p *RedisRealtimePublisher) Publish(ctx context.Context, taskId string, data []byte) error {
+// Publish sends the event bytes to the stream's channel. It always returns nil
+// to keep the caller's business flow uninterrupted; transport errors are
+// logged.
+func (p *RedisRealtimePublisher) Publish(ctx context.Context, streamId string, data []byte) error {
 	if p.client == nil {
 		return nil
 	}
 	sse.IncRealtimePublishTotal()
-	if err := p.client.Publish(ctx, sse.RealtimeChannel(taskId), data).Err(); err != nil {
+	if err := p.client.Publish(ctx, sse.RealtimeChannel(streamId), data).Err(); err != nil {
 		sse.IncRealtimePublishFailed()
 		p.log.Warn("realtime publish failed",
-			zap.String("task_id", taskId),
+			zap.String("stream_id", streamId),
 			zap.Error(err),
 		)
 	}

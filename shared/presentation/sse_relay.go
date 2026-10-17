@@ -55,12 +55,12 @@ func (r *SSERelay) consume(ctx context.Context) {
 				}
 				return
 			}
-			taskId := strings.TrimPrefix(msg.Channel, sse.RealtimeChannelPrefix)
-			if taskId == "" {
+			streamId := strings.TrimPrefix(msg.Channel, sse.RealtimeChannelPrefix)
+			if streamId == "" {
 				continue
 			}
 			sse.IncRealtimeRelayTotal()
-			r.manager.Publish(taskId, []byte(msg.Payload))
+			r.manager.Publish(streamId, []byte(msg.Payload))
 		}
 	}
 }

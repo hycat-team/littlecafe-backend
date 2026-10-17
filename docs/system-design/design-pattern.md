@@ -97,7 +97,7 @@ Hai field debug nằm **ngoài contract**, chỉ xuất hiện khi `SERVER_ENV` 
 ## 6. Rate limiting
 
 - `middleware.RateLimitMiddleware`: Redis fixed-window keyed theo client IP, fail-open khi backend lỗi.
-- `middleware.LoginRateLimitMiddleware`: key theo IP + identifier đăng nhập (query/form/Authorization suffix), dùng cho login/OTP.
+- `middleware.LoginRateLimitMiddleware` (Identity service): key theo IP + identifier đăng nhập (query/form/Authorization suffix), dùng cho login/OTP.
 - Vượt hạn mức trả `429` qua `apperror.NewTooManyRequest` với message tiếng Việt.
 - Config: `rate_limit.token_limit`, `rate_limit.replenishment_seconds`.
 
@@ -110,7 +110,7 @@ Hai field debug nằm **ngoài contract**, chỉ xuất hiện khi `SERVER_ENV` 
 ## 8. Logging và config
 
 - `shared/pkg/logger.Interface` (Zap): console có màu ở dev, JSON ở môi trường khác; file rotation qua lumberjack khi bật.
-- `shared/config`: Viper load `configs/config.yaml` + env substitution; `validateConfig` chặn cấu hình sai ngay khi boot (bao gồm `jwt.algorithm=ES256`, outbox batch size, port range).
+- `shared/config`: Viper load `configs/base.yaml` merge overlay `configs/<service>.yaml` + env substitution; `validateConfig` chặn cấu hình sai ngay khi boot (bao gồm `jwt.algorithm=ES256`, outbox batch size, port range). Service có section riêng dùng package config của mình và embed `shared/config.Config`.
 - `shared/infrastructure/resilience/startup_retry.go` retry kết nối dependency theo lịch `startup.*`.
 
 ## 9. Quy ước bổ sung
@@ -118,3 +118,27 @@ Hai field debug nằm **ngoài contract**, chỉ xuất hiện khi `SERVER_ENV` 
 - JSON DTO client-facing dùng camelCase (`traceId`, `eventType`, `messageId`) — khớp contract đã duyệt.
 - Client-facing message tiếng Việt; identifier/package/field code giữ tiếng Anh.
 - Không tạo entity/route/RPC/event/fixture giả để minh họa.
+
+## 10. Quy ước constants
+
+Áp dụng cho hằng số enum/domain (status, type, code, key, reason...) trong `shared/` và trong service. Không áp dụng cho message câu tiếng Việt (xem §1), literal của protocol bên thứ ba, và giá trị đã phát hành ra contract/DB.
+
+### 10.1 Giá trị string
+
+- Hằng số string MUST dùng `UPPER_SNAKE_CASE`: `"NEEDS_REVIEW"`, `"ACCESS_TOKEN"`, `"WALLET_0007"`.
+- Toàn bộ enum nội bộ đã migrate sang UPPER_SNAKE: `roleslug` (`"ADMIN"`, `"USER"`), `jwttype` (`"ACCESS_TOKEN"`, `"REFRESH_TOKEN"`...), outbox status (`"PENDING"`, `"PUBLISHED"`...), context key (`"ACCESS_TOKEN"`, `"USER_ID"`...), workerlog trigger/result (`"CRON"`, `"SUCCESS"`...).
+- Ngoại lệ không đổi value:
+  - Literal của protocol/thư viện: AMQP queue type (`"classic"`, `"quorum"`), exchange type (`"topic"`), URL literal (`"https://api.cloudinary.com"`, `"amqps"`, `"https"`), Cloudinary resource type (`"image"`), gRPC metadata key (`"x-littlecafe-jwt"` — gRPC yêu cầu lowercase).
+  - Tên exchange/queue/routing key theo quy ước messaging (`littlecafe.events`, `<queue>.dlq`) và Redis key prefix theo namespace (`littlecafe:...`, `rl:...`, `blacklist:...`).
+
+### 10.2 Giá trị số
+
+- Hằng số dạng số MUST NOT nhận giá trị `0`. `0` giữ nghĩa zero-value/unset của type; hằng số enum bắt đầu từ `1`.
+- Không dùng `0` làm phần tử đầu của `iota`; nếu dùng `iota`, viết `iota + 1`.
+- Type vẫn có thể nhận `0` ở dữ liệu runtime (zero-value hợp lệ), nhưng `0` MUST NOT được định nghĩa thành một hằng số enum.
+
+### 10.3 Cách dùng
+
+- Luôn tham chiếu symbol, không hardcode value tại call site (kể cả test), trừ khi test đang kiểm tra chính giá trị wire/contract.
+- Hằng số dùng chung nhiều service đặt tại `shared/application/constants/<name>` hoặc `shared/domain/constants/<name>`; hằng số chỉ một service dùng đặt trong service đó (theo rule shared-code ownership).
+- Message success/error của handler khai báo thành constant ở đầu file handler, không hardcode inline.

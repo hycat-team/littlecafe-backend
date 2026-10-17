@@ -1,0 +1,14 @@
+# Wallet service overlay. Merged on top of configs/base.yaml.
+# Add only sections owned by this service.
+
+payment:
+  provider: ${PAYMENT_PROVIDER:-payos}
+  client_id: ${PAYOS_CLIENT_ID:-}
+  api_key: ${PAYOS_API_KEY:-}
+  checksum_key: ${PAYOS_CHECKSUM_KEY:-}
+  return_url: ${PAYOS_RETURN_URL:-https://littlecafe.kids/payment/success}
+  cancel_url: ${PAYOS_CANCEL_URL:-https://littlecafe.kids/payment/cancel}
+  webhook_url: ${PAYOS_WEBHOOK_URL:-https://api.littlecafe.kids/api/v1/wallet/webhooks/payos}
+  payout_enabled: ${PAYOUT_ENABLED:-false}
+  expired_minutes: ${PAYMENT_EXPIRED_MINUTES:-15}
+  reconciliation_cron: "${PAYMENT_RECONCILIATION_CRON:-0 */5 * * * *}"

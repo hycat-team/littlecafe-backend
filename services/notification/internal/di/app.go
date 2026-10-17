@@ -1,6 +1,14 @@
 package di
 
-import "github.com/hycat-team/littlecafe-backend/services/notification/internal/bootstrap"
+import (
+	"github.com/hycat-team/littlecafe-backend/services/notification/internal/bootstrap"
+	notificationconfig "github.com/hycat-team/littlecafe-backend/services/notification/internal/config"
+	sharedconfig "github.com/hycat-team/littlecafe-backend/shared/config"
+)
+
+// newSharedConfig projects the Notification config onto the shared sections
+// used by the shared infrastructure providers.
+func newSharedConfig(cfg *notificationconfig.Config) *sharedconfig.Config { return &cfg.Config }
 
 // newModuleRouters starts empty until a reviewed business contract is implemented.
 func newModuleRouters() []bootstrap.ModuleRouter { return nil }

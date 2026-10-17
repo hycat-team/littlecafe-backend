@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	"go.uber.org/zap"
@@ -26,15 +25,8 @@ func main() {
 	migrateOnly := flag.Bool("migrate-only", false, "apply migrations and exit")
 	flag.Parse()
 
-	cfg := config.LoadConfig()
+	cfg := config.MustLoad("ai")
 	log := logger.New(cfg.App.Env, cfg.Logger.FilePath, cfg.Logger.LogLevel, cfg.Logger.LogToFile)
-
-	// Managed platforms inject PORT; it wins over SERVER_PORT.
-	if v := os.Getenv("PORT"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cfg.Server.Port = n
-		}
-	}
 
 	if *healthcheck {
 		os.Exit(probeHealth(cfg.Server.Port))

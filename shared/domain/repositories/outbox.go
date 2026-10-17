@@ -47,10 +47,10 @@ func (j *JSONField) Scan(value any) error {
 type OutboxStatus string
 
 const (
-	OutboxStatusPending    OutboxStatus = "pending"
-	OutboxStatusProcessing OutboxStatus = "processing"
-	OutboxStatusPublished  OutboxStatus = "published"
-	OutboxStatusFailed     OutboxStatus = "failed"
+	OutboxStatusPending    OutboxStatus = "PENDING"
+	OutboxStatusProcessing OutboxStatus = "PROCESSING"
+	OutboxStatusPublished  OutboxStatus = "PUBLISHED"
+	OutboxStatusFailed     OutboxStatus = "FAILED"
 )
 
 type OutboxRecord struct {
@@ -58,7 +58,7 @@ type OutboxRecord struct {
 	Topic       string       `json:"topic" gorm:"type:varchar(255);not null"`
 	Payload     JSONField    `json:"payload" gorm:"type:jsonb;not null"`
 	Headers     JSONField    `json:"headers" gorm:"type:jsonb;default:'{}'"`
-	Status      OutboxStatus `json:"status" gorm:"type:varchar(50);not null;default:'pending'"`
+	Status      OutboxStatus `json:"status" gorm:"type:varchar(50);not null;default:'PENDING'"`
 	CreatedAt   time.Time    `json:"created_at" gorm:"type:timestamptz;not null;default:now()"`
 	PublishedAt *time.Time   `json:"published_at" gorm:"type:timestamptz"`
 	Attempts    int          `json:"attempts" gorm:"type:int;not null;default:0"`

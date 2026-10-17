@@ -33,7 +33,7 @@ func (r *OutboxRepositoryImpl) Create(ctx context.Context, record *OutboxRecord)
 	return r.SendNotification(ctx)
 }
 
-// outboxStaleProcessingSeconds là thời gian 1 record bị kẹt ở 'processing'
+// outboxStaleProcessingSeconds là thời gian 1 record bị kẹt ở 'PROCESSING'
 // (worker crash giữa claim và publish) trước khi được reclaim.
 const outboxStaleProcessingSeconds = 60
 

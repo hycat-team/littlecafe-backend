@@ -2,13 +2,12 @@ package sse
 
 import "context"
 
-// IRealtimePublisher pushes an analysis event onto a cross-process channel so a
-// relay running in the HTTP process can fan it out to connected SSE clients
-// (feature 023, FR-016). Implementations MUST treat delivery as best-effort:
-// transport failures are logged and swallowed, never propagated to the caller
-// (FR-025).
+// IRealtimePublisher pushes an event onto a cross-process channel so a relay
+// running in the HTTP process can fan it out to connected SSE clients.
+// Implementations MUST treat delivery as best-effort: transport failures are
+// logged and swallowed, never propagated to the caller.
 type IRealtimePublisher interface {
-	Publish(ctx context.Context, taskId string, data []byte) error
+	Publish(ctx context.Context, streamId string, data []byte) error
 }
 
 // IRealtimeRelay subscribes to the shared realtime channel and forwards
@@ -19,13 +18,16 @@ type IRealtimeRelay interface {
 	Stop()
 }
 
-// RealtimeChannel returns the shared channel name for a session/task id.
-func RealtimeChannel(taskId string) string {
-	return RealtimeChannelPrefix + taskId
+// RealtimeChannel returns the shared channel name for a stream id.
+func RealtimeChannel(streamId string) string {
+	return RealtimeChannelPrefix + streamId
 }
 
-// RealtimeChannelPrefix is prepended to a task id to build its channel name.
-const RealtimeChannelPrefix = "sse:task:"
+// RealtimeChannelPrefix scopes every realtime channel under the backend Redis
+// namespace. Callers MUST build the stream id as
+// <env>:<service>:<purpose>:<id>, so a channel reads
+// littlecafe:sse:<env>:<service>:<purpose>:<id>.
+const RealtimeChannelPrefix = "littlecafe:sse:"
 
-// RealtimeChannelPattern is the PSubscribe glob covering every session channel.
+// RealtimeChannelPattern is the PSubscribe glob covering every stream channel.
 const RealtimeChannelPattern = RealtimeChannelPrefix + "*"

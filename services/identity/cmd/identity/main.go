@@ -5,14 +5,13 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	"go.uber.org/zap"
 
 	"github.com/hycat-team/littlecafe-backend/services/identity/database/migrations"
+	identityconfig "github.com/hycat-team/littlecafe-backend/services/identity/internal/config"
 	"github.com/hycat-team/littlecafe-backend/services/identity/internal/di"
-	"github.com/hycat-team/littlecafe-backend/shared/config"
 	"github.com/hycat-team/littlecafe-backend/shared/infrastructure/db"
 	"github.com/hycat-team/littlecafe-backend/shared/pkg/logger"
 )
@@ -26,21 +25,14 @@ func main() {
 	migrateOnly := flag.Bool("migrate-only", false, "apply migrations and exit")
 	flag.Parse()
 
-	cfg := config.LoadConfig()
+	cfg := identityconfig.Load()
 	log := logger.New(cfg.App.Env, cfg.Logger.FilePath, cfg.Logger.LogLevel, cfg.Logger.LogToFile)
-
-	// Managed platforms inject PORT; it wins over SERVER_PORT.
-	if v := os.Getenv("PORT"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			cfg.Server.Port = n
-		}
-	}
 
 	if *healthcheck {
 		os.Exit(probeHealth(cfg.Server.Port))
 	}
 
-	if err := db.RunMigrations(cfg, migrations.EmbedFS, log); err != nil {
+	if err := db.RunMigrations(&cfg.Config, migrations.EmbedFS, log); err != nil {
 		log.Fatal("failed to run database migrations", zap.Error(err))
 	}
 	if *migrateOnly {

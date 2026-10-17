@@ -42,8 +42,10 @@ Required repository/environment secrets:
 | `GHCR_READ_TOKEN` | PAT có quyền `read:packages` |
 
 File `/opt/littlecafe/.env.production` được tạo và quản lý ngoài Git, chứa
-database credentials, provider keys, JWT keys và đường dẫn secret mount. Không
-đưa các giá trị này vào GitHub workflow.
+database credentials, provider keys, JWT keys và đường dẫn secret mount. Compose
+nạp file này vào mọi service qua `env_file`; biến bắt buộc khai báo `${VAR:?...}`
+nên thiếu giá trị sẽ fail ngay khi parse compose. Không đưa các giá trị này vào
+GitHub workflow.
 
 Workflow tự quản lý `/opt/littlecafe/.env.deploy`. File này chỉ chứa các image
 reference đã pin digest, ví dụ:
@@ -64,8 +66,8 @@ trước khi deploy service.
 
 Điều kiện: `/opt/littlecafe/.env.production` đã có `POSTGRES_ADMIN_USER`,
 `POSTGRES_ADMIN_PASSWORD` và password mạnh cho từng service
-(`<SERVICE>_DB_USER=littlecafe_<service>`, `<SERVICE>_DB_PASSWORD`). Password sinh
-ngoài Git, không commit.
+(`<SERVICE>_DB_PASSWORD`). `DB_USER`/`DB_NAME` cố định trong compose
+(`littlecafe_<service>`). Password sinh ngoài Git, không commit.
 
 ```bash
 cd /opt/littlecafe

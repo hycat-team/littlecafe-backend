@@ -4,7 +4,7 @@
 
 - Một PostgreSQL instance (`pgvector/pgvector:pg17`) chạy 7 database tách biệt, mỗi database có role riêng trùng tên service.
 - `database/init/00-init.sql` chạy **một lần** khi volume khởi tạo: tạo role, database và extension (`pgcrypto` cho mọi database, `vector` cho AI). File này **không tạo bảng** và là bootstrap dev; production provision role/database/extension một lần theo `docs/operations/deployment.md` mục "Provision database lần đầu", credential quản lý ngoài Git.
-- Kết nối app dùng `database.*` trong `configs/config.yaml`; `TimeZone=Asia/Ho_Chi_Minh`; `sslmode` cấu hình theo môi trường.
+- Kết nối app dùng `database.*` trong `configs/base.yaml`; `TimeZone=Asia/Ho_Chi_Minh`; `sslmode` cấu hình theo môi trường.
 
 ## 2. Quyền sở hữu dữ liệu
 

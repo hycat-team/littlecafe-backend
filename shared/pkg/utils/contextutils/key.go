@@ -1,14 +1,8 @@
 package contextutils
 
 const (
-	CtxAccessToken = "accessToken"
-	CtxUserId      = "userId"
-	CtxRoleSlug    = "roleSlug"
-	CtxEmail       = "email"
-	CtxBrandId     = "brandId"
-	CtxBrandRole   = "brandRole"
-
-	CookieRefreshToken        = "refreshToken"
-	CookieForgotPasswordToken = "forgotPasswordToken"
-	CookieAccessToken         = "accessToken"
+	CtxAccessToken = "ACCESS_TOKEN"
+	CtxUserId      = "USER_ID"
+	CtxRoleSlug    = "ROLE_SLUG"
+	CtxEmail       = "EMAIL"
 )

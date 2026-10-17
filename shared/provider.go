@@ -6,19 +6,15 @@ import (
 	"github.com/google/wire"
 
 	app_audit "github.com/hycat-team/littlecafe-backend/shared/application/audit"
-	app_email "github.com/hycat-team/littlecafe-backend/shared/application/email"
 	"github.com/hycat-team/littlecafe-backend/shared/application/event"
 	sharedUcInterface "github.com/hycat-team/littlecafe-backend/shared/application/interface/usecase"
-	app_oauth "github.com/hycat-team/littlecafe-backend/shared/application/oauth"
 	sse "github.com/hycat-team/littlecafe-backend/shared/application/sse"
 	sharedUsecase "github.com/hycat-team/littlecafe-backend/shared/application/usecase"
 	infra_audit "github.com/hycat-team/littlecafe-backend/shared/infrastructure/audit"
 	infra_caching "github.com/hycat-team/littlecafe-backend/shared/infrastructure/caching"
-	brevo "github.com/hycat-team/littlecafe-backend/shared/infrastructure/communication/brevo"
 	infra_db "github.com/hycat-team/littlecafe-backend/shared/infrastructure/db"
 	infra_media "github.com/hycat-team/littlecafe-backend/shared/infrastructure/media"
 	"github.com/hycat-team/littlecafe-backend/shared/infrastructure/messaging"
-	infra_oauth "github.com/hycat-team/littlecafe-backend/shared/infrastructure/oauth"
 	sharedWorker "github.com/hycat-team/littlecafe-backend/shared/presentation/worker"
 )
 
@@ -44,10 +40,6 @@ var ProviderSet = wire.NewSet(
 	sse.NewSSEManager,
 	wire.Bind(new(sse.ISSEManager), new(*sse.SSEManager)),
 	infra_media.NewCloudinaryService,
-	brevo.NewSender,
-	wire.Bind(new(app_email.Sender), new(*brevo.Sender)),
-	infra_oauth.NewGoogleProvider,
-	wire.Bind(new(app_oauth.Provider), new(*infra_oauth.GoogleProvider)),
 	infra_audit.NewLogRecorder,
 	wire.Bind(new(app_audit.Recorder), new(*infra_audit.LogRecorder)),
 )

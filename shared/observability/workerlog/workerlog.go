@@ -13,13 +13,13 @@ const (
 	MessageReceived     = "Worker message received"
 	MessageRunSucceeded = "Worker run succeeded"
 	MessageRunFailed    = "Worker run failed"
-	TriggerStartup      = "startup"
-	TriggerCron         = "cron"
-	TriggerQueue        = "queue"
-	TriggerRequeue      = "requeue"
-	TriggerInitialSync  = "initial_sync"
-	ResultSuccess       = "success"
-	ResultFailed        = "failed"
+	TriggerStartup      = "STARTUP"
+	TriggerCron         = "CRON"
+	TriggerQueue        = "QUEUE"
+	TriggerRequeue      = "REQUEUE"
+	TriggerInitialSync  = "INITIAL_SYNC"
+	ResultSuccess       = "SUCCESS"
+	ResultFailed        = "FAILED"
 )
 
 type Counters struct {

@@ -8,8 +8,8 @@ package di
 
 import (
 	"github.com/hycat-team/littlecafe-backend/services/notification/internal/bootstrap"
+	"github.com/hycat-team/littlecafe-backend/services/notification/internal/config"
 	"github.com/hycat-team/littlecafe-backend/shared/application/usecase"
-	"github.com/hycat-team/littlecafe-backend/shared/config"
 	"github.com/hycat-team/littlecafe-backend/shared/infrastructure/db"
 	"github.com/hycat-team/littlecafe-backend/shared/infrastructure/messaging"
 	"github.com/hycat-team/littlecafe-backend/shared/pkg/logger"
@@ -21,26 +21,27 @@ import (
 // InitializeApp resolves the technical bootstrap graph. Business providers are
 // added only with an approved contract and workflow specification.
 func InitializeApp(cfg *config.Config, log logger.Interface) (*bootstrap.App, error) {
+	configConfig := newSharedConfig(cfg)
 	v := newModuleRouters()
-	engine := bootstrap.NewRouter(cfg, log, v)
-	gormDB, err := db.NewPostgresConnection(cfg, log)
+	engine := bootstrap.NewRouter(configConfig, log, v)
+	gormDB, err := db.NewPostgresConnection(configConfig, log)
 	if err != nil {
 		return nil, err
 	}
 	outboxRepository := messaging.NewOutboxRepository(gormDB)
-	rabbitMQClient, err := messaging.NewRabbitMQClient(cfg, log, outboxRepository)
+	rabbitMQClient, err := messaging.NewRabbitMQClient(configConfig, log, outboxRepository)
 	if err != nil {
 		return nil, err
 	}
-	outboxGaugeProbe := messaging.NewOutboxGaugeProbe(cfg, log)
-	outboxUseCase := usecase.NewOutboxUseCase(outboxRepository, rabbitMQClient, outboxGaugeProbe, cfg, log)
-	outboxListener, err := db.NewOutboxListener(cfg, log)
+	outboxGaugeProbe := messaging.NewOutboxGaugeProbe(configConfig, log)
+	outboxUseCase := usecase.NewOutboxUseCase(outboxRepository, rabbitMQClient, outboxGaugeProbe, configConfig, log)
+	outboxListener, err := db.NewOutboxListener(configConfig, log)
 	if err != nil {
 		return nil, err
 	}
-	outboxWorker := worker.NewOutboxWorker(outboxUseCase, outboxListener, cfg, log)
+	outboxWorker := worker.NewOutboxWorker(outboxUseCase, outboxListener, configConfig, log)
 	v2 := newModuleWorkers()
 	workers := bootstrap.NewWorkers(outboxWorker, v2)
-	app := bootstrap.NewApp(cfg, log, engine, workers)
+	app := bootstrap.NewApp(configConfig, log, engine, workers)
 	return app, nil
 }

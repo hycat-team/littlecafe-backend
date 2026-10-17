@@ -10,6 +10,7 @@
 - `make docker-infra-up`: chỉ hạ tầng (Postgres/Redis/RabbitMQ).
 - `make docker-dev-up`: full stack (infra + 7 service + Nginx).
 - Chạy service trên host: `make run svc=<service>`; port HTTP 8101-8107, gRPC 9101-9104 (xem `architecture.md`).
+- Compose nạp env vào container qua `env_file`: dev dùng `.env`, production dùng `.env.production`; key canonical nằm trong `.env.example` / `.env.production.example`.
 - Certificate local nằm ngoài repo (`CERTS_DIR`), mount read-only `/run/littlecafe/certs`; chi tiết `docs/operations/certificates.md`.
 - `APP_MODE=http|worker|all` chọn thành phần chạy trong một binary.
 

@@ -125,7 +125,7 @@ make nginx-reload-local
 ├── contracts/                  # OpenAPI, AsyncAPI, proto, grpcx helpers
 ├── deployments/                # compose (dev/prod), nginx, observability, scripts
 ├── database/init/              # dev-only role/database/extension bootstrap (no tables)
-├── configs/                    # config.yaml template (env-substituted)
+├── configs/                    # base.yaml + per-service overlay (env-substituted)
 ├── docs/                       # system-design, api, development, operations
 └── .github/workflows/          # ci.yml, cd.yml
 ```

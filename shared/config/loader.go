@@ -1,7 +1,6 @@
 package config
 
 import (
-	"bytes"
 	"fmt"
 	"log"
 	"os"
@@ -16,41 +15,83 @@ import (
 
 var envPattern = regexp.MustCompile(`\$\{([A-Za-z_][A-Za-z0-9_]*)(:-([^}]*))?\}`)
 
-// LoadConfig loads configuration or exits: invalid configuration at startup
-// must never be silently ignored.
-func LoadConfig() *Config {
-	cfg, err := loadConfig()
-	if err != nil {
-		log.Fatalf("Invalid configuration: %v", err)
-	}
-	return cfg
+const (
+	defaultBasePath = "configs/base.yaml"
+	overlayDir      = "configs"
+)
+
+// ServiceConfig is implemented by per-service configuration structs. The shared
+// sections live in an embedded Config; the service adds its own sections.
+type ServiceConfig interface {
+	Common() *Config
 }
 
-func loadConfig() (*Config, error) {
-	configPath := envOrDefault("CONFIG_FILE", filepath.Join("configs", "config.yaml"))
-	loadLocalDotEnv(configPath)
+// Common returns the shared configuration, making *Config usable as a
+// ServiceConfig for services that have no extra sections.
+func (c *Config) Common() *Config { return c }
 
-	rawBytes, err := os.ReadFile(configPath)
-	if err != nil {
-		return nil, fmt.Errorf("read config file %q: %w", configPath, err)
-	}
-	expanded := expandWithDefaults(string(rawBytes))
+// Load reads configs/base.yaml, merges the service overlay, expands ${VAR}
+// placeholders, applies env overrides, then validates.
+//
+// The overlay path comes from CONFIG_OVERLAY, or defaults to
+// configs/<service>.yaml. A derived overlay that does not exist is skipped; an
+// explicitly configured overlay must exist.
+func Load(serviceName string, target ServiceConfig) error {
+	basePath := envOrDefault("CONFIG_BASE", defaultBasePath)
+	overlayPath := envOrDefault("CONFIG_OVERLAY", filepath.Join(overlayDir, serviceName+".yaml"))
+
+	loadLocalDotEnv(basePath)
 
 	v := viper.New()
 	v.SetConfigType("yaml")
-	if err := v.ReadConfig(bytes.NewBufferString(expanded)); err != nil {
-		return nil, fmt.Errorf("read config file %q: %w", configPath, err)
+
+	baseBytes, err := os.ReadFile(basePath)
+	if err != nil {
+		return fmt.Errorf("read config file %q: %w", basePath, err)
+	}
+	if err := v.ReadConfig(strings.NewReader(expandWithDefaults(string(baseBytes)))); err != nil {
+		return fmt.Errorf("read config file %q: %w", basePath, err)
 	}
 
-	var cfg Config
-	if err := v.UnmarshalExact(&cfg); err != nil {
-		return nil, fmt.Errorf("decode config file %q: %w", configPath, err)
+	if serviceName != "" {
+		overlayBytes, readErr := os.ReadFile(overlayPath)
+		switch {
+		case readErr == nil:
+			if err := v.MergeConfig(strings.NewReader(expandWithDefaults(string(overlayBytes)))); err != nil {
+				return fmt.Errorf("read config overlay %q: %w", overlayPath, err)
+			}
+		case os.IsNotExist(readErr) && os.Getenv("CONFIG_OVERLAY") == "":
+			// The derived overlay is optional.
+		default:
+			return fmt.Errorf("read config overlay %q: %w", overlayPath, readErr)
+		}
 	}
-	applyEnvOverrides(&cfg)
-	if err := validateConfig(&cfg); err != nil {
-		return nil, err
+
+	if err := v.UnmarshalExact(target); err != nil {
+		return fmt.Errorf("decode configuration: %w", err)
 	}
-	return &cfg, nil
+
+	common := target.Common()
+	applyEnvOverrides(common)
+	if err := validateConfig(common); err != nil {
+		return err
+	}
+	if validator, ok := target.(interface{ Validate() error }); ok {
+		if err := validator.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// MustLoad loads the common configuration for a service without extra
+// sections, or exits.
+func MustLoad(serviceName string) *Config {
+	cfg := &Config{}
+	if err := Load(serviceName, cfg); err != nil {
+		log.Fatalf("Invalid configuration: %v", err)
+	}
+	return cfg
 }
 
 // expandWithDefaults expands ${VAR} and ${VAR:-default} using the environment.

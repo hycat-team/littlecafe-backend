@@ -77,6 +77,12 @@ commands in other documents or skills.
 - Service ownership: a service must not import another service's implementation
   or read its database. Cross-service reads use gRPC; mutations use event
   contracts and the transactional outbox.
+- **Shared code ownership**: `shared/` holds only cross-cutting building blocks
+  used by multiple services and owned by none. A service-owned adapter or a
+  config section that only one service uses MUST live in that service
+  (Google OAuth in Identity, Brevo email in Notification, payment provider in
+  Wallet); `configs/base.yaml` holds shared sections, `configs/<service>.yaml`
+  holds service-owned sections.
 - Write tests with the change; run codegen and check drift.
 - If a feature changes an HTTP endpoint, event payload, or client-facing DTO,
   update `specs/<feature>/frontend-guide.md` and only set

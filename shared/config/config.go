@@ -5,7 +5,9 @@ import (
 	"time"
 )
 
-// Config is the root configuration model.
+// Config is the shared configuration model for every service. Service-owned
+// sections live in that service's config package and are merged from the
+// service overlay (configs/<service>.yaml).
 type Config struct {
 	App        App          `mapstructure:"app"`
 	Server     Server       `mapstructure:"server"`
@@ -18,9 +20,6 @@ type Config struct {
 	RabbitMQ   RabbitMQ     `mapstructure:"rabbitmq"`
 	Outbox     OutboxConfig `mapstructure:"outbox"`
 	Cloudinary Cloudinary   `mapstructure:"cloudinary"`
-	Payment    Payment      `mapstructure:"payment"`
-	Google     Google       `mapstructure:"google"`
-	Email      Email        `mapstructure:"email"`
 	Admin      AdminConfig  `mapstructure:"admin"`
 }
 
@@ -74,21 +73,6 @@ type Server struct {
 	Port     int `mapstructure:"port"`
 	GRPCPort int `mapstructure:"grpc_port"`
 	SSE      SSE `mapstructure:"sse"`
-}
-
-// ManagedEnvs lists server.env values that run on managed platforms, where
-// managed-only requirements (infrastructure ID tokens, migrate-on-start) are
-// enforced.
-var ManagedEnvs = []string{"managed", "managed-drill"}
-
-// IsManagedEnv reports whether env denotes a managed platform environment.
-func IsManagedEnv(env string) bool {
-	for _, e := range ManagedEnvs {
-		if strings.EqualFold(strings.TrimSpace(env), e) {
-			return true
-		}
-	}
-	return false
 }
 
 // Database holds Postgres connection settings.
@@ -151,39 +135,6 @@ type Cloudinary struct {
 	ApiSecret string `mapstructure:"api_secret"`
 	APIUrl    string `mapstructure:"api_url"`
 	Folder    string `mapstructure:"folder"`
-}
-
-// Payment holds the payment provider adapter settings.
-type Payment struct {
-	Provider           string `mapstructure:"provider"`
-	ClientID           string `mapstructure:"client_id"`
-	APIKey             string `mapstructure:"api_key"`
-	ChecksumKey        string `mapstructure:"checksum_key"`
-	ReturnURL          string `mapstructure:"return_url"`
-	CancelURL          string `mapstructure:"cancel_url"`
-	WebhookURL         string `mapstructure:"webhook_url"`
-	PayoutEnabled      bool   `mapstructure:"payout_enabled"`
-	ExpiredMinutes     int    `mapstructure:"expired_minutes"`
-	ReconciliationCron string `mapstructure:"reconciliation_cron"`
-}
-
-// Google holds OAuth client settings.
-type Google struct {
-	WebClientID     string `mapstructure:"web_client_id"`
-	WebClientSecret string `mapstructure:"web_client_secret"`
-	RedirectURI     string `mapstructure:"redirect_uri"`
-	StateTTLMinutes int    `mapstructure:"state_ttl_minutes"`
-}
-
-// Email holds outbound Brevo settings.
-type Email struct {
-	Enabled     bool   `mapstructure:"enabled"`
-	Provider    string `mapstructure:"provider"`
-	APIKey      string `mapstructure:"api_key"`
-	Endpoint    string `mapstructure:"endpoint"`
-	SenderName  string `mapstructure:"sender_name"`
-	SenderEmail string `mapstructure:"sender_email"`
-	ReplyTo     string `mapstructure:"reply_to"`
 }
 
 // AdminConfig holds admin-plane settings.

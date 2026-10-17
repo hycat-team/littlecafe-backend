@@ -8,6 +8,7 @@ require (
 	github.com/hycat-team/littlecafe-backend/contracts v0.0.0
 	github.com/hycat-team/littlecafe-backend/shared v0.0.0
 	go.uber.org/zap v1.28.0
+	golang.org/x/crypto v0.55.0
 	google.golang.org/grpc v1.83.2
 )
 
@@ -62,7 +63,6 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/arch v0.22.0 // indirect
-	golang.org/x/crypto v0.55.0 // indirect
 	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect

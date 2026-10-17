@@ -1,6 +1,14 @@
 package di
 
-import "github.com/hycat-team/littlecafe-backend/services/identity/internal/bootstrap"
+import (
+	"github.com/hycat-team/littlecafe-backend/services/identity/internal/bootstrap"
+	identityconfig "github.com/hycat-team/littlecafe-backend/services/identity/internal/config"
+	sharedconfig "github.com/hycat-team/littlecafe-backend/shared/config"
+)
+
+// newSharedConfig projects the Identity config onto the shared sections used by
+// the shared infrastructure providers.
+func newSharedConfig(cfg *identityconfig.Config) *sharedconfig.Config { return &cfg.Config }
 
 // newModuleRouters starts empty until a reviewed business contract is implemented.
 func newModuleRouters() []bootstrap.ModuleRouter { return nil }

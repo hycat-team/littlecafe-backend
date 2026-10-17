@@ -1,3 +1,5 @@
+// Package brevo implements the ports.EmailSender contract against the Brevo
+// transactional email API.
 package brevo
 
 import (
@@ -7,23 +9,23 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/hycat-team/littlecafe-backend/shared/application/email"
-	"github.com/hycat-team/littlecafe-backend/shared/config"
+	notificationconfig "github.com/hycat-team/littlecafe-backend/services/notification/internal/config"
+	"github.com/hycat-team/littlecafe-backend/services/notification/internal/modules/notification/application/ports"
 	"github.com/hycat-team/littlecafe-backend/shared/pkg/logger"
 	"go.uber.org/zap"
 )
 
 type Sender struct {
-	cfg    *config.Config
+	cfg    *notificationconfig.Config
 	log    logger.Interface
 	client *http.Client
 }
 
-func NewSender(cfg *config.Config, log logger.Interface) *Sender {
+func NewSender(cfg *notificationconfig.Config, log logger.Interface) *Sender {
 	return &Sender{cfg: cfg, log: log, client: http.DefaultClient}
 }
 
-func (s *Sender) Send(ctx context.Context, message email.Message) error {
+func (s *Sender) Send(ctx context.Context, message ports.EmailMessage) error {
 	if !s.cfg.Email.Enabled {
 		s.log.Info("email sending disabled", zap.String("subject", message.Subject))
 		return nil
@@ -54,4 +56,4 @@ func (s *Sender) Send(ctx context.Context, message email.Message) error {
 	return nil
 }
 
-var _ email.Sender = (*Sender)(nil)
+var _ ports.EmailSender = (*Sender)(nil)

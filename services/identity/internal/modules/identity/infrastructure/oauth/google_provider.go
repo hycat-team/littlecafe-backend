@@ -1,5 +1,5 @@
-// Package oauth implements the oauth.Provider port for Google using only the
-// standard library (no provider SDK).
+// Package oauth implements the ports.OAuthProvider contract for Google using
+// only the standard library (no provider SDK).
 package oauth
 
 import (
@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hycat-team/littlecafe-backend/shared/application/oauth"
-	"github.com/hycat-team/littlecafe-backend/shared/config"
+	identityconfig "github.com/hycat-team/littlecafe-backend/services/identity/internal/config"
+	"github.com/hycat-team/littlecafe-backend/services/identity/internal/modules/identity/application/ports"
 )
 
 const (
@@ -22,14 +22,14 @@ const (
 	googleUserEndpoint  = "https://openidconnect.googleapis.com/v1/userinfo"
 )
 
-// GoogleProvider implements oauth.Provider against Google.
+// GoogleProvider implements ports.OAuthProvider against Google.
 type GoogleProvider struct {
-	cfg    *config.Config
+	cfg    *identityconfig.Config
 	client *http.Client
 }
 
 // NewGoogleProvider builds the Google adapter.
-func NewGoogleProvider(cfg *config.Config) *GoogleProvider {
+func NewGoogleProvider(cfg *identityconfig.Config) *GoogleProvider {
 	return &GoogleProvider{
 		cfg:    cfg,
 		client: &http.Client{Timeout: 10 * time.Second},
@@ -48,23 +48,23 @@ func (p *GoogleProvider) AuthURL(state string) string {
 }
 
 // Exchange swaps the authorization code for the user's normalized identity.
-func (p *GoogleProvider) Exchange(ctx context.Context, code string) (oauth.Identity, error) {
+func (p *GoogleProvider) Exchange(ctx context.Context, code string) (ports.OAuthIdentity, error) {
 	token, err := p.exchangeCode(ctx, code)
 	if err != nil {
-		return oauth.Identity{}, err
+		return ports.OAuthIdentity{}, err
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, googleUserEndpoint, nil)
 	if err != nil {
-		return oauth.Identity{}, err
+		return ports.OAuthIdentity{}, err
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := p.client.Do(req)
 	if err != nil {
-		return oauth.Identity{}, fmt.Errorf("oauth: userinfo request: %w", err)
+		return ports.OAuthIdentity{}, fmt.Errorf("oauth: userinfo request: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return oauth.Identity{}, fmt.Errorf("oauth: userinfo returned %d", resp.StatusCode)
+		return ports.OAuthIdentity{}, fmt.Errorf("oauth: userinfo returned %d", resp.StatusCode)
 	}
 	var profile struct {
 		Sub   string `json:"sub"`
@@ -72,9 +72,9 @@ func (p *GoogleProvider) Exchange(ctx context.Context, code string) (oauth.Ident
 		Name  string `json:"name"`
 	}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&profile); err != nil {
-		return oauth.Identity{}, fmt.Errorf("oauth: decode userinfo: %w", err)
+		return ports.OAuthIdentity{}, fmt.Errorf("oauth: decode userinfo: %w", err)
 	}
-	return oauth.Identity{ProviderUserID: profile.Sub, Email: profile.Email, Name: profile.Name}, nil
+	return ports.OAuthIdentity{ProviderUserID: profile.Sub, Email: profile.Email, Name: profile.Name}, nil
 }
 
 func (p *GoogleProvider) exchangeCode(ctx context.Context, code string) (string, error) {
@@ -110,4 +110,4 @@ func (p *GoogleProvider) exchangeCode(ctx context.Context, code string) (string,
 	return payload.AccessToken, nil
 }
 
-var _ oauth.Provider = (*GoogleProvider)(nil)
+var _ ports.OAuthProvider = (*GoogleProvider)(nil)

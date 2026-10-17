@@ -1,6 +1,7 @@
 package presentation
 
 import (
+	"fmt"
 	"net/http"
 	"sync/atomic"
 	"time"
@@ -9,6 +10,11 @@ import (
 
 	"github.com/hycat-team/littlecafe-backend/shared/application/constants/apperror"
 )
+
+// SanitizeSSEData escapes a string for safe use as one SSE data line.
+func SanitizeSSEData(content string) string {
+	return fmt.Sprintf("%q", content)
+}
 
 const DefaultSSEChunkDeadline = 90 * time.Second
 

@@ -36,7 +36,7 @@ services/<service>/
   api/swagger/                   # output swagger (khi có)
 ```
 
-`shared` chứa hạ tầng dùng chung: `config`, `infrastructure` (db, messaging, caching, security, oauth, payment, media, resilience, httptransport, audit, communication), `application` (dto, event, sse, usecase, interface, constants), `presentation` (middleware, worker, response, sse), `domain` (entities, repositories, valueobject, constants), `observability`, `pkg`.
+`shared` chỉ chứa building block dùng chung, không thuộc service nào: `config`, `infrastructure` (db, messaging, caching, security, media, resilience, httptransport, audit), `application` (dto, event, sse, usecase, interface, constants), `presentation` (middleware, worker, response, sse), `domain` (entities, repositories, valueobject, constants), `observability`, `pkg`. Adapter của từng service nằm tại service sở hữu: Google OAuth ở Identity, Brevo ở Notification, payment provider ở Wallet, password/refresh-token crypto ở Identity, vector entity ở AI.
 
 ## 3. Phụ thuộc layer
 
@@ -65,7 +65,7 @@ Trong mỗi module: `presentation → application → domain ← infrastructure`
 
 ## 5. Cấu hình và hạ tầng
 
-- `configs/config.yaml` là template; giá trị `${VAR:-default}` được thay bằng biến môi trường qua Viper. `shared/config/validation.go` kiểm tra bắt buộc (port, database, `JWT_ALGORITHM=ES256`, outbox batch size...).
+- `configs/base.yaml` là template chung; mỗi service merge thêm `configs/<service>.yaml` (section riêng của service), giá trị `${VAR:-default}` được thay bằng biến môi trường qua Viper. `shared/config/validation.go` kiểm tra bắt buộc (port, database, `JWT_ALGORITHM=ES256`, outbox batch size...).
 - **PostgreSQL** (`pgvector/pgvector:pg17`): một instance, 7 database + 7 role tách biệt. `database/init/00-init.sql` chỉ tạo extension (`pgcrypto`, `vector` cho AI) khi volume khởi tạo lần đầu; không tạo bảng.
 - **Redis**: cache, rate limit, cooldown, token blacklist, SSE Pub/Sub. Không phải nguồn dữ liệu authoritative.
 - **RabbitMQ**: event bất đồng bộ theo outbox (xem `event-driven-design.md`).

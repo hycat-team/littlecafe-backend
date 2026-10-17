@@ -28,6 +28,9 @@ Sync Impact Report:
     shared/domain/repositories/generic.go).
   - PR validation covers layer boundaries, error shape, JSON naming, and
     generated-contract drift (evidence: .github/workflows/ci.yml).
+  - Shared-code ownership: `shared/` holds only cross-cutting building blocks;
+    service-owned adapters and config sections live in the owning service
+    (implemented in this change set; see Governance).
 - Not adopted (no evidence or unsettled): English-only code comments (code
   comments are currently mixed-language); mapper/_helper file conventions;
   managed-platform portability (LittleCafe is VPS-only by decision).
@@ -146,7 +149,7 @@ available dependencies are not decisions. Agents MUST NOT decide these.
 
 ## Access Control (RBAC) & Data Privacy
 
-- **System roles**: only `admin` and `user` exist as RoleSlug values; adding a
+- **System roles**: only `ADMIN` and `USER` exist as RoleSlug values; adding a
   new system role is prohibited.
 - **Ownership**: every resource has an owner check; data belonging to a child
   MUST pass the Guardian-Child relationship check before access.
@@ -187,5 +190,13 @@ available dependencies are not decisions. Agents MUST NOT decide these.
   naming for client-facing DTOs, and generated-contract drift. Gate commands are
   defined in `AGENTS.md`; that table is the single source of truth and is not
   duplicated here.
+- **Shared-code ownership**: `shared/` contains only cross-cutting building
+  blocks used by multiple services and owned by none (config loader, database,
+  messaging, caching, security primitives, presentation framework, generic
+  repositories). A service-owned adapter MUST live in that service: Google OAuth
+  in Identity, Brevo email in Notification, payment provider in Wallet, password
+  and refresh-token crypto in Identity, vector entity in AI. Configuration
+  follows the same rule: `configs/base.yaml` holds shared sections and
+  `configs/<service>.yaml` holds sections owned by one service.
 
 **Version**: 1.2.0 | **Ratified**: 2026-10-17 | **Last Amended**: 2026-10-17

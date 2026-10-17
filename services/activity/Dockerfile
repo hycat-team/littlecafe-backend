@@ -22,7 +22,6 @@ COPY --from=builder /out/app /app/app
 COPY --from=builder /src/configs/ configs/
 COPY --from=builder /src/services/activity/database/migrations/ database/migrations/
 
-ENV PORT=8080
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

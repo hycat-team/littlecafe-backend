@@ -6,14 +6,14 @@ Tài liệu này mô tả các cơ chế bảo mật đang có trong code và c�
 
 ### 1.1 Email/password
 
-- Hash bằng **Argon2id** (`shared/pkg/utils/passwordutils/argon2id.go`): salt 16 byte ngẫu nhiên, `time=3`, `memory=64 MiB`, `parallelism=2`, key 32 byte; verify bằng so sánh constant-time.
+- Hash bằng **Argon2id** (`services/identity/internal/modules/identity/infrastructure/security/passwordutils/argon2id.go`): salt 16 byte ngẫu nhiên, `time=3`, `memory=64 MiB`, `parallelism=2`, key 32 byte; verify bằng so sánh constant-time.
 - Password rỗng bị từ chối ngay từ `Hash`.
 
 ### 1.2 Google OAuth/OIDC
 
-- Adapter: `shared/infrastructure/oauth/google_provider.go`, cấu hình `google.*` trong `configs/config.yaml`.
+- Adapter: `services/identity/internal/modules/identity/infrastructure/oauth/google_provider.go`, cấu hình `google.*` trong `configs/identity.yaml`.
 - Redirect URI chuẩn: `https://api.littlecafe.kids/api/v1/identity/oauth/google/callback`; state TTL mặc định 10 phút.
-- Sau callback, frontend nhận redirect qua `OAUTH_SUCCESS_REDIRECT_URL` (mặc định `https://littlecafe.kids/auth/callback`).
+- Sau callback, backend đổi code lấy identity; redirect về frontend thuộc feature Identity và chưa chốt env key (hiện chỉ có `GOOGLE_OAUTH_CALLBACK_URL` là callback backend).
 
 ### 1.3 Access token ES256
 
@@ -23,7 +23,7 @@ Tài liệu này mô tả các cơ chế bảo mật đang có trong code và c�
 
 ### 1.4 Refresh token
 
-- Sinh 32 byte ngẫu nhiên, encode Base64URL; **chỉ lưu SHA-256 digest** (`shared/pkg/utils/tokenutils/refresh.go`).
+- Sinh 32 byte ngẫu nhiên, encode Base64URL; **chỉ lưu SHA-256 digest** (`services/identity/internal/modules/identity/infrastructure/security/tokenutils/refresh.go`).
 - Rotation, revoke và reuse detection là yêu cầu bắt buộc của feature Identity (constitution V); chưa có implementation trong bootstrap.
 - Thu hồi phiên dùng `shared/infrastructure/security/redis_token_blacklist_service.go` (Redis dùng chung): blacklist theo token, theo user, có prefix tuỳ biến; `CheckBlacklist` kiểm tra cả hai.
 
@@ -37,7 +37,7 @@ Tài liệu này mô tả các cơ chế bảo mật đang có trong code và c�
 
 ## 3. Phân quyền (RBAC)
 
-- Vai trò hệ thống chỉ có `admin` và `user` (`shared/domain/constants/roleslug`); không thêm RoleSlug khác.
+- Vai trò hệ thống chỉ có `ADMIN` và `USER` (`shared/domain/constants/roleslug`); không thêm RoleSlug khác.
 - Kết hợp **ownership**, **Guardian-Child** (mọi dữ liệu trẻ em phải qua `GuardianLink`) và **assignment** cho vận hành.
 - Chi tiết actor/quyền theo `littlecafe-docs/business/actors-and-permissions.md` và workflow tương ứng.
 - Helper context: `contextutils.GetUserId`, `GetRoleSlug`, `GetAccessToken` trả `ErrUnauthorized` khi thiếu.
@@ -60,4 +60,4 @@ Tài liệu này mô tả các cơ chế bảo mật đang có trong code và c�
 
 - Rotation/revoke/reuse detection cho refresh token (thuộc feature Identity).
 - Middleware xác thực/authorization thực tế cho route nghiệp vụ (chưa có route nghiệp vụ).
-- Test bảo mật cho jwtutils/passwordutils/tokenutils/cryptoutils (hiện có test cho AES-GCM, Argon2id, refresh token).
+- Test bảo mật: `shared` có test cho AES-GCM (`cryptoutils`); Identity có test cho Argon2id và refresh token (`infrastructure/security/{passwordutils,tokenutils}`); `jwtutils` chưa có test.

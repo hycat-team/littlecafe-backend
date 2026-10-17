@@ -19,7 +19,8 @@ DB_TIMEZONE ?= Asia/Ho_Chi_Minh
 MIGRATION_DSN := "host=$(DB_HOST) user=$(DB_USER) password=$(DB_PASSWORD) dbname=$(DB_NAME) port=$(DB_PORT) sslmode=$(DB_SSLMODE) TimeZone=$(DB_TIMEZONE)"
 
 SERVER_PORT ?= 8080
-CONFIG_FILE ?= $(abspath configs/config.yaml)
+CONFIG_BASE ?= $(abspath configs/base.yaml)
+CONFIG_OVERLAY ?= $(abspath configs/$(SVC).yaml)
 TEST_FLAGS ?=
 
 ifeq ($(OS),Windows_NT)

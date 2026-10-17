@@ -72,32 +72,5 @@ cloudinary:
   api_url: ${CLOUDINARY_API_URL:-https://api.cloudinary.com}
   folder: ${CLOUDINARY_FOLDER:-littlecafe_backend}
 
-payment:
-  provider: ${PAYMENT_PROVIDER:-payos}
-  client_id: ${PAYOS_CLIENT_ID:-}
-  api_key: ${PAYOS_API_KEY:-}
-  checksum_key: ${PAYOS_CHECKSUM_KEY:-}
-  return_url: ${PAYOS_RETURN_URL:-https://littlecafe.kids/payment/success}
-  cancel_url: ${PAYOS_CANCEL_URL:-https://littlecafe.kids/payment/cancel}
-  webhook_url: ${PAYOS_WEBHOOK_URL:-https://api.littlecafe.kids/api/v1/wallet/webhooks/payos}
-  payout_enabled: ${PAYOUT_ENABLED:-false}
-  expired_minutes: ${PAYMENT_EXPIRED_MINUTES:-15}
-  reconciliation_cron: "${PAYMENT_RECONCILIATION_CRON:-0 */5 * * * *}"
-
-google:
-  web_client_id: ${GOOGLE_WEB_CLIENT_ID:-}
-  web_client_secret: ${GOOGLE_WEB_CLIENT_SECRET:-}
-  redirect_uri: ${GOOGLE_OAUTH_CALLBACK_URL:-https://api.littlecafe.kids/api/v1/identity/oauth/google/callback}
-  state_ttl_minutes: ${GOOGLE_STATE_TTL_MINUTES:-10}
-
-email:
-  enabled: ${EMAIL_ENABLED:-true}
-  provider: ${EMAIL_PROVIDER:-brevo}
-  api_key: ${BREVO_API_KEY:-}
-  endpoint: ${BREVO_ENDPOINT:-https://api.brevo.com/v3/smtp/email}
-  sender_name: ${EMAIL_SENDER_NAME:-LittleCafe}
-  sender_email: ${EMAIL_SENDER_EMAIL:-no-reply@littlecafe.kids}
-  reply_to: ${EMAIL_REPLY_TO:-}
-
 admin:
   audit_retention_months: ${ADMIN_AUDIT_RETENTION_MONTHS:-24}

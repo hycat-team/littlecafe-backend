@@ -1,0 +1,11 @@
+# Notification service overlay. Merged on top of configs/base.yaml.
+# Add only sections owned by this service.
+
+email:
+  enabled: ${EMAIL_ENABLED:-true}
+  provider: ${EMAIL_PROVIDER:-brevo}
+  api_key: ${BREVO_API_KEY:-}
+  endpoint: ${BREVO_ENDPOINT:-https://api.brevo.com/v3/smtp/email}
+  sender_name: ${EMAIL_SENDER_NAME:-LittleCafe}
+  sender_email: ${EMAIL_SENDER_EMAIL:-no-reply@littlecafe.kids}
+  reply_to: ${EMAIL_REPLY_TO:-}

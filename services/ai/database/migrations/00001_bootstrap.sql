@@ -4,7 +4,7 @@ CREATE EXTENSION IF NOT EXISTS vector;\nCREATE TABLE IF NOT EXISTS outbox_record
     topic VARCHAR(255) NOT NULL,
     payload JSONB NOT NULL,
     headers JSONB NOT NULL DEFAULT '{}',
-    status VARCHAR(32) NOT NULL DEFAULT 'pending',
+    status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
     attempts INTEGER NOT NULL DEFAULT 0,
     last_error TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

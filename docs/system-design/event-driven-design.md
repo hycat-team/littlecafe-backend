@@ -42,7 +42,7 @@ Bảng `outbox_records` (mỗi service tự tạo trong migration bootstrap):
 | `topic` | varchar(255) | routing key RabbitMQ |
 | `payload` | jsonb | envelope |
 | `headers` | jsonb | mặc định `{}` |
-| `status` | varchar | `pending`, `processing`, `published`, `failed` |
+| `status` | varchar | `PENDING`, `PROCESSING`, `PUBLISHED`, `FAILED` |
 | `attempts` | int | tăng khi mark failed |
 | `last_error` | text | lỗi publish gần nhất |
 | `created_at`, `updated_at`, `published_at` | timestamptz | |
@@ -51,9 +51,9 @@ Luồng publish:
 
 1. Use case ghi outbox record trong transaction nghiệp vụ, sau đó `pg_notify('outbox_channel', '')`.
 2. `OutboxWorker` nhận signal qua `OutboxListener` (`LISTEN outbox_channel`), hoặc poll fallback mỗi 2s.
-3. `ClaimToPublish` claim batch bằng `FOR UPDATE SKIP LOCKED`, chuyển status sang `processing`; record `failed` quá backoff được claim lại; record `processing` kẹt quá 60s (worker crash) được reclaim.
-4. Publish lên RabbitMQ; thành công → `published` + `published_at`; thất bại → `failed` + `attempts++` + `last_error`.
-5. Cleanup định kỳ xoá record `published` cũ hơn `outbox.cleanup_retention_days` (mặc định 7 ngày).
+3. `ClaimToPublish` claim batch bằng `FOR UPDATE SKIP LOCKED`, chuyển status sang `PROCESSING`; record `FAILED` quá backoff được claim lại; record `PROCESSING` kẹt quá 60s (worker crash) được reclaim.
+4. Publish lên RabbitMQ; thành công → `PUBLISHED` + `published_at`; thất bại → `FAILED` + `attempts++` + `last_error`.
+5. Cleanup định kỳ xoá record `PUBLISHED` cũ hơn `outbox.cleanup_retention_days` (mặc định 7 ngày).
 
 Config (`outbox.*`): `retry_max_attempts` (10), `retry_interval_minutes` (1), `cleanup_retention_days` (7), `cleanup_interval_minutes` (60), `batch_size` (100), `listener_enabled` (true). LISTEN lỗi khi boot không làm fail service — chỉ mất độ trễ wake-up, không mất event.
 

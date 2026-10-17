@@ -36,7 +36,7 @@ Gemini provider interface + pgvector. Hai nguồn đang mâu thuẫn.
 
 - `services/ai` có layout Clean Architecture đầy đủ nhưng module rỗng: không entity,
   use case, endpoint, RPC hay event.
-- `shared` chưa có adapter hay config AI (không có `ai.*` trong `configs/config.yaml`).
+- `shared` chưa có adapter hay config AI (không có `ai.*` trong `configs/base.yaml`).
 - Đã có sẵn nền tảng dùng lại: `entities.Vector` (map cột `vector`), `JSONField`,
   outbox/consumer framework, gRPC bridge.
 
