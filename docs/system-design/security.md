@@ -17,7 +17,7 @@ Tài liệu này mô tả các cơ chế bảo mật đang có trong code và c�
 
 ### 1.3 Access token ES256
 
-- Ký/verify ES256 (`shared/pkg/utils/jwtutils/es256.go`). **Chỉ Identity giữ private key**; service khác chỉ nạp public key (`jwt.public_key_file`, bắt buộc ở production theo `validateConfig`).
+- Ký ES256 ở Identity (`services/identity/internal/modules/identity/infrastructure/security/jwtsigner`), verify ở `shared/pkg/utils/jwtutils` (`LoadECDSAPublicKey`, `ValidateTokenES256`). **Chỉ Identity giữ private key** (`signing.private_key_file` trong `configs/identity.yaml`, bắt buộc ở production theo `Config.Validate`); service khác chỉ nạp public key (`jwt.public_key_file`, bắt buộc ở production theo `validateConfig`).
 - Claims: `sub` (user UUID), `email`, `role_slug`, `type`, `iss`, `aud`, `exp`, `iat`, `jti`.
 - `ValidateTokenES256` chặn sai thuật toán (phải đúng `ES256`) và sai token type; lỗi trả `apperror.ErrInvalidAccessToken`/`ErrUnexpectedSigningToken`.
 
@@ -60,4 +60,4 @@ Tài liệu này mô tả các cơ chế bảo mật đang có trong code và c�
 
 - Rotation/revoke/reuse detection cho refresh token (thuộc feature Identity).
 - Middleware xác thực/authorization thực tế cho route nghiệp vụ (chưa có route nghiệp vụ).
-- Test bảo mật: `shared` có test cho AES-GCM (`cryptoutils`); Identity có test cho Argon2id và refresh token (`infrastructure/security/{passwordutils,tokenutils}`); `jwtutils` chưa có test.
+- Test bảo mật: `shared` có test cho AES-GCM (`cryptoutils`); Identity có test cho Argon2id, refresh token và ES256 signer (`infrastructure/security/{passwordutils,tokenutils,jwtsigner}`); `shared/pkg/utils/jwtutils` chưa có test.

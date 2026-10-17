@@ -93,9 +93,8 @@ type Database struct {
 
 // Jwt holds the confirmed ES256 token settings.
 type Jwt struct {
-	Algorithm      string `mapstructure:"algorithm"`
-	PrivateKeyFile string `mapstructure:"private_key_file"`
-	PublicKeyFile  string `mapstructure:"public_key_file"`
+	Algorithm     string `mapstructure:"algorithm"`
+	PublicKeyFile string `mapstructure:"public_key_file"`
 }
 
 // Logger holds logging settings.

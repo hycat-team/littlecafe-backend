@@ -21,7 +21,6 @@ database:
   migrate_on_start: ${DB_MIGRATE_ON_START:-false}
 jwt:
   algorithm: ${JWT_ALGORITHM:-ES256}
-  private_key_file: ${JWT_PRIVATE_KEY:-}
   public_key_file: ${JWT_PUBLIC_KEY:-}
 
 logger:
