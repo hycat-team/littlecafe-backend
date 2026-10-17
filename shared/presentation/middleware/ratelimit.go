@@ -37,7 +37,7 @@ func (m *RateLimitMiddleware) Handle() gin.HandlerFunc {
 			return
 		}
 		if !allowed {
-			c.Error(apperror.NewTooManyRequest("Too many requests, please try again later."))
+			c.Error(apperror.NewTooManyRequest("Bạn đang thao tác quá nhanh. Vui lòng thử lại sau ít phút."))
 			c.Abort()
 			return
 		}
@@ -72,7 +72,7 @@ func (m *LoginRateLimitMiddleware) Handle() gin.HandlerFunc {
 			return
 		}
 		if !allowed {
-			c.Error(apperror.NewTooManyRequest("Too many attempts, please try again later."))
+			c.Error(apperror.NewTooManyRequest("Bạn đã thử quá nhiều lần. Vui lòng thử lại sau ít phút."))
 			c.Abort()
 			return
 		}

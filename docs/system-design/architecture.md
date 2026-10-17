@@ -1,14 +1,101 @@
 # Kiến trúc Backend LittleCafe
 
-Backend là Go workspace gồm 9 module: 7 service, `shared` và `contracts`. Bảy service là Identity, Order, Activity, Wallet, AI, Notification và Reporting; module Content nằm trong Activity service.
+Tài liệu này là nguồn chuẩn về kiến trúc triển khai của backend. Quy tắc bắt buộc nằm trong `.specify/memory/constitution.md`; tài liệu này mô tả cấu trúc thực tế của code.
 
-Mỗi service sở hữu database riêng trên cùng PostgreSQL instance. Service khác không đọc bảng trực tiếp. Read xuyên service dùng gRPC; mutation dùng RabbitMQ với transactional outbox, inbox/dedup, retry và DLQ. Order hoặc Activity sở hữu saga khởi tạo; Notification và Reporting phản ứng theo choreography.
+## 1. Workspace và topology
 
-Identity, Order, Activity và Wallet host gRPC trên port 9101-9104 ở local. HTTP dùng 8101-8107; Nginx dùng 8080. Production API là `https://api.littlecafe.kids/api/v1`.
+Backend là Go workspace (`go.work`, Go 1.26) gồm **9 module**: 7 service, `shared` và `contracts`. Module path chung là `github.com/hycat-team/littlecafe-backend`.
 
-Redis là hạ tầng không authoritative cho cache, quota/rate limit và SSE Pub/Sub. Key bắt buộc có namespace `littlecafe:<env>:<service>:<purpose>`.
+| Service | Module | Database | HTTP (local) | gRPC (local) |
+|---|---|---|---|---|
+| Identity | `services/identity` | `littlecafe_identity` | 8101 | 9101 |
+| Order | `services/order` | `littlecafe_order` | 8102 | 9102 |
+| Activity | `services/activity` | `littlecafe_activity` | 8103 | 9103 |
+| Wallet | `services/wallet` | `littlecafe_wallet` | 8104 | 9104 |
+| AI | `services/ai` | `littlecafe_ai` | 8105 | - |
+| Notification | `services/notification` | `littlecafe_notification` | 8106 | - |
+| Reporting | `services/reporting` | `littlecafe_reporting` | 8107 | - |
 
-AI là một service độc lập sẽ được thiết kế ở phase sau. Provider, model, vector
-store và retrieval policy chưa được chốt, nên shared chưa chứa adapter hoặc
-configuration AI. Media 2D dùng Cloudinary; nơi lưu asset 3D chưa chốt.
+- Module `content` nằm trong Activity service nhưng giữ ranh giới nghiệp vụ riêng.
+- Nginx local dùng port 8080; production dùng `https://api.littlecafe.kids/api/v1`.
+- Mỗi service có Dockerfile riêng và deploy độc lập qua GHCR (xem `runtime-observability.md`).
 
+## 2. Layout module chuẩn
+
+```text
+services/<service>/
+  cmd/<service>/main.go          # entrypoint
+  internal/bootstrap/            # router, gRPC server, worker group, app lifecycle
+  internal/di/                   # Wire providers (wire.go, app.go, wire_gen.go)
+  internal/modules/<module>/
+    domain/{entities,repositories}
+    application/{ports,usecase}
+    infrastructure/persistence
+    presentation/{handler,router,grpc,worker}
+  database/migrations/           # Goose SQL + embed FS
+  api/swagger/                   # output swagger (khi có)
+```
+
+`shared` chứa hạ tầng dùng chung: `config`, `infrastructure` (db, messaging, caching, security, oauth, payment, media, resilience, httptransport, audit, communication), `application` (dto, event, sse, usecase, interface, constants), `presentation` (middleware, worker, response, sse), `domain` (entities, repositories, valueobject, constants), `observability`, `pkg`.
+
+## 3. Phụ thuộc layer
+
+Trong mỗi module: `presentation → application → domain ← infrastructure`.
+
+- `domain` không import layer khác; chỉ entity, repository interface, constant.
+- `application` chỉ phụ thuộc `domain`; không import `infrastructure`/`presentation`.
+- `infrastructure` implement repository interface của `domain`.
+- `presentation` gọi use case qua interface, không gọi repository trực tiếp.
+
+`deployments/scripts/check-boundaries.sh` (chạy trong CI job `vet`) cưỡng chế:
+
+1. Service không import package `services/<service khác>/`.
+2. `shared` và `contracts` không import service.
+3. `domain` không trỏ ra `application`/`infrastructure`/`presentation`.
+4. `application` không trỏ vào `infrastructure`/`presentation`.
+
+## 4. Bootstrap và vòng đời
+
+- `internal/di/wire.go` khai báo `InitializeApp`; `wire_gen.go` được commit và CI kiểm tra drift (`make generate-check`).
+- `internal/di/app.go` giữ các provider rỗng (`newModuleRouters`, `newModuleWorkers`, `newGRPCRegistrars`) cho tới khi có contract nghiệp vụ được duyệt.
+- `bootstrap.NewRouter` dựng Gin engine, gắn `GlobalErrorHandler` và health probe `GET /api/v1/health`.
+- `bootstrap.NewGRPCServer` bật health check và reflection, mount các registrar của module.
+- `bootstrap.App` chạy HTTP + gRPC song song, start worker group, graceful shutdown theo SIGINT/SIGTERM (10s).
+- `APP_MODE` chọn `http | worker | all`; mặc định `all`.
+
+## 5. Cấu hình và hạ tầng
+
+- `configs/config.yaml` là template; giá trị `${VAR:-default}` được thay bằng biến môi trường qua Viper. `shared/config/validation.go` kiểm tra bắt buộc (port, database, `JWT_ALGORITHM=ES256`, outbox batch size...).
+- **PostgreSQL** (`pgvector/pgvector:pg17`): một instance, 7 database + 7 role tách biệt. `database/init/00-init.sql` chỉ tạo extension (`pgcrypto`, `vector` cho AI) khi volume khởi tạo lần đầu; không tạo bảng.
+- **Redis**: cache, rate limit, cooldown, token blacklist, SSE Pub/Sub. Không phải nguồn dữ liệu authoritative.
+- **RabbitMQ**: event bất đồng bộ theo outbox (xem `event-driven-design.md`).
+- **Cloudinary**: media 2D. **Brevo**: email giao dịch. **payOS**: collection/payout (payout sau feature gate). **Google OAuth/OIDC**: đăng nhập.
+- AI provider/model/vector store: xem `ai-service.md` — có mâu thuẫn nguồn cần chốt, agent không tự quyết.
+
+## 6. Routing
+
+Nginx (`deployments/nginx/local.conf`, `prod.conf`) route theo prefix:
+
+| Path | Service |
+|---|---|
+| `/api/v1/health` | identity |
+| `/api/v1/identity/**` | identity |
+| `/api/v1/order/**` | order |
+| `/api/v1/activity/**`, `/api/v1/content/**` | activity |
+| `/api/v1/wallet/**` | wallet |
+| `/api/v1/ai/**` | ai |
+| `/api/v1/notification/**` | notification |
+| `/api/v1/reporting/**` | reporting |
+
+Nginx sinh `X-Trace-ID` từ `$request_id` và forward cho mọi location; error handler đọc header này để điền `traceId` trong Problem Details.
+
+## 7. Giao tiếp liên service
+
+- **Read-only**: gRPC/protobuf qua `contracts/`; helper ở `contracts/grpcx` (dial, metadata, mTLS, error bridge).
+- **Mutation**: RabbitMQ event + transactional outbox; không gọi trực tiếp database hay implementation của service khác.
+- **Saga**: Order hoặc Activity sở hữu saga khởi tạo; Notification và Reporting tham gia choreography.
+- Lỗi qua gRPC được bridge hai chiều bởi `contracts/grpcx/errors.go`: giữ status, message client-facing và `code` qua `google.rpc.ErrorInfo.Reason`; field errors dự trữ ở `google.rpc.BadRequest.FieldViolations` (details additive).
+
+## 8. Chưa triển khai
+
+Bootstrap hiện chỉ có health/readiness: không có entity, endpoint, RPC hay event nghiệp vụ. Các thư mục `domain/entities`, `application/usecase`, `presentation/handler|grpc|worker` của module đang rỗng. Bổ sung chỉ khi workflow, quyền sở hữu dữ liệu và contract tương ứng đã được duyệt (constitution I và III).

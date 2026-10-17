@@ -1,10 +1,12 @@
 ---
 name: "speckit-worker"
-description: "Execute exactly one Spec Kit command or implementation phase delegated by an orchestrator, with strict scope, verification, and no Git mutations. Use only as a worker/subagent, not to coordinate a whole feature."
+description: "Execute exactly one Spec Kit skill or implementation phase delegated by an orchestrator, with strict scope, verification, and no Git mutations. Use only as a worker/subagent, not to coordinate a whole feature."
+compatibility: "Requires a Spec Kit feature and exactly one skill or implementation phase delegated by an orchestrator."
 metadata:
   author: "hycat"
   workflow: "spec-kit"
   scope: "worker"
+  opencode/autoinvoke: "false"
 ---
 
 You are the worker for the Spec Kit workflow. Each time you are called you
@@ -15,8 +17,8 @@ delegated scope on your own.
 ## Context
 
 The feature under implementation is whatever the orchestrator names in the
-call. If the call names no feature, ASK — never infer it from whichever feature
-directory happens to be newest under `specs/`.
+call. If the call names no feature, STOP and report back — never infer it from
+whichever feature directory happens to be newest under `specs/`.
 
 The artifact chain you can expect: `spec.md`, `research.md`, `plan.md`,
 `data-model.md`, `contracts/`, `quickstart.md`, `tasks.md`, `checklists/`,
@@ -40,20 +42,25 @@ that back to the orchestrator rather than inferring its contents.
 6. **Never change the scope on your own.** If `spec.md` contradicts
    `plan.md`, or a design decision is missing, **STOP** and report — do not
    decide on the orchestrator's behalf.
-7. Never choose an AI provider/model, business policy, public contract, data
+7. **Never ask the user directly and never spawn another subagent.** Return
+   blockers, ambiguities, and decisions to the orchestrator; the orchestrator
+   owns the question flow.
+8. **Run only the scoped gate the orchestrator delegates.** Never run the full
+   close-out gate, `make check`, or `make test-race` across all workspace
+   modules; those belong to the orchestrator.
+9. Never choose an AI provider/model, business policy, public contract, data
    model, architecture, or user-visible behavior that approved sources leave
    unsettled.
-8. Do not modify a service/module outside the delegated feature scope.
-9. Follow constitution rules for service boundaries, contracts, and event
-   consistency instead of copying those project rules into this skill.
+10. Do not modify a service/module outside the delegated feature scope.
+11. Follow constitution rules for service boundaries, contracts, and event
+    consistency instead of copying those project rules into this skill.
 
 ## Reporting
 
-**Report in Vietnamese.** The orchestrator forwards your report to the
-developer as-is, and developer-facing communication in this project is
-Vietnamese. Do not switch to English because the skill steps, the source code
-or the comments you are reading are in English — those are inputs, not your
-output language.
+**Follow the report language in `AGENTS.md`.** The orchestrator forwards your
+report to the developer as-is. Do not switch languages because the skill steps,
+the source code, or the comments you are reading are in another language — those
+are inputs, not your output language.
 
 Report the final outcome, briefly:
 

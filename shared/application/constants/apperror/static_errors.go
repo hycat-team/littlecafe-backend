@@ -5,7 +5,7 @@ func ErrInvalidToken() *Error {
 }
 
 func ErrInvalidAccessToken() *Error {
-	return NewUnauthorized("4011")
+	return NewUnauthorized("Phiên đăng nhập không hợp lệ hoặc đã hết hạn")
 }
 
 func ErrUnauthorized() *Error {

@@ -47,7 +47,7 @@ name := $(or $(name),$(NAME))
 SVC_REQ = $(if $(filter $(SVC),$(SERVICES)),,$(error This target requires svc=<$(SERVICES)> — e.g. make $@ svc=identity))
 unexport SVC_REQ
 
-.PHONY: help install-tools install-goose wire wire-all buf-gen buf-lint openapi-gen contract-lint generate fmt fmt-check tidy tidy-check vet test test-race lint check build build-all run dev clean migrate-status migrate-up migrate-down migrate-create migrate-version docker-infra-up docker-dev-up docker-dev-stop docker-dev-down docker-prod-up docker-prod-stop docker-prod-down nginx-reload-local
+.PHONY: help install-tools install-goose wire wire-all buf-gen buf-lint openapi-gen contract-lint generate generate-check fmt fmt-check tidy tidy-check vet test test-race lint check build build-all run dev clean migrate-status migrate-up migrate-down migrate-create migrate-version docker-infra-up docker-dev-up docker-dev-stop docker-dev-down docker-prod-up docker-prod-stop docker-prod-down nginx-reload-local
 
 help:
 	@echo "========================================================================"
@@ -147,6 +147,12 @@ tidy-check:
 	@cd services/reporting && go mod tidy -diff
 	@echo Go module files are tidy.
 
+generate-check:
+	@echo Checking generated Wire and OpenAPI sources...
+	@$(MAKE) generate
+	@git diff --exit-code -- contracts/openapi services/identity/internal/di services/order/internal/di services/activity/internal/di services/wallet/internal/di services/ai/internal/di services/notification/internal/di services/reporting/internal/di
+	@echo Generated files are up to date.
+
 vet:
 	@echo "Running go vet (all workspace modules)..."
 	@cd shared && go vet ./...
@@ -188,7 +194,7 @@ test-race:
 
 lint: fmt-check vet
 
-check: fmt-check tidy-check vet test contract-lint build-all
+check: fmt-check tidy-check generate-check vet test-race contract-lint build-all
 
 build:
 	$(SVC_REQ)

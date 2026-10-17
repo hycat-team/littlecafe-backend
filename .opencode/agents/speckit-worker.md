@@ -10,10 +10,16 @@ permission:
   webfetch: deny
   websearch: deny
   todowrite: deny
+  task: deny
+  question: deny
   bash:
     "*": allow
+    "git": deny
     "git *": deny
     "*git *": deny
+    "make check*": deny
+    "make test-race*": deny
+    "make docker-prod-*": deny
 ---
 
 You are the OpenCode adapter for the repository's canonical Spec Kit worker.
@@ -25,4 +31,6 @@ never select a feature yourself.
 
 This file's frontmatter only configures the OpenCode subagent and permissions.
 Scope, artifacts, gates, frontend handoff, reporting, and Git rules live only in
-the canonical worker skill. Do not create a second workflow here.
+the canonical worker skill. Do not create a second workflow here. The
+permissions above additionally block git, direct user questions, nested
+subagents, and the full close-out gate.

@@ -1,10 +1,63 @@
 # Bảo mật
 
-- Email/password dùng Argon2id; Google OAuth/OIDC dùng callback trên `api.littlecafe.kids`.
-- Access token dùng ES256. Chỉ Identity giữ private key; các service khác chỉ nhận public key.
-- Refresh token là 32 byte ngẫu nhiên Base64URL; chỉ lưu SHA-256 digest. Feature Identity phải triển khai rotation, revoke và reuse detection trong cùng transaction.
-- Service-to-service dùng mTLS. Certificate do private CA cấp, nằm ngoài Git và mount read-only.
-- Khi gRPC thay mặt người dùng, JWT người dùng đi qua metadata riêng với identity của service.
-- RBAC tĩnh kết hợp ownership, Guardian-Child và assignment policy.
-- Dữ liệu ngân hàng chỉ tồn tại trong encrypted snapshot của withdrawal, dùng AES-GCM với withdrawal ID làm associated data.
+Tài liệu này mô tả các cơ chế bảo mật đang có trong code và các quy tắc đã chốt. Quy tắc bắt buộc nằm trong constitution mục V; khi code chưa đủ, ghi rõ "chưa triển khai".
 
+## 1. Xác thực người dùng
+
+### 1.1 Email/password
+
+- Hash bằng **Argon2id** (`shared/pkg/utils/passwordutils/argon2id.go`): salt 16 byte ngẫu nhiên, `time=3`, `memory=64 MiB`, `parallelism=2`, key 32 byte; verify bằng so sánh constant-time.
+- Password rỗng bị từ chối ngay từ `Hash`.
+
+### 1.2 Google OAuth/OIDC
+
+- Adapter: `shared/infrastructure/oauth/google_provider.go`, cấu hình `google.*` trong `configs/config.yaml`.
+- Redirect URI chuẩn: `https://api.littlecafe.kids/api/v1/identity/oauth/google/callback`; state TTL mặc định 10 phút.
+- Sau callback, frontend nhận redirect qua `OAUTH_SUCCESS_REDIRECT_URL` (mặc định `https://littlecafe.kids/auth/callback`).
+
+### 1.3 Access token ES256
+
+- Ký/verify ES256 (`shared/pkg/utils/jwtutils/es256.go`). **Chỉ Identity giữ private key**; service khác chỉ nạp public key (`jwt.public_key_file`, bắt buộc ở production theo `validateConfig`).
+- Claims: `sub` (user UUID), `email`, `role_slug`, `type`, `iss`, `aud`, `exp`, `iat`, `jti`.
+- `ValidateTokenES256` chặn sai thuật toán (phải đúng `ES256`) và sai token type; lỗi trả `apperror.ErrInvalidAccessToken`/`ErrUnexpectedSigningToken`.
+
+### 1.4 Refresh token
+
+- Sinh 32 byte ngẫu nhiên, encode Base64URL; **chỉ lưu SHA-256 digest** (`shared/pkg/utils/tokenutils/refresh.go`).
+- Rotation, revoke và reuse detection là yêu cầu bắt buộc của feature Identity (constitution V); chưa có implementation trong bootstrap.
+- Thu hồi phiên dùng `shared/infrastructure/security/redis_token_blacklist_service.go` (Redis dùng chung): blacklist theo token, theo user, có prefix tuỳ biến; `CheckBlacklist` kiểm tra cả hai.
+
+## 2. Service-to-service (gRPC)
+
+- **mTLS** qua `contracts/grpcx/mtls.go`: TLS tối thiểu 1.3; client verify CA + gửi client cert; server `RequireAndVerifyClientCert`.
+- Env: `GRPC_TLS_CA_FILE`, `GRPC_TLS_CERT_FILE`, `GRPC_TLS_KEY_FILE`; `GRPC_MTLS_REQUIRED=true` bắt buộc có đủ 3 path, thiếu → fail ngay khi khởi động (fail closed).
+- Certificate do private CA cấp, nằm ngoài Git, mount read-only tại `/run/littlecafe/certs`. Script `deployments/scripts/rotate-mtls-certs.sh` tạo CA/server/client cert; leaf 90 ngày, CA 10 năm (`LITTLECAFE_CERT_DAYS`, `LITTLECAFE_CA_DAYS`). Chi tiết vận hành: `docs/operations/certificates.md`.
+- **User JWT đi kèm khi service hành động thay người dùng**: `contracts/grpcx/metadata.go` truyền metadata `x-littlecafe-jwt`; mTLS xác thực service, metadata xác thực người dùng.
+- Lỗi gRPC được bridge giữ nguyên status, message client-facing và `code` (qua `google.rpc.ErrorInfo.Reason`); field errors dự trữ cho `google.rpc.BadRequest.FieldViolations`. Details là additive, client bỏ qua loại không biết.
+
+## 3. Phân quyền (RBAC)
+
+- Vai trò hệ thống chỉ có `admin` và `user` (`shared/domain/constants/roleslug`); không thêm RoleSlug khác.
+- Kết hợp **ownership**, **Guardian-Child** (mọi dữ liệu trẻ em phải qua `GuardianLink`) và **assignment** cho vận hành.
+- Chi tiết actor/quyền theo `littlecafe-docs/business/actors-and-permissions.md` và workflow tương ứng.
+- Helper context: `contextutils.GetUserId`, `GetRoleSlug`, `GetAccessToken` trả `ErrUnauthorized` khi thiếu.
+
+## 4. Dữ liệu nhạy cảm
+
+- **AES-GCM** (`shared/pkg/utils/cryptoutils/aesgcm.go`): nonce ngẫu nhiên, hỗ trợ associated data. Dùng cho encrypted snapshot của withdrawal với withdrawal ID làm associated data.
+- Không lưu bank profile tái sử dụng; mỗi withdrawal lưu snapshot mã hoá (theo `littlecafe-docs/integrations/payos.md`).
+- PII không xuất hiện trong log, event hoặc fixture ngoài mức tối thiểu.
+- Secret và certificate nằm ngoài Git; `.env` thật không commit.
+
+## 5. API surface
+
+- Lỗi trả `application/problem+json` theo RFC 9457 kèm `code` (khi có), `traceId`, `errors` — xem `design-pattern.md` §1.
+- `traceId` lấy từ `X-Trace-ID` do Nginx sinh (`$request_id`). Gọi trực tiếp service không qua Nginx thì header trống và `traceId` rỗng.
+- Mutation quan trọng yêu cầu `Idempotency-Key` (xem `littlecafe-docs/api/conventions.md`).
+- Rate limit hai lớp: API chung theo IP và login/OTP theo IP + identifier (`middleware/ratelimit.go`), fail-open khi Redis lỗi.
+
+## 6. Chưa triển khai
+
+- Rotation/revoke/reuse detection cho refresh token (thuộc feature Identity).
+- Middleware xác thực/authorization thực tế cho route nghiệp vụ (chưa có route nghiệp vụ).
+- Test bảo mật cho jwtutils/passwordutils/tokenutils/cryptoutils (hiện có test cho AES-GCM, Argon2id, refresh token).

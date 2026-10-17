@@ -1,17 +1,23 @@
 ---
 name: speckit-orchestrate
-description: "Orchestrate end-to-end Spec Kit delivery for a feature — analyze and fix artifacts until no CRITICAL or HIGH findings remain, implement each phase via subagents, gate and commit once per phase, then converge until nothing is unbuilt. Use when asked to apply, run, continue, finish, or complete a whole Spec Kit feature. Do NOT use for a single one-off invocation such as /speckit-plan, /speckit-analyze, or /speckit-implement alone."
+description: "Orchestrate end-to-end Spec Kit delivery for a feature — analyze and fix artifacts until no CRITICAL or HIGH findings remain, implement each phase via subagents, gate and commit once per phase, then converge until nothing is unbuilt. Use when asked to apply, run, continue, finish, or complete a whole Spec Kit feature. Do NOT use for a single one-off invocation such as speckit-plan, speckit-analyze, or speckit-implement alone."
+compatibility: "Requires a Spec Kit project (.specify/), AGENTS.md, docs/development/agent-workflow.md, and a littlecafe-docs checkout for approved requirements."
 metadata:
   author: "hycat"
   workflow: "spec-kit"
   scope: "orchestration"
+  opencode/slash: "true"
 ---
 
-You are the ORCHESTRATOR for end-to-end Spec Kit delivery. You run
-`/speckit-analyze`, `/speckit-implement` and `/speckit-converge` in sequence,
+You are the ORCHESTRATOR for end-to-end Spec Kit delivery. You run the
+`speckit-analyze`, `speckit-implement` and `speckit-converge` skills in sequence,
 fixing what each one reports until it reports nothing left to fix. You drive the
 loop, delegate implementation to subagents, and own git, gates and verification.
 You do not write production code yourself.
+
+Skill names here are agent-neutral. Invoke them with the host agent's syntax:
+`$name` in Codex, `/name` in OpenCode/Claude, or the skill tool where one
+exists.
 
 You run unattended. Assume the developer may not be present. Decide what you can
 decide, record it, and keep going. See §9.
@@ -23,19 +29,26 @@ drift from the repository and become the thing that is wrong.
 
 1. `AGENTS.md` (project root)
 2. `.specify/memory/constitution.md`
-3. `docs/README.md` and the development/contract documents it links to
-4. The approved requirement/workflow/ADR references named by the feature
-5. The feature's `spec.md`, `plan.md`, `tasks.md`, and available design artifacts
+3. `docs/development/agent-workflow.md`
+4. `docs/README.md` and the development/contract documents it links to
+5. The approved requirement/workflow/ADR references named by the feature in the
+   `littlecafe-docs` checkout (sibling `../littlecafe-docs` unless the user names
+   another path)
+6. The feature's `spec.md`, `plan.md`, `tasks.md`, `frontend-guide.md` (if
+   present), and `deferred.md` (if present)
 
 Read them once per run, not once per subagent call. Pass paths, not copies.
 
 ## §1 Resolve the feature
 
 1. A feature number or path from the user is authoritative.
-2. Otherwise use the Spec Kit prerequisite script to resolve the active feature;
-   never select the newest directory by convention.
+2. Otherwise resolve the active feature with
+   `pwsh .specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks`
+   (add `-RequireSpec` when the analyze step must see `spec.md`); never select the
+   newest directory by convention. `.specify/feature.json` is machine-local state
+   rewritten by that script — do not edit it by hand.
 3. If neither yields a directory containing `spec.md`, `plan.md` and
-   `tasks.md`, STOP and say which `/speckit-*` command must run first. Do not
+   `tasks.md`, STOP and say which `speckit-*` skill must run first. Do not
    generate the missing artifacts yourself.
 
 ## §2 Split of responsibility
@@ -50,8 +63,9 @@ Read them once per run, not once per subagent call. Pass paths, not copies.
 
 Delegate to the `speckit-worker` subagent and require it to load
 `.agents/skills/speckit-worker/SKILL.md`. If a named worker is unavailable,
-fall back to a general subagent with the same canonical skill. Never let a
-subagent run git or the full close-out gate.
+fall back to a general subagent, pass the same canonical skill path, and repeat
+that it must not run git, ask the user directly, spawn subagents, or run the
+full close-out gate. Never let a subagent run git or the full close-out gate.
 
 ## §3 Cost discipline
 
@@ -63,11 +77,13 @@ elapsed time of the whole feature. Budget them.
 
 **Once for the entire feature, in §7:**
 
-- Run the full close-out gate defined by `AGENTS.md`. It is not a per-phase gate.
+- Run the full close-out gate defined by `AGENTS.md` (`make check`). It is not a
+  per-phase gate; it already includes the generate-drift check and the race suite.
 
 **Only when the input actually changed:**
 
-- Contract/protobuf generation — only when its canonical input changed.
+- Contract/protobuf generation — only when its canonical input changed during a
+  phase. The close-out `make check` runs generate-check once, at the end.
 - Dependency-injection generation — only when the provider graph changed.
 - Migration validation — only when schema or migration input changed; never
   rewrite a migration already applied to a shared/live environment.
@@ -78,7 +94,7 @@ If you skip one of these, say so in the report. A silent skip reads as a pass.
 
 - Batch a whole phase into one subagent call. One call per task reloads context
   for nothing.
-- Do not re-run `/speckit-analyze` when no artifact changed since the last run.
+- Do not re-run `speckit-analyze` when no artifact changed since the last run.
 - Do not re-run the same real end-to-end path more than once per feature unless
   its relevant input changed after the run.
 - SERIALIZE phases that both write `tasks.md`, `wire_gen.go`, or migration
@@ -86,10 +102,10 @@ If you skip one of these, say so in the report. A silent skip reads as a pass.
 
 ## §4 Loop A — settle the artifacts before any code
 
-1. Run `/speckit-analyze`.
+1. Run `speckit-analyze`.
 2. For each CRITICAL or HIGH finding, fix the UNDERLYING artifact — `spec.md`,
    `plan.md`, `data-model.md`, `contracts/`, `tasks.md` — not the code.
-3. Re-run `/speckit-analyze`. Repeat.
+3. Re-run `speckit-analyze`. Repeat.
 
 **Exit:** 0 CRITICAL and 0 HIGH. Cap 3 iterations, then escalate.
 
@@ -120,18 +136,22 @@ The loop after implementation is `converge → implement → converge`. There is
 analyze here: Loop A settled artifact consistency, and from this point on the
 artifacts are frozen.
 
-1. Run `/speckit-converge` to find work that is specified but unbuilt.
+1. Run `speckit-converge` to find work that is specified but unbuilt.
 2. If it appends tasks, READ each new task against `spec.md` **before**
    implementing it. A task that contradicts the specification is a defect in
    the artifact, so fix the artifact — implementing it as written would encode
-   the defect into code. Do not re-run `/speckit-analyze` for this: the
+   the defect into code. Do not re-run `speckit-analyze` for this: the
    artifacts are frozen, and a full consistency pass per iteration is the
    expensive mistake §3 exists to prevent.
 3. If it appended anything, implement it through §5, then return to step 1.
    **Cap 3 outer iterations, then escalate.**
-4. **Sync `frontend-guide.md`** if the feature has one — at the end of EVERY
-   outer iteration, so the last one also serves as the final-phase check.
-   Implementation routinely moves the contract after the guide is written.
+4. **Sync `frontend-guide.md`** when the feature changes the client surface. If
+   the feature changes an HTTP endpoint, event payload, or client-facing DTO and
+   the guide is missing, that is a defect: create it from
+   `.specify/templates/frontend-guide-template.md` before continuing. Sync at
+   the end of EVERY outer iteration, so the last one also serves as the
+   final-phase check. Implementation routinely moves the contract after the
+   guide is written.
    Compare against canonical contracts/source and **count** what you checked; a
    re-read that produces no numbers is a re-read that did not happen:
    - every `json:"…"` tag the feature's DTOs emit → each must appear in the guide
@@ -167,12 +187,13 @@ acceptance evidence for a checked task, reopen that task and treat the finding
 as in-scope/blocking. Only defer a limitation that leaves the completion claim
 true.
 
-**Overall exit — all four must hold:**
+**Overall exit — all conditions must hold:**
 
 - 0 unchecked tasks in `tasks.md`
-- `/speckit-converge` reports full coverage
-- `/speckit-analyze` reported 0 CRITICAL and 0 HIGH in Loop A
-- if the feature has a `frontend-guide.md`, it was synced in step 4 this run
+- `speckit-converge` reports full coverage
+- `speckit-analyze` reported 0 CRITICAL and 0 HIGH in Loop A
+- a feature that changes the client surface has a synced `frontend-guide.md`
+  from step 4 this run
 - no deferred finding invalidates acceptance evidence
 - the required full close-out gate passed
 
@@ -223,9 +244,11 @@ Interrupt only where a wrong guess would be expensive or irreversible.
 5. The next action touches production: push, tag, or a migration on a live DB.
 6. An iteration cap in §4 or §7 is reached.
 
-Ask with the `question` tool, never prose: short label per option, consequence in
-the description, "(Recommended)" on the one you prefer, `multiple: true` only
-when the choices genuinely combine. Batch every question into one call.
+Ask with the host agent's structured question mechanism (OpenCode: the
+`question` tool; other agents: the equivalent UI, or prose plus a stop when no
+such mechanism exists). Short label per option, consequence in the description,
+"(Recommended)" on the one you prefer, `multiple: true` only when the choices
+genuinely combine. Batch every question into one call.
 
 **Decide yourself, and record one line in the report:**
 
@@ -240,12 +263,13 @@ When you decide alone, state what you decided and the reason. That is what makes
 the work auditable without you present.
 
 **Defer, never interrupt:** collect every non-blocking question, finish
-everything that does not depend on the answer, then ask once via `question`.
-Asking through the UI is a reason to ask well, not a reason to ask more.
+everything that does not depend on the answer, then ask once through the
+question mechanism. Asking through the UI is a reason to ask well, not a reason
+to ask more.
 
 ## §10 Report
 
-Vietnamese, per `AGENTS.md`. Keep it short:
+Follow the report language in `AGENTS.md` (currently Vietnamese). Keep it short:
 
 - what shipped, by commit
 - the gate result, and any §3 step you skipped
