@@ -72,6 +72,8 @@ Hai field debug nằm **ngoài contract**, chỉ xuất hiện khi `SERVER_ENV` 
 - Handler trả lỗi theo chữ ký `func(c *gin.Context) error`, bọc bằng `presentation.WrapHandler`.
 - Response thành công dùng `APIResponse{message, data}` qua `presentation.Success` / `Created` / `Accepted`.
 - HTTP contract-first: route khai báo trong `contracts/openapi/components.yaml` và generate strict server interface bằng `oapi-codegen` (`make openapi-gen`); không tự thêm route trong handler trước contract.
+- **Auth middleware (forward-convention; code do feature Identity implement)**: `Handle()` bắt buộc JWT hợp lệ (401 nếu thiếu/sai), `OptionalHandle()` parse nếu có nhưng không fail khi thiếu. Cả hai set `CtxUserId`/`CtxRoleSlug`/`CtxAccessToken` (`shared/pkg/utils/contextutils`). Phân quyền là middleware riêng `RolesAuthorize(roleslug.ADMIN, roleslug.USER)`; RBAC không thay thế ownership hay Guardian-Child.
+- Message success/error khai báo constant ở đầu file handler (xem §10.3).
 
 ## 3. Repository và Unit of Work
 
@@ -80,6 +82,31 @@ Hai field debug nằm **ngoài contract**, chỉ xuất hiện khi `SERVER_ENV` 
 - Repository lấy DB theo `getDB(ctx)`: dùng transaction trong context nếu có, ngược lại dùng base DB (xem `OutboxRepositoryImpl`).
 - `shared/domain/repositories/outbox.go` sở hữu port outbox ở domain layer; implementation GORM nằm ở `shared/infrastructure/messaging` (dependency inversion).
 - Mọi truy vấn dùng `WithContext(ctx)` để giữ deadline/cancel.
+
+### 3.1 Generic repository implementation
+
+`shared/infrastructure/repositories/generic_impl.go` cung cấp `GenericRepository[T, ID]` implement đủ `IGenericRepository` (gồm `GetByIDs`, `BatchUpdate`, `BatchUpdateMap`):
+
+- Preload cố định lúc khởi tạo: `NewGenericRepository[T, ID](db, "Relation")` để mọi method kế thừa load cùng quan hệ.
+- Transaction-aware: `GetDB(ctx)` trả transaction trong context (do `IUnitOfWork.Execute` bind qua `db.InjectTx`) nếu có, ngược lại base DB. Custom query MUST dùng `GetDB(ctx)`/`GetQueryWithPreload(ctx)`.
+- `GetAll`/`GetByIDs` trả slice rỗng (không `nil`) khi không có dữ liệu.
+
+Repository domain-specific embed generic và thêm method riêng; interface đặt ở `domain/repositories/`, implementation ở `infrastructure/persistence/`.
+
+### 3.2 Unit of Work trong use case
+
+```go
+if err := uc.uow.Execute(ctx, func(txCtx context.Context) error {
+    if err := uc.orderRepo.Create(txCtx, order); err != nil {
+        return err
+    }
+    return uc.outboxRepo.Create(txCtx, record)
+}); err != nil {
+    return err
+}
+```
+
+Mọi thao tác trong `fn` chia sẻ một transaction; lỗi bất kỳ → rollback toàn bộ. Không truyền `*gorm.DB` bằng tay.
 
 ## 4. Dependency Injection (Wire)
 
@@ -94,12 +121,22 @@ Hai field debug nằm **ngoài contract**, chỉ xuất hiện khi `SERVER_ENV` 
 - Worker nghiệp vụ implement `ModuleWorker` (bootstrap) và tự đăng ký consumer khi được khởi tạo.
 - Log worker dùng `shared/observability/workerlog`: `worker`, `triggerType`, `runId`, `durationMs`, counters (`totalCount`, `successCount`, `warningCount`, `errorCount`, `skippedCount`, `retryCount`), `result`.
 
+### 5.1 Quy tắc
+
+- Worker embed `*worker.BaseWorker`; `Start(ctx)` gọi `BaseWorker.Start(ctx)` trước, `Stop()` gọi `BaseWorker.Stop()` sau.
+- Goroutine nền MUST dùng `w.Context()` (đã derive) để graceful shutdown, không dùng `ctx` thô.
+- Worker là wrapper mỏng: delegate business logic cho use case. Consumer đăng ký qua `messaging.RegisterTypedHandler(queue, handler, opts)`; `event.RetryableError` → requeue, `event.PermanentError` → DLQ, lỗi không phân loại → DLQ (kèm cảnh báo log).
+- `bootstrap.Workers` gom `*OutboxWorker` + danh sách `ModuleWorker`; field worker dùng concrete type, không dùng interface.
+
 ## 6. Rate limiting
 
-- `middleware.RateLimitMiddleware`: Redis fixed-window keyed theo client IP, fail-open khi backend lỗi.
-- `middleware.LoginRateLimitMiddleware` (Identity service): key theo IP + identifier đăng nhập (query/form/Authorization suffix), dùng cho login/OTP.
+Hai cơ chế Redis, chọn theo ngữ nghĩa (không gộp "cho nhất quán"):
+
+- **Shield theo IP (token bucket / GCRA)** — `middleware.RateLimitMiddleware` + `caching.RedisTokenBucketLimiter` (`ITokenBucketLimiter`): throttling mượt, key theo `c.ClientIP()`; `token_limit` = burst, `tokens_per_period`/`replenishment_seconds` = tốc độ refill. Atomic Lua + Redis `TIME` nên chính xác giữa các instance. Fail-open khi Redis lỗi; Nginx `limit_req` vẫn là shield thô ở biên.
+- **Quota nghiệp vụ (fixed window)** — `caching.RedisRateLimiter` (`IRateLimiter.Allow(key, limit, windowSeconds)`): "N lần / chu kỳ" chính xác cho một subject, dùng ở use case và cho login/OTP (`LoginRateLimitMiddleware` của Identity).
 - Vượt hạn mức trả `429` qua `apperror.NewTooManyRequest` với message tiếng Việt.
-- Config: `rate_limit.token_limit`, `rate_limit.replenishment_seconds`.
+- Config `rate_limit.*` được validate khi boot (`token_limit`, `tokens_per_period`, `replenishment_seconds` phải > 0).
+- `ClientIP()` phải resolve đúng client thật sau proxy/LB (Gin trusted proxy); nếu không mọi user chung một bucket.
 
 ## 7. SSE và realtime
 
@@ -142,3 +179,73 @@ Hai field debug nằm **ngoài contract**, chỉ xuất hiện khi `SERVER_ENV` 
 - Luôn tham chiếu symbol, không hardcode value tại call site (kể cả test), trừ khi test đang kiểm tra chính giá trị wire/contract.
 - Hằng số dùng chung nhiều service đặt tại `shared/application/constants/<name>` hoặc `shared/domain/constants/<name>`; hằng số chỉ một service dùng đặt trong service đó (theo rule shared-code ownership).
 - Message success/error của handler khai báo thành constant ở đầu file handler, không hardcode inline.
+
+## 11. Utility Packages
+
+`shared/pkg/utils` chỉ chứa building block dùng chung (theo shared-code ownership):
+
+| Package | Dùng cho |
+|---|---|
+| `contextutils` | `GetUserId`/`GetUserIdOptional`/`GetRoleSlug`/`GetAccessToken` đọc giá trị auth middleware set trên gin context; key ở `key.go` |
+| `validation` | `BindJSON`/`BindQuery`/`BindURI`, `GetUUIDParam`/`GetStringParam`/`GetInt64Param`; validator `username`, `neqfield`, `password_complexity`, `nfcmax`; message tiếng Việt |
+| `errorutils` | `ToAppError`, `WrapError`, `FilterStackTraceArray`, `PrimaryStackFrame` |
+| `numberutils` | `FormatBytes` |
+| `sliceutils` | `IndexBy`, `UniqueUUIDs`, `UniqueAndSortStrings`, ... |
+| `jwtutils` | `GenerateTokenES256`, `ValidateTokenES256`, load EC key |
+| `cryptoutils` | `Encrypt`/`Decrypt` AES-GCM |
+| `timeutils` | `BusinessLocation`, `FormatAPI`, `GetNow` (Asia/Ho_Chi_Minh) |
+
+Guideline: handler MUST dùng `validation.Bind*` thay `c.ShouldBind*` để có message tiếng Việt nhất quán.
+
+## 12. Pagination
+
+Cursor là mặc định cho client-facing; offset chỉ cho bảng admin.
+
+- `shared/application/dto/pagination.go`: `CursorPage[T]{Items, NextCursor, HasMore}`, `EncodeCursor`/`DecodeCursor` (base64 URL, opaque); `AdminPage[T]{Items, Page, Limit, TotalItems}`.
+- Repository admin helper: `repositories.ApplyAdminPagination(db, page, limit)` (offset; mặc định page=1, limit=20).
+- Recipe cursor khi implement feature: filter có `Cursor` + `Limit`; query `ORDER BY <sort_key> DESC, id DESC` với `WHERE (<sort_key>, id) < (?, ?)` từ cursor đã decode; lấy `limit+1` để suy ra `HasMore`; trả `NextCursor` từ phần tử cuối; handler bind `limit`/`cursor`; cursor không trả `totalItems`.
+- Không dùng offset cho client-facing (random access, chậm ở trang sâu).
+
+## 13. Module structure, mapper & helper
+
+Trách nhiệm layer (layout ở `architecture.md §2`):
+
+- `presentation/{handler,router,grpc,worker}`: nhận request, gọi use case, trả qua `presentation.WrapHandler`; message constant ở đầu file handler.
+- `application/{usecase,ports,dto,mapper,errors}`: business logic/orchestration; `ports` là interface ra ngoài; `mapper` chuyển entity ↔ DTO; `errors` compose `apperror` cho lỗi domain.
+- `domain/{entities,repositories,constants}`: entity GORM, repository interface (+ Filter/ListResult), enum/constant; không phụ thuộc layer ngoài.
+- `infrastructure/persistence`: implement repository.
+
+Quy ước:
+
+- Mapper đặt trong `application/mapper`, không để trong file use case; có thể tách theo nhóm nghiệp vụ.
+- Helper chỉ phục vụ một use case đặt cùng package, tên file hậu tố `_helper.go`; không tạo helper nếu chỉ bọc một biểu thức đơn giản.
+- Contract liên module đặt ở `presentation/contract` (xem §15), không dùng cho HTTP DTO.
+
+## 14. DTO convention (contract-first)
+
+- HTTP Req/Res là **type sinh từ OpenAPI** (`contracts/openapi/generated.gen.go` qua oapi-codegen strict server). Không viết tay Req/Res HTTP trong `application/dto` — contract là nguồn chuẩn, sửa contract rồi generate.
+- `application/dto` giữ các shape không sinh từ OpenAPI: contract payload liên module, event payload, read-model/analytics, alias pagination.
+- Enum/constant không đặt trong `dto`; để ở `domain/constants`.
+- File nhóm theo feature (không tách `_req.go`/`_res.go`, không file một-struct).
+- Naming: `XxxContractDTO` (contract payload), `XxxEventPayload` (event), `XxxStatsDTO`/`XxxAnalyticsDTO` (read model), `XxxInput` (input phi HTTP). List contract trả slice rỗng, không `nil`.
+- Không tái dùng một struct cho cả API response và contract payload.
+
+## 15. Cross-module contracts & gRPC transport (A′)
+
+Trong một service, module giao tiếp qua `presentation/contract/`:
+
+- Contract chỉ expose DTO (`application/dto`), không expose entity.
+- Implementation contract delegate cho use case qua interface.
+- Module MUST NOT import `domain/entities`, `domain/repositories`, `infrastructure/persistence` của module khác.
+- Ngoại lệ: được import `domain/constants` của module khác (giá trị enum thuần); luôn tham chiếu symbol, không hardcode value.
+
+Qua biên service (gRPC): wire types là protobuf trong `contracts/proto`; mapping wire ⇄ contract-DTO do service sở hữu đặt tại:
+
+```text
+services/<service>/contract/<owner>/transport/mapper.go
+```
+
+- Package `transport` nằm ngoài `internal/` để service khác import được; được tham chiếu `domain/constants` của owner khi dựng DTO.
+- Generated client (`contracts/<owner>/.../client`) là adapter mỏng: marshal, gọi stub, map lỗi transport, delegate mapping cho `transport`; MUST NOT import domain enum/constant của owner.
+- Cùng package `transport` dùng lại cho gRPC server trong service → một nguồn mapping duy nhất.
+- Lỗi qua biên service đi qua bridge `contracts/grpcx/errors.go` (xem §1.5).

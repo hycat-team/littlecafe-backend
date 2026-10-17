@@ -54,7 +54,7 @@ Tài liệu này mô tả các cơ chế bảo mật đang có trong code và c�
 - Lỗi trả `application/problem+json` theo RFC 9457 kèm `code` (khi có), `traceId`, `errors` — xem `design-pattern.md` §1.
 - `traceId` lấy từ `X-Trace-ID` do Nginx sinh (`$request_id`). Gọi trực tiếp service không qua Nginx thì header trống và `traceId` rỗng.
 - Mutation quan trọng yêu cầu `Idempotency-Key` (xem `littlecafe-docs/api/conventions.md`).
-- Rate limit hai lớp: API chung theo IP và login/OTP theo IP + identifier (`middleware/ratelimit.go`), fail-open khi Redis lỗi.
+- Rate limit: shield theo IP dùng Redis token bucket (`RateLimitMiddleware`), quota nghiệp vụ và login/OTP dùng Redis fixed-window (`IRateLimiter`); cả hai fail-open khi Redis lỗi, Nginx `limit_req` là shield ở biên.
 
 ## 6. Chưa triển khai
 

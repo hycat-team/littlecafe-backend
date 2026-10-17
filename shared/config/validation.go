@@ -40,5 +40,14 @@ func validateConfig(cfg *Config) error {
 	if cfg.Outbox.BatchSize <= 0 {
 		return fmt.Errorf("outbox.batch_size must be positive (got %d)", cfg.Outbox.BatchSize)
 	}
+	if cfg.RateLimit.TokenLimit <= 0 {
+		return fmt.Errorf("rate_limit.token_limit must be positive (got %d)", cfg.RateLimit.TokenLimit)
+	}
+	if cfg.RateLimit.TokensPerPeriod <= 0 {
+		return fmt.Errorf("rate_limit.tokens_per_period must be positive (got %d)", cfg.RateLimit.TokensPerPeriod)
+	}
+	if cfg.RateLimit.ReplenishmentSeconds <= 0 {
+		return fmt.Errorf("rate_limit.replenishment_seconds must be positive (got %d)", cfg.RateLimit.ReplenishmentSeconds)
+	}
 	return nil
 }

@@ -34,6 +34,10 @@ jwt:
   algorithm: ES256
 outbox:
   batch_size: 100
+rate_limit:
+  token_limit: 60
+  tokens_per_period: 60
+  replenishment_seconds: 60
 `
 
 func writeTempConfig(t *testing.T, dir, name, content string) string {
