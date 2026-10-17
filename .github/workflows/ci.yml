@@ -106,25 +106,9 @@ jobs:
       - name: Verify generated contracts are committed
         run: git diff --exit-code -- contracts/
 
-  build:
-    name: Build ${{ matrix.service }}
-    needs: [static, vet, test, contracts]
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        service: [identity, order, activity, wallet, ai, notification, reporting]
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-      - run: make build svc=${{ matrix.service }}
-
   image-build:
     name: Validate image ${{ matrix.service }}
-    needs: [build]
+    needs: [static, vet, test, contracts]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

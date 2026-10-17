@@ -1,7 +1,7 @@
 # Triển khai
 
 Production chạy trên một VPS bằng Docker Compose. CI kiểm tra source, contract,
-dependency boundary, binary, image `linux/amd64` và Compose config; CI không push
+dependency boundary, image `linux/amd64` và Compose config; CI không push
 image và không chạm production.
 
 CD duy nhất cho VPS là `.github/workflows/cd.yml`. Workflow chạy khi push tag

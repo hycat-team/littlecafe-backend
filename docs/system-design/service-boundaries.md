@@ -56,7 +56,7 @@ Quy tắc:
 - Job `static`: `make fmt-check`, `make tidy-check`, `make generate` + kiểm tra drift generated.
 - Job `vet`: `make vet` + `check-boundaries.sh`.
 - Job `contracts`: `make buf-lint`, `make buf-gen` drift, `make openapi-gen`, Redocly lint OpenAPI, AsyncAPI validate, kiểm tra generated committed.
-- Job `build`/`image-build`: build từng service binary và image `linux/amd64`.
+- Job `image-build`: build image `linux/amd64` (không push).
 
 ## 6. Health và discovery
 

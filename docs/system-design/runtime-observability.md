@@ -25,7 +25,6 @@ Chạy khi PR/push `main` (bỏ qua `docs/**` và `*.md`):
 | test | `make test TEST_FLAGS=-short` |
 | test-race | `make test-race TEST_FLAGS=-short` |
 | contracts | `make buf-lint`, `make buf-gen` drift, `make openapi-gen`, Redocly lint OpenAPI, AsyncAPI validate, drift generated |
-| build | `make build svc=<service>` cho 7 service |
 | image-build | build image `linux/amd64` (không push) |
 | compose | `docker compose config --quiet` cho local + production compose |
 
