@@ -1,0 +1,9 @@
+**/.git
+**/bin
+**/docs/temp
+**/node_modules
+**/*.exe
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.production.example

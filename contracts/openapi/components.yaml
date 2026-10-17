@@ -1,0 +1,29 @@
+openapi: 3.0.3
+info:
+  title: LittleCafe shared API components
+  version: 0.1.0
+servers:
+  - url: https://api.littlecafe.kids/api/v1
+paths: {}
+components:
+  schemas:
+    ProblemDetails:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: {type: string, format: uri-reference}
+        title: {type: string}
+        status: {type: integer, minimum: 100, maximum: 599}
+        detail: {type: string}
+        instance: {type: string, format: uri-reference}
+        code: {type: string}
+        traceId: {type: string}
+        errors:
+          type: array
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field: {type: string}
+              message: {type: string}
+

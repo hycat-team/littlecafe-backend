@@ -1,0 +1,17 @@
+# Generate gRPC stubs next to each .proto file (paths=source_relative from the
+# repo root) and commit the generated code.
+# Run: make buf-gen  (equivalent: buf generate)
+#
+# Remote plugins are pinned so CI does not need protoc-gen-go / protoc-gen-go-grpc
+# on PATH. Versions must match the headers of committed stubs so the proto drift
+# check stays clean.
+version: v1
+plugins:
+  - plugin: buf.build/protocolbuffers/go:v1.36.12
+    out: .
+    opt:
+      - paths=source_relative
+  - plugin: buf.build/grpc/go:v1.5.1
+    out: .
+    opt:
+      - paths=source_relative

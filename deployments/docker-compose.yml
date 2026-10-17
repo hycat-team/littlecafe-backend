@@ -1,0 +1,229 @@
+name: littlecafe-backend-dev
+
+x-service-common: &service-common
+  build:
+    context: ..
+  restart: unless-stopped
+  profiles: ["full"]
+  environment: &service-env
+    SERVER_ENV: development
+    SERVER_PORT: "8080"
+    CONFIG_FILE: configs/config.yaml
+    DB_HOST: postgres
+    DB_PORT: "5432"
+    DB_SSLMODE: disable
+    DB_TIMEZONE: Asia/Ho_Chi_Minh
+    DB_MIGRATE_ON_START: "true"
+    REDIS_HOST: redis
+    REDIS_PORT: "6379"
+    RABBITMQ_HOST: rabbitmq
+    RABBITMQ_PORT: "5672"
+    RABBITMQ_USER: ${RABBITMQ_USER:-littlecafe}
+    RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-local_rabbitmq_password}
+  depends_on:
+    postgres: {condition: service_healthy}
+    redis: {condition: service_healthy}
+    rabbitmq: {condition: service_healthy}
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    profiles: ["infra", "full"]
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER:-littlecafe_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:-local_admin_password}
+      POSTGRES_DB: postgres
+      TZ: Asia/Ho_Chi_Minh
+    ports: ["${POSTGRES_PORT:-5432}:5432"]
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../database/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_ADMIN_USER:-littlecafe_admin} -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    profiles: ["infra", "full"]
+    restart: unless-stopped
+    ports: ["${REDIS_PORT:-6379}:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    profiles: ["infra", "full"]
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-littlecafe}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-local_rabbitmq_password}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MGMT_PORT:-15672}:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  identity:
+    <<: *service-common
+    build:
+      context: ..
+      dockerfile: services/identity/Dockerfile
+    environment:
+      <<: *service-env
+      DB_USER: littlecafe_identity
+      DB_PASSWORD: ${IDENTITY_DB_PASSWORD:-local_identity_password}
+      DB_NAME: littlecafe_identity
+      GRPC_PORT: "9090"
+      GRPC_TLS_CA_FILE: /run/littlecafe/certs/ca.crt
+      GRPC_TLS_CERT_FILE: /run/littlecafe/certs/identity.crt
+      GRPC_TLS_KEY_FILE: /run/littlecafe/certs/identity.key
+    ports:
+      - "${IDENTITY_HTTP_PORT:-8101}:8080"
+      - "${IDENTITY_GRPC_PORT:-9101}:9090"
+    volumes:
+      - ${CERTS_DIR:-../../littlecafe-secrets/certs}:/run/littlecafe/certs:ro
+
+  order:
+    <<: *service-common
+    build:
+      context: ..
+      dockerfile: services/order/Dockerfile
+    environment:
+      <<: *service-env
+      DB_USER: littlecafe_order
+      DB_PASSWORD: ${ORDER_DB_PASSWORD:-local_order_password}
+      DB_NAME: littlecafe_order
+      GRPC_PORT: "9090"
+      GRPC_TLS_CA_FILE: /run/littlecafe/certs/ca.crt
+      GRPC_TLS_CERT_FILE: /run/littlecafe/certs/order.crt
+      GRPC_TLS_KEY_FILE: /run/littlecafe/certs/order.key
+    ports:
+      - "${ORDER_HTTP_PORT:-8102}:8080"
+      - "${ORDER_GRPC_PORT:-9102}:9090"
+    volumes:
+      - ${CERTS_DIR:-../../littlecafe-secrets/certs}:/run/littlecafe/certs:ro
+
+  activity:
+    <<: *service-common
+    build:
+      context: ..
+      dockerfile: services/activity/Dockerfile
+    environment:
+      <<: *service-env
+      DB_USER: littlecafe_activity
+      DB_PASSWORD: ${ACTIVITY_DB_PASSWORD:-local_activity_password}
+      DB_NAME: littlecafe_activity
+      GRPC_PORT: "9090"
+      GRPC_TLS_CA_FILE: /run/littlecafe/certs/ca.crt
+      GRPC_TLS_CERT_FILE: /run/littlecafe/certs/activity.crt
+      GRPC_TLS_KEY_FILE: /run/littlecafe/certs/activity.key
+    ports:
+      - "${ACTIVITY_HTTP_PORT:-8103}:8080"
+      - "${ACTIVITY_GRPC_PORT:-9103}:9090"
+    volumes:
+      - ${CERTS_DIR:-../../littlecafe-secrets/certs}:/run/littlecafe/certs:ro
+
+  wallet:
+    <<: *service-common
+    build:
+      context: ..
+      dockerfile: services/wallet/Dockerfile
+    environment:
+      <<: *service-env
+      DB_USER: littlecafe_wallet
+      DB_PASSWORD: ${WALLET_DB_PASSWORD:-local_wallet_password}
+      DB_NAME: littlecafe_wallet
+      GRPC_PORT: "9090"
+      GRPC_TLS_CA_FILE: /run/littlecafe/certs/ca.crt
+      GRPC_TLS_CERT_FILE: /run/littlecafe/certs/wallet.crt
+      GRPC_TLS_KEY_FILE: /run/littlecafe/certs/wallet.key
+    ports:
+      - "${WALLET_HTTP_PORT:-8104}:8080"
+      - "${WALLET_GRPC_PORT:-9104}:9090"
+    volumes:
+      - ${CERTS_DIR:-../../littlecafe-secrets/certs}:/run/littlecafe/certs:ro
+
+  ai:
+    <<: *service-common
+    build:
+      context: ..
+      dockerfile: services/ai/Dockerfile
+    environment:
+      <<: *service-env
+      DB_USER: littlecafe_ai
+      DB_PASSWORD: ${AI_DB_PASSWORD:-local_ai_password}
+      DB_NAME: littlecafe_ai
+    ports:
+      - "${AI_HTTP_PORT:-8105}:8080"
+
+  notification:
+    <<: *service-common
+    build:
+      context: ..
+      dockerfile: services/notification/Dockerfile
+    environment:
+      <<: *service-env
+      DB_USER: littlecafe_notification
+      DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:-local_notification_password}
+      DB_NAME: littlecafe_notification
+    ports:
+      - "${NOTIFICATION_HTTP_PORT:-8106}:8080"
+
+  reporting:
+    <<: *service-common
+    build:
+      context: ..
+      dockerfile: services/reporting/Dockerfile
+    environment:
+      <<: *service-env
+      DB_USER: littlecafe_reporting
+      DB_PASSWORD: ${REPORTING_DB_PASSWORD:-local_reporting_password}
+      DB_NAME: littlecafe_reporting
+    ports:
+      - "${REPORTING_HTTP_PORT:-8107}:8080"
+
+  nginx:
+    image: nginx:alpine
+    profiles: ["full"]
+    restart: unless-stopped
+    environment:
+      NGINX_CLIENT_MAX_BODY_SIZE: 20m
+    ports: ["${NGINX_PORT:-8080}:80"]
+    volumes:
+      - ./nginx/local.conf:/etc/nginx/templates/default.conf.template:ro
+    depends_on:
+      - identity
+      - order
+      - activity
+      - wallet
+      - ai
+      - notification
+      - reporting
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.138.0
+    profiles: ["observability"]
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./observability/otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    ports: ["4317:4317", "4318:4318"]
+
+  prometheus:
+    image: prom/prometheus:v3.7.1
+    profiles: ["observability"]
+    volumes:
+      - ./observability/prometheus.yaml:/etc/prometheus/prometheus.yml:ro
+    ports: ["9090:9090"]
+
+volumes:
+  postgres-data:
+

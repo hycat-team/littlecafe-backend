@@ -1,0 +1,270 @@
+name: littlecafe-prod
+
+x-runtime: &runtime
+  restart: unless-stopped
+  env_file: ../.env.production
+  environment: &runtime-env
+    SERVER_ENV: production
+    SERVER_PORT: "8080"
+    CONFIG_FILE: configs/config.yaml
+    DB_HOST: postgres
+    DB_PORT: "5432"
+    DB_SSLMODE: disable
+    DB_TIMEZONE: Asia/Ho_Chi_Minh
+    DB_MIGRATE_ON_START: "false"
+    REDIS_HOST: redis
+    RABBITMQ_HOST: rabbitmq
+  depends_on:
+    postgres: {condition: service_healthy}
+    redis: {condition: service_healthy}
+    rabbitmq: {condition: service_healthy}
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_ADMIN_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD}
+      POSTGRES_DB: postgres
+      TZ: Asia/Ho_Chi_Minh
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_ADMIN_USER} -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    volumes: ["rabbitmq-data:/var/lib/rabbitmq"]
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+
+  migrate-identity:
+    image: ${IDENTITY_IMAGE}
+    profiles: ["migrate"]
+    env_file: ../.env.production
+    command: ["/app/app", "-migrate-only"]
+    environment:
+      <<: *runtime-env
+      DB_USER: ${IDENTITY_DB_USER}
+      DB_PASSWORD: ${IDENTITY_DB_PASSWORD}
+      DB_NAME: littlecafe_identity
+      DB_MIGRATE_ON_START: "true"
+    depends_on:
+      postgres: {condition: service_healthy}
+
+  identity:
+    <<: *runtime
+    image: ${IDENTITY_IMAGE}
+    environment:
+      <<: *runtime-env
+      DB_USER: ${IDENTITY_DB_USER}
+      DB_PASSWORD: ${IDENTITY_DB_PASSWORD}
+      DB_NAME: littlecafe_identity
+      GRPC_PORT: "9090"
+      GRPC_TLS_CA_FILE: /run/littlecafe/certs/ca.crt
+      GRPC_TLS_CERT_FILE: /run/littlecafe/certs/identity.crt
+      GRPC_TLS_KEY_FILE: /run/littlecafe/certs/identity.key
+    volumes:
+      - ${CERTS_DIR:-/opt/littlecafe/secrets/certs}:/run/littlecafe/certs:ro
+
+  migrate-order:
+    image: ${ORDER_IMAGE}
+    profiles: ["migrate"]
+    env_file: ../.env.production
+    command: ["/app/app", "-migrate-only"]
+    environment:
+      <<: *runtime-env
+      DB_USER: ${ORDER_DB_USER}
+      DB_PASSWORD: ${ORDER_DB_PASSWORD}
+      DB_NAME: littlecafe_order
+      DB_MIGRATE_ON_START: "true"
+    depends_on:
+      postgres: {condition: service_healthy}
+
+  order:
+    <<: *runtime
+    image: ${ORDER_IMAGE}
+    environment:
+      <<: *runtime-env
+      DB_USER: ${ORDER_DB_USER}
+      DB_PASSWORD: ${ORDER_DB_PASSWORD}
+      DB_NAME: littlecafe_order
+      GRPC_PORT: "9090"
+      GRPC_TLS_CA_FILE: /run/littlecafe/certs/ca.crt
+      GRPC_TLS_CERT_FILE: /run/littlecafe/certs/order.crt
+      GRPC_TLS_KEY_FILE: /run/littlecafe/certs/order.key
+    volumes:
+      - ${CERTS_DIR:-/opt/littlecafe/secrets/certs}:/run/littlecafe/certs:ro
+
+  migrate-activity:
+    image: ${ACTIVITY_IMAGE}
+    profiles: ["migrate"]
+    env_file: ../.env.production
+    command: ["/app/app", "-migrate-only"]
+    environment:
+      <<: *runtime-env
+      DB_USER: ${ACTIVITY_DB_USER}
+      DB_PASSWORD: ${ACTIVITY_DB_PASSWORD}
+      DB_NAME: littlecafe_activity
+      DB_MIGRATE_ON_START: "true"
+    depends_on:
+      postgres: {condition: service_healthy}
+
+  activity:
+    <<: *runtime
+    image: ${ACTIVITY_IMAGE}
+    environment:
+      <<: *runtime-env
+      DB_USER: ${ACTIVITY_DB_USER}
+      DB_PASSWORD: ${ACTIVITY_DB_PASSWORD}
+      DB_NAME: littlecafe_activity
+      GRPC_PORT: "9090"
+      GRPC_TLS_CA_FILE: /run/littlecafe/certs/ca.crt
+      GRPC_TLS_CERT_FILE: /run/littlecafe/certs/activity.crt
+      GRPC_TLS_KEY_FILE: /run/littlecafe/certs/activity.key
+    volumes:
+      - ${CERTS_DIR:-/opt/littlecafe/secrets/certs}:/run/littlecafe/certs:ro
+
+  migrate-wallet:
+    image: ${WALLET_IMAGE}
+    profiles: ["migrate"]
+    env_file: ../.env.production
+    command: ["/app/app", "-migrate-only"]
+    environment:
+      <<: *runtime-env
+      DB_USER: ${WALLET_DB_USER}
+      DB_PASSWORD: ${WALLET_DB_PASSWORD}
+      DB_NAME: littlecafe_wallet
+      DB_MIGRATE_ON_START: "true"
+    depends_on:
+      postgres: {condition: service_healthy}
+
+  wallet:
+    <<: *runtime
+    image: ${WALLET_IMAGE}
+    environment:
+      <<: *runtime-env
+      DB_USER: ${WALLET_DB_USER}
+      DB_PASSWORD: ${WALLET_DB_PASSWORD}
+      DB_NAME: littlecafe_wallet
+      GRPC_PORT: "9090"
+      GRPC_TLS_CA_FILE: /run/littlecafe/certs/ca.crt
+      GRPC_TLS_CERT_FILE: /run/littlecafe/certs/wallet.crt
+      GRPC_TLS_KEY_FILE: /run/littlecafe/certs/wallet.key
+    volumes:
+      - ${CERTS_DIR:-/opt/littlecafe/secrets/certs}:/run/littlecafe/certs:ro
+
+  migrate-ai:
+    image: ${AI_IMAGE}
+    profiles: ["migrate"]
+    env_file: ../.env.production
+    command: ["/app/app", "-migrate-only"]
+    environment:
+      <<: *runtime-env
+      DB_USER: ${AI_DB_USER}
+      DB_PASSWORD: ${AI_DB_PASSWORD}
+      DB_NAME: littlecafe_ai
+      DB_MIGRATE_ON_START: "true"
+    depends_on:
+      postgres: {condition: service_healthy}
+
+  ai:
+    <<: *runtime
+    image: ${AI_IMAGE}
+    environment:
+      <<: *runtime-env
+      DB_USER: ${AI_DB_USER}
+      DB_PASSWORD: ${AI_DB_PASSWORD}
+      DB_NAME: littlecafe_ai
+
+  migrate-notification:
+    image: ${NOTIFICATION_IMAGE}
+    profiles: ["migrate"]
+    env_file: ../.env.production
+    command: ["/app/app", "-migrate-only"]
+    environment:
+      <<: *runtime-env
+      DB_USER: ${NOTIFICATION_DB_USER}
+      DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD}
+      DB_NAME: littlecafe_notification
+      DB_MIGRATE_ON_START: "true"
+    depends_on:
+      postgres: {condition: service_healthy}
+
+  notification:
+    <<: *runtime
+    image: ${NOTIFICATION_IMAGE}
+    environment:
+      <<: *runtime-env
+      DB_USER: ${NOTIFICATION_DB_USER}
+      DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD}
+      DB_NAME: littlecafe_notification
+
+  migrate-reporting:
+    image: ${REPORTING_IMAGE}
+    profiles: ["migrate"]
+    env_file: ../.env.production
+    command: ["/app/app", "-migrate-only"]
+    environment:
+      <<: *runtime-env
+      DB_USER: ${REPORTING_DB_USER}
+      DB_PASSWORD: ${REPORTING_DB_PASSWORD}
+      DB_NAME: littlecafe_reporting
+      DB_MIGRATE_ON_START: "true"
+    depends_on:
+      postgres: {condition: service_healthy}
+
+  reporting:
+    <<: *runtime
+    image: ${REPORTING_IMAGE}
+    environment:
+      <<: *runtime-env
+      DB_USER: ${REPORTING_DB_USER}
+      DB_PASSWORD: ${REPORTING_DB_PASSWORD}
+      DB_NAME: littlecafe_reporting
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    environment:
+      API_DOMAIN: api.littlecafe.kids
+      WEB_ORIGIN: https://littlecafe.kids
+      NGINX_CLIENT_MAX_BODY_SIZE: ${NGINX_CLIENT_MAX_BODY_SIZE:-20m}
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./nginx/prod.conf:/etc/nginx/templates/default.conf.template:ro
+      - ${TLS_DIR:-/opt/littlecafe/secrets/tls}:/etc/nginx/tls:ro
+    depends_on:
+      - identity
+      - order
+      - activity
+      - wallet
+      - ai
+      - notification
+      - reporting
+
+volumes:
+  postgres-data:
+  rabbitmq-data:
+

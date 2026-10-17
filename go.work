@@ -1,0 +1,13 @@
+go 1.26.0
+
+use (
+	./contracts
+	./services/activity
+	./services/ai
+	./services/identity
+	./services/notification
+	./services/order
+	./services/reporting
+	./services/wallet
+	./shared
+)
