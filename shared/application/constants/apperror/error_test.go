@@ -4,10 +4,16 @@ import (
 	"errors"
 	"net/http"
 	"testing"
+
+	"github.com/hycat-team/littlecafe-backend/shared/pkg/i18n"
 )
 
+func msg(key string, args ...any) string {
+	return i18n.Default().T(i18n.DefaultLocale, key, args...)
+}
+
 func TestNewSetsRFC9457Defaults(t *testing.T) {
-	err := New(http.StatusBadRequest, "Thao tác không thành công", "Dữ liệu không hợp lệ")
+	err := New(http.StatusBadRequest, i18n.ErrorTitleBadRequest, i18n.ErrorInvalidUUID)
 
 	if err.Type != "about:blank" {
 		t.Fatalf("Type = %q, want about:blank", err.Type)
@@ -15,24 +21,47 @@ func TestNewSetsRFC9457Defaults(t *testing.T) {
 	if err.Status != http.StatusBadRequest {
 		t.Fatalf("Status = %d, want %d", err.Status, http.StatusBadRequest)
 	}
-	if err.Title != "Thao tác không thành công" {
+	if err.Title != msg(i18n.ErrorTitleBadRequest) {
 		t.Fatalf("Title = %q", err.Title)
 	}
-	if err.Detail != "Dữ liệu không hợp lệ" {
+	if err.Detail != msg(i18n.ErrorInvalidUUID) {
 		t.Fatalf("Detail = %q", err.Detail)
 	}
-	if err.Message != "Dữ liệu không hợp lệ" {
+	if err.Message != msg(i18n.ErrorInvalidUUID) {
 		t.Fatalf("Message = %q", err.Message)
+	}
+	if err.TitleKey != i18n.ErrorTitleBadRequest || err.MessageKey != i18n.ErrorInvalidUUID {
+		t.Fatalf("keys not preserved: title=%q message=%q", err.TitleKey, err.MessageKey)
 	}
 	if err.Stack() == "" {
 		t.Fatal("Stack() must capture the creation stack")
 	}
 }
 
+func TestLocalizeRendersRequestedLocale(t *testing.T) {
+	err := NewNotFound(i18n.ErrorSearchIndexNotFound)
+
+	vi := err.Localize(i18n.VI)
+	en := err.Localize(i18n.EN)
+
+	if vi.Detail != msg(i18n.ErrorSearchIndexNotFound) {
+		t.Fatalf("vi detail = %q", vi.Detail)
+	}
+	if en.Detail != i18n.Default().T(i18n.EN, i18n.ErrorSearchIndexNotFound) {
+		t.Fatalf("en detail = %q", en.Detail)
+	}
+	if en.Title != i18n.Default().T(i18n.EN, i18n.ErrorTitleNotFound) {
+		t.Fatalf("en title = %q", en.Title)
+	}
+	if err.Detail != vi.Detail {
+		t.Fatal("Localize must not mutate the original error")
+	}
+}
+
 func TestErrorStringPrefersMessageThenCause(t *testing.T) {
-	withMessage := New(http.StatusBadRequest, "title", "message")
-	if withMessage.Error() != "message" {
-		t.Fatalf("Error() = %q, want message", withMessage.Error())
+	withMessage := New(http.StatusBadRequest, i18n.ErrorTitleBadRequest, i18n.ErrorInvalidUUID)
+	if withMessage.Error() != msg(i18n.ErrorInvalidUUID) {
+		t.Fatalf("Error() = %q", withMessage.Error())
 	}
 
 	cause := errors.New("raw cause")
@@ -48,8 +77,8 @@ func TestErrorStringPrefersMessageThenCause(t *testing.T) {
 }
 
 func TestWrapReturnsExistingAppErrorUnchanged(t *testing.T) {
-	original := NewNotFound("không thấy")
-	wrapped := Wrap(original, "fallback")
+	original := NewNotFound(i18n.ErrorSearchIndexNotFound)
+	wrapped := Wrap(original, i18n.ErrorInternalGeneric)
 
 	var appErr *Error
 	if !errors.As(wrapped, &appErr) {
@@ -71,7 +100,10 @@ func TestWrapHidesUnknownErrorBehindGenericMessage(t *testing.T) {
 	if appErr.Status != http.StatusInternalServerError {
 		t.Fatalf("Status = %d, want 500", appErr.Status)
 	}
-	if appErr.Message != GenericInternalMessage {
+	if appErr.MessageKey != GenericInternalMessage {
+		t.Fatalf("MessageKey = %q, want generic key", appErr.MessageKey)
+	}
+	if appErr.Message != msg(i18n.ErrorInternalGeneric) {
 		t.Fatalf("Message = %q, want generic message", appErr.Message)
 	}
 	if appErr.Unwrap() != cause {
@@ -83,13 +115,13 @@ func TestWrapHidesUnknownErrorBehindGenericMessage(t *testing.T) {
 }
 
 func TestWrapUsesFallbackMessageWhenProvided(t *testing.T) {
-	wrapped := Wrap(errors.New("db down"), "Không thể xử lý yêu cầu")
+	wrapped := Wrap(errors.New("db down"), i18n.ErrorUpstreamUnavailable)
 
 	var appErr *Error
 	if !errors.As(wrapped, &appErr) {
 		t.Fatal("Wrap must return an *Error")
 	}
-	if appErr.Message != "Không thể xử lý yêu cầu" {
+	if appErr.Message != msg(i18n.ErrorUpstreamUnavailable) {
 		t.Fatalf("Message = %q", appErr.Message)
 	}
 	if appErr.Cause == nil {
@@ -109,8 +141,8 @@ func TestFromMapsInvalidUUIDToBadRequest(t *testing.T) {
 	if appErr.Status != http.StatusBadRequest {
 		t.Fatalf("Status = %d, want 400", appErr.Status)
 	}
-	if appErr.Message == GenericInternalMessage {
-		t.Fatal("invalid UUID must not degrade to the generic message")
+	if appErr.MessageKey != i18n.ErrorInvalidUUID {
+		t.Fatalf("MessageKey = %q, want invalid uuid key", appErr.MessageKey)
 	}
 }
 
@@ -121,8 +153,8 @@ func TestFromHidesUnknownError(t *testing.T) {
 	if appErr.Status != http.StatusInternalServerError {
 		t.Fatalf("Status = %d, want 500", appErr.Status)
 	}
-	if appErr.Message != GenericInternalMessage {
-		t.Fatalf("Message = %q, want generic message", appErr.Message)
+	if appErr.MessageKey != GenericInternalMessage {
+		t.Fatalf("MessageKey = %q, want generic key", appErr.MessageKey)
 	}
 	if appErr.Cause != cause {
 		t.Fatal("Cause must keep the original error")
@@ -130,7 +162,7 @@ func TestFromHidesUnknownError(t *testing.T) {
 }
 
 func TestFromReturnsExistingAppErrorUnchanged(t *testing.T) {
-	original := NewForbidden("cấm")
+	original := NewForbidden(i18n.ErrorForbiddenAccess)
 	if From(original) != original {
 		t.Fatal("From must return the existing apperror unchanged")
 	}
@@ -142,23 +174,23 @@ func TestFromNilReturnsNil(t *testing.T) {
 	}
 }
 
-func TestIsComparesStatusAndMessage(t *testing.T) {
-	a := NewUnauthorized("Vui lòng đăng nhập")
-	b := NewUnauthorized("Vui lòng đăng nhập")
-	c := NewUnauthorized("Token không hợp lệ")
+func TestIsComparesStatusAndMessageKey(t *testing.T) {
+	a := NewUnauthorized(i18n.ErrorAuthRequired)
+	b := NewUnauthorized(i18n.ErrorAuthRequired)
+	c := NewUnauthorized(i18n.ErrorAuthInvalidToken)
 
 	if !errors.Is(a, b) {
-		t.Fatal("same status and message must match")
+		t.Fatal("same status and message key must match")
 	}
 	if errors.Is(a, c) {
-		t.Fatal("different message must not match")
+		t.Fatal("different message key must not match")
 	}
 	if errors.Is(a, errors.New("plain")) {
 		t.Fatal("non-apperror target must not match")
 	}
 }
 
-func TestStaticHelpersUseVietnameseClientMessages(t *testing.T) {
+func TestStaticHelpersUseLocalizedClientMessages(t *testing.T) {
 	cases := []struct {
 		name   string
 		err    *Error
@@ -179,6 +211,9 @@ func TestStaticHelpersUseVietnameseClientMessages(t *testing.T) {
 			}
 			if tc.err.Message == "" {
 				t.Fatal("client-facing message must not be empty")
+			}
+			if tc.err.MessageKey == "" {
+				t.Fatal("message key must not be empty")
 			}
 			if tc.err.Message == "4011" {
 				t.Fatal("legacy placeholder message must not return")

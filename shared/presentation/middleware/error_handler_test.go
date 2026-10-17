@@ -12,6 +12,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/hycat-team/littlecafe-backend/shared/application/constants/apperror"
+	"github.com/hycat-team/littlecafe-backend/shared/config"
+	"github.com/hycat-team/littlecafe-backend/shared/pkg/i18n"
 )
 
 type stubLogger struct{}
@@ -96,7 +98,7 @@ func TestGlobalErrorHandlerProductionHidesDebugFields(t *testing.T) {
 	}
 
 	body := decodeBody(t, rec)
-	if body["detail"] != apperror.GenericInternalMessage {
+	if body["detail"] != i18n.Default().T(i18n.DefaultLocale, i18n.ErrorInternalGeneric) {
 		t.Fatalf("detail = %v, want generic message", body["detail"])
 	}
 	if _, exists := body["debugMessage"]; exists {
@@ -142,7 +144,7 @@ func TestGlobalErrorHandlerRecoversPanic(t *testing.T) {
 	}
 
 	body := decodeBody(t, rec)
-	if body["detail"] != apperror.PanicRecoveryMessage {
+	if body["detail"] != i18n.Default().T(i18n.DefaultLocale, i18n.ErrorInternalPanic) {
 		t.Fatalf("detail = %v, want panic recovery message", body["detail"])
 	}
 	if body["traceId"] != "trace-panic" {
@@ -166,6 +168,35 @@ func TestGlobalErrorHandlerPanicHidesStackInProduction(t *testing.T) {
 	body := decodeBody(t, rec)
 	if _, exists := body["stackTrace"]; exists {
 		t.Fatal("production panic response must not expose stackTrace")
+	}
+}
+
+func TestGlobalErrorHandlerLocalizesByRequestLocale(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	engine.ContextWithFallback = true
+	engine.Use(GlobalErrorHandler(stubLogger{}, "production"))
+	engine.Use(NewLocaleMiddleware(&config.Config{}).Handle())
+	engine.GET("/test", func(c *gin.Context) {
+		_ = c.Error(apperror.NewNotFound(i18n.ErrorSearchIndexNotFound))
+		c.Abort()
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.Header.Set("Accept-Language", "en")
+	rec := httptest.NewRecorder()
+	engine.ServeHTTP(rec, req)
+
+	if got := rec.Header().Get("Content-Language"); got != string(i18n.EN) {
+		t.Fatalf("Content-Language = %q, want en", got)
+	}
+
+	body := decodeBody(t, rec)
+	if body["title"] != i18n.Default().T(i18n.EN, i18n.ErrorTitleNotFound) {
+		t.Fatalf("title = %v", body["title"])
+	}
+	if body["detail"] != i18n.Default().T(i18n.EN, i18n.ErrorSearchIndexNotFound) {
+		t.Fatalf("detail = %v", body["detail"])
 	}
 }
 

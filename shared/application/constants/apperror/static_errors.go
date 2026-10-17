@@ -1,25 +1,27 @@
 package apperror
 
+import "github.com/hycat-team/littlecafe-backend/shared/pkg/i18n"
+
 func ErrInvalidToken() *Error {
-	return NewUnauthorized("Token không hợp lệ")
+	return NewUnauthorized(i18n.ErrorAuthInvalidToken)
 }
 
 func ErrInvalidAccessToken() *Error {
-	return NewUnauthorized("Phiên đăng nhập không hợp lệ hoặc đã hết hạn")
+	return NewUnauthorized(i18n.ErrorAuthSessionExpired)
 }
 
 func ErrUnauthorized() *Error {
-	return NewUnauthorized("Vui lòng đăng nhập")
+	return NewUnauthorized(i18n.ErrorAuthRequired)
 }
 
 func ErrForbidden() *Error {
-	return NewForbidden("Không có quyền truy cập")
+	return NewForbidden(i18n.ErrorForbiddenAccess)
 }
 
 func ErrSearchIndexNotFound() *Error {
-	return NewNotFound("Chỉ mục tìm kiếm chưa tồn tại hoặc đã bị xóa")
+	return NewNotFound(i18n.ErrorSearchIndexNotFound)
 }
 
 func ErrUnexpectedSigningToken() *Error {
-	return NewInternalError("Token không hợp lệ")
+	return NewInternalError(i18n.ErrorAuthInvalidToken)
 }

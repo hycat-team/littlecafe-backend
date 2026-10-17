@@ -3,6 +3,8 @@ package config
 import (
 	"fmt"
 	"strings"
+
+	"github.com/hycat-team/littlecafe-backend/shared/pkg/i18n"
 )
 
 func validateConfig(cfg *Config) error {
@@ -49,5 +51,59 @@ func validateConfig(cfg *Config) error {
 	if cfg.RateLimit.ReplenishmentSeconds <= 0 {
 		return fmt.Errorf("rate_limit.replenishment_seconds must be positive (got %d)", cfg.RateLimit.ReplenishmentSeconds)
 	}
+	if err := validateI18n(cfg); err != nil {
+		return err
+	}
 	return nil
+}
+
+func validateI18n(cfg *Config) error {
+	rawSupported := strings.TrimSpace(cfg.I18n.SupportedLocales)
+	if rawSupported == "" {
+		rawSupported = joinLocales(i18n.SupportedLocales)
+	}
+
+	supported := make([]i18n.Locale, 0, 2)
+	for _, part := range strings.Split(rawSupported, ",") {
+		loc := i18n.Locale(strings.TrimSpace(part))
+		if loc == "" {
+			return fmt.Errorf("i18n.supported_locales must not contain empty entries")
+		}
+		if !i18n.IsSupported(loc) {
+			return fmt.Errorf("i18n.supported_locales contains unsupported locale %q", loc)
+		}
+		supported = append(supported, loc)
+	}
+
+	defaultLocale := i18n.Locale(strings.TrimSpace(cfg.I18n.DefaultLocale))
+	if defaultLocale == "" {
+		defaultLocale = i18n.DefaultLocale
+	}
+	if !i18n.IsSupported(defaultLocale) {
+		return fmt.Errorf("i18n.default_locale %q is not supported", defaultLocale)
+	}
+	if !containsLocale(supported, defaultLocale) {
+		return fmt.Errorf("i18n.default_locale %q must be listed in i18n.supported_locales", defaultLocale)
+	}
+
+	cfg.I18n.SupportedLocales = rawSupported
+	cfg.I18n.DefaultLocale = string(defaultLocale)
+	return nil
+}
+
+func joinLocales(locales []i18n.Locale) string {
+	values := make([]string, 0, len(locales))
+	for _, loc := range locales {
+		values = append(values, string(loc))
+	}
+	return strings.Join(values, ",")
+}
+
+func containsLocale(locales []i18n.Locale, target i18n.Locale) bool {
+	for _, loc := range locales {
+		if loc == target {
+			return true
+		}
+	}
+	return false
 }

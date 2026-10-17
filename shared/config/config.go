@@ -21,6 +21,7 @@ type Config struct {
 	Outbox     OutboxConfig `mapstructure:"outbox"`
 	Cloudinary Cloudinary   `mapstructure:"cloudinary"`
 	Admin      AdminConfig  `mapstructure:"admin"`
+	I18n       I18n         `mapstructure:"i18n"`
 }
 
 // Redis holds cache/rate-limit connection settings.

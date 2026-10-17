@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"runtime/debug"
 	"strings"
+
+	"github.com/hycat-team/littlecafe-backend/shared/pkg/i18n"
 )
 
 type ValidationErrorItem struct {
@@ -12,15 +14,19 @@ type ValidationErrorItem struct {
 	Message string `json:"message"`
 }
 
-// GenericInternalMessage is the only client-facing message for unrecognized
-// errors; raw error text must never leak into Message (see FR-005 Phase 9).
-const GenericInternalMessage = "Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau."
+// GenericInternalMessage is the message key for unrecognized errors. The
+// client-facing text is resolved from the i18n catalog.
+const GenericInternalMessage = i18n.ErrorInternalGeneric
 
-// PanicRecoveryMessage is the client-facing message for recovered panics.
-// It stays distinct from GenericInternalMessage because a panic signals a
-// crash-level failure where directing the user to the administrator is apt.
-const PanicRecoveryMessage = "Hệ thống đang gặp sự cố. Vui lòng thử lại sau ít phút hoặc liên hệ quản trị viên."
+// PanicRecoveryMessage is the message key for recovered panics. It stays
+// distinct from GenericInternalMessage because a panic signals a crash-level
+// failure where directing the user to the administrator is apt.
+const PanicRecoveryMessage = i18n.ErrorInternalPanic
 
+// Error is the RFC 9457 Problem Details payload. TitleKey/MessageKey hold the
+// locale-agnostic catalog keys; Title/Detail/Message hold the default-locale
+// rendering so logging and non-localized callers keep working. Use Localize to
+// render the payload for a request locale.
 type Error struct {
 	Type         string                `json:"type"`
 	Title        string                `json:"title"`
@@ -33,6 +39,10 @@ type Error struct {
 	DebugMessage string                `json:"debugMessage,omitempty"`
 	StackTrace   any                   `json:"stackTrace,omitempty"`
 	Message      string                `json:"-"`
+
+	TitleKey    string `json:"-"`
+	MessageKey  string `json:"-"`
+	MessageArgs []any  `json:"-"`
 
 	Cause    error  `json:"-"`
 	rawStack string `json:"-"`
@@ -79,21 +89,55 @@ func (e *Error) Is(target error) bool {
 	if !ok {
 		return false
 	}
-	return e.Status == t.Status && e.Message == t.Message
-}
-
-func New(status int, title, message string) *Error {
-	return &Error{
-		Type:     "about:blank",
-		Status:   status,
-		Title:    title,
-		Detail:   message,
-		Message:  message,
-		rawStack: string(debug.Stack()),
+	if e.Status != t.Status {
+		return false
 	}
+	if e.MessageKey != "" || t.MessageKey != "" {
+		return e.MessageKey == t.MessageKey
+	}
+	return e.Message == t.Message
 }
 
-func Wrap(err error, fallbackMsg ...string) error {
+// Localize returns a copy rendered for loc. Keys resolve through the shared
+// catalog; a key that is not registered is treated as a literal message so
+// passthrough strings from remote services keep their original text.
+func (e *Error) Localize(loc i18n.Locale) *Error {
+	if e == nil {
+		return nil
+	}
+	res := *e
+	catalog := i18n.Default()
+	loc = i18n.Normalize(loc)
+
+	if e.TitleKey != "" {
+		res.Title = catalog.T(loc, e.TitleKey)
+	}
+	if e.MessageKey != "" {
+		res.Message = catalog.T(loc, e.MessageKey, e.MessageArgs...)
+		res.Detail = res.Message
+	} else if res.Detail == "" {
+		res.Detail = res.Message
+	}
+	return &res
+}
+
+// New builds an error from catalog keys. Keys not present in the catalog are
+// kept verbatim, which keeps remote/literal messages intact.
+func New(status int, titleKey, messageKey string, args ...any) *Error {
+	e := &Error{
+		Type:        "about:blank",
+		Status:      status,
+		TitleKey:    titleKey,
+		MessageKey:  messageKey,
+		MessageArgs: args,
+		rawStack:    string(debug.Stack()),
+	}
+	return e.Localize(i18n.DefaultLocale)
+}
+
+// Wrap turns an unrecognized error into a 500 and keeps the raw text only in
+// Cause for server-side logging. fallbackKey is an optional catalog key.
+func Wrap(err error, fallbackKey ...string) error {
 	if err == nil {
 		return nil
 	}
@@ -103,18 +147,15 @@ func Wrap(err error, fallbackMsg ...string) error {
 		return appErr
 	}
 
-	msg := GenericInternalMessage
-	if len(fallbackMsg) > 0 && fallbackMsg[0] != "" {
-		msg = fallbackMsg[0]
+	key := GenericInternalMessage
+	if len(fallbackKey) > 0 && fallbackKey[0] != "" {
+		key = fallbackKey[0]
 	}
 
-	return &Error{
-		Status:   http.StatusInternalServerError,
-		Title:    "Lỗi hệ thống",
-		Message:  msg,
-		Cause:    err,
-		rawStack: string(debug.Stack()),
-	}
+	e := New(http.StatusInternalServerError, i18n.ErrorTitleInternal, key)
+	e.Cause = err
+	e.rawStack = string(debug.Stack())
+	return e
 }
 
 func From(err error) *Error {
@@ -128,7 +169,7 @@ func From(err error) *Error {
 	}
 
 	if strings.Contains(err.Error(), "invalid UUID") {
-		return NewBadRequest("Định dạng mã nhận diện (UUID) không hợp lệ.")
+		return NewBadRequest(i18n.ErrorInvalidUUID)
 	}
 
 	// Unrecognized errors must not surface their raw text to the client; the

@@ -144,6 +144,12 @@ func applyEnvOverrides(cfg *Config) {
 			cfg.Database.MigrateOnStart = b
 		}
 	}
+	if v := os.Getenv("I18N_DEFAULT_LOCALE"); v != "" {
+		cfg.I18n.DefaultLocale = v
+	}
+	if v := os.Getenv("I18N_SUPPORTED_LOCALES"); v != "" {
+		cfg.I18n.SupportedLocales = v
+	}
 }
 
 func envOrDefault(key, fallback string) string {

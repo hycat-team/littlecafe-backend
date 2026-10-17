@@ -22,5 +22,11 @@ components:
         occurredAt: {type: string, format: date-time}
         producer: {type: string}
         traceId: {type: string}
+        locale:
+          type: string
+          enum: [vi, en]
+          description: >-
+            Locale of the end user that triggered the event. Consumers use it to
+            render client-facing notifications; absent means the default `vi`.
         payload: {type: object}
 

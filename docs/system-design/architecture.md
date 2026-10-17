@@ -94,7 +94,7 @@ Nginx sinh `X-Trace-ID` từ `$request_id` và forward cho mọi location; error
 - **Read-only**: gRPC/protobuf qua `contracts/`; helper ở `contracts/grpcx` (dial, metadata, mTLS, error bridge).
 - **Mutation**: RabbitMQ event + transactional outbox; không gọi trực tiếp database hay implementation của service khác.
 - **Saga**: Order hoặc Activity sở hữu saga khởi tạo; Notification và Reporting tham gia choreography.
-- Lỗi qua gRPC được bridge hai chiều bởi `contracts/grpcx/errors.go`: giữ status, message client-facing và `code` qua `google.rpc.ErrorInfo.Reason`; field errors dự trữ ở `google.rpc.BadRequest.FieldViolations` (details additive).
+- Lỗi qua gRPC được bridge hai chiều bởi `contracts/grpcx/errors.go`: giữ status, message client-facing và `code` qua `google.rpc.ErrorInfo.Reason`; locale lan qua metadata `x-littlecafe-locale` và `ErrorInfo.Metadata` (`messageKey`, `locale`); field errors dự trữ ở `google.rpc.BadRequest.FieldViolations` (details additive).
 
 ## 8. Chưa triển khai
 

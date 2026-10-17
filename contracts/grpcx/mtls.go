@@ -50,12 +50,17 @@ func ServerOption(files MTLSFiles) (grpc.ServerOption, error) {
 }
 
 func ServerOptionsFromEnv() ([]grpc.ServerOption, error) {
+	options := []grpc.ServerOption{
+		grpc.ChainUnaryInterceptor(LocaleUnaryServerInterceptor()),
+		grpc.ChainStreamInterceptor(LocaleStreamServerInterceptor()),
+	}
+
 	files := MTLSFiles{CAFile: os.Getenv("GRPC_TLS_CA_FILE"), CertFile: os.Getenv("GRPC_TLS_CERT_FILE"), KeyFile: os.Getenv("GRPC_TLS_KEY_FILE")}
 	if files.CAFile == "" && files.CertFile == "" && files.KeyFile == "" {
 		if os.Getenv("GRPC_MTLS_REQUIRED") == "true" {
 			return nil, fmt.Errorf("grpcx: mTLS is required but certificate paths are missing")
 		}
-		return nil, nil
+		return options, nil
 	}
 	if files.CAFile == "" || files.CertFile == "" || files.KeyFile == "" {
 		return nil, fmt.Errorf("grpcx: incomplete mTLS certificate configuration")
@@ -64,5 +69,5 @@ func ServerOptionsFromEnv() ([]grpc.ServerOption, error) {
 	if err != nil {
 		return nil, err
 	}
-	return []grpc.ServerOption{option}, nil
+	return append(options, option), nil
 }

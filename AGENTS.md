@@ -88,9 +88,10 @@ commands in other documents or skills.
   update `specs/<feature>/frontend-guide.md` and only set
   `READY_FOR_FRONTEND` when contract, implementation, test evidence, and the
   counted sync check are complete.
-- **Language**: client-facing messages are Vietnamese; identifiers, packages,
-  and exported symbols are English. Every comment inside a file whose name
-  starts with `.env` MUST be written in English.
+- **Language**: client-facing messages are localized through `shared/pkg/i18n`
+  (Vietnamese is the default, English is supported); identifiers, packages, and
+  exported symbols are English. Internal log messages stay English. Every
+  comment inside a file whose name starts with `.env` MUST be written in English.
 - Do not create entities, routes, RPCs, events, fixtures, or sample data to
   illustrate.
 - Prefer Makefile targets over manual commands when an equivalent target exists.

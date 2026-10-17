@@ -6,6 +6,25 @@ servers:
   - url: https://api.littlecafe.kids/api/v1
 paths: {}
 components:
+  parameters:
+    AcceptLanguage:
+      name: Accept-Language
+      in: header
+      required: false
+      description: >-
+        Negotiates the language of client-facing messages (`title`, `detail`,
+        `errors[].message`, success `message`). Missing or unsupported values
+        fall back to the default locale `vi`.
+      schema:
+        type: string
+        default: vi
+        enum: [vi, en]
+  headers:
+    ContentLanguage:
+      description: Locale used to render the response.
+      schema:
+        type: string
+        enum: [vi, en]
   schemas:
     ProblemDetails:
       type: object

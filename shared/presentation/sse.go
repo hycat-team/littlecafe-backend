@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/hycat-team/littlecafe-backend/shared/application/constants/apperror"
+	"github.com/hycat-team/littlecafe-backend/shared/pkg/i18n"
 )
 
 // SanitizeSSEData escapes a string for safe use as one SSE data line.
@@ -51,7 +52,7 @@ func InitSSE(c *gin.Context) (http.Flusher, error) {
 
 	flusher, ok := c.Writer.(http.Flusher)
 	if !ok {
-		return nil, apperror.NewInternalError("Trình duyệt hoặc máy chủ không hỗ trợ kết nối thời gian thực.")
+		return nil, apperror.NewInternalError(i18n.ErrorRealtimeUnsupported)
 	}
 	return flusher, nil
 }

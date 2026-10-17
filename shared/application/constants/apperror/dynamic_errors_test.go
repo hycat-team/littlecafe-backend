@@ -4,6 +4,8 @@ import (
 	"errors"
 	"net/http"
 	"testing"
+
+	"github.com/hycat-team/littlecafe-backend/shared/pkg/i18n"
 )
 
 func TestDynamicFactoriesMapStatusAndTitle(t *testing.T) {
@@ -13,15 +15,15 @@ func TestDynamicFactoriesMapStatusAndTitle(t *testing.T) {
 		status int
 		title  string
 	}{
-		{"NewBadRequest", NewBadRequest("detail"), http.StatusBadRequest, "Thao tác không thành công"},
-		{"NewNotFound", NewNotFound("detail"), http.StatusNotFound, "Không tìm thấy dữ liệu"},
-		{"NewTooManyRequest", NewTooManyRequest("detail"), http.StatusTooManyRequests, "Quá nhiều yêu cầu"},
-		{"NewRequestEntityTooLarge", NewRequestEntityTooLarge("detail"), http.StatusRequestEntityTooLarge, "Dữ liệu gửi lên quá lớn"},
-		{"NewConflict", NewConflict("detail"), http.StatusConflict, "Dữ liệu bị trùng lặp"},
-		{"NewUnauthorized", NewUnauthorized("detail"), http.StatusUnauthorized, "Lỗi xác thực"},
-		{"NewForbidden", NewForbidden("detail"), http.StatusForbidden, "Không có quyền truy cập"},
-		{"NewInternalError", NewInternalError("detail"), http.StatusInternalServerError, "Lỗi hệ thống"},
-		{"NewServiceUnavailable", NewServiceUnavailable("detail"), http.StatusServiceUnavailable, "Dịch vụ tạm thời gián đoạn"},
+		{"NewBadRequest", NewBadRequest("detail"), http.StatusBadRequest, i18n.ErrorTitleBadRequest},
+		{"NewNotFound", NewNotFound("detail"), http.StatusNotFound, i18n.ErrorTitleNotFound},
+		{"NewTooManyRequest", NewTooManyRequest("detail"), http.StatusTooManyRequests, i18n.ErrorTitleTooManyRequests},
+		{"NewRequestEntityTooLarge", NewRequestEntityTooLarge("detail"), http.StatusRequestEntityTooLarge, i18n.ErrorTitleRequestEntityTooLarge},
+		{"NewConflict", NewConflict("detail"), http.StatusConflict, i18n.ErrorTitleConflict},
+		{"NewUnauthorized", NewUnauthorized("detail"), http.StatusUnauthorized, i18n.ErrorTitleUnauthorized},
+		{"NewForbidden", NewForbidden("detail"), http.StatusForbidden, i18n.ErrorTitleForbidden},
+		{"NewInternalError", NewInternalError("detail"), http.StatusInternalServerError, i18n.ErrorTitleInternal},
+		{"NewServiceUnavailable", NewServiceUnavailable("detail"), http.StatusServiceUnavailable, i18n.ErrorTitleServiceUnavailable},
 	}
 
 	for _, tc := range cases {
@@ -29,8 +31,8 @@ func TestDynamicFactoriesMapStatusAndTitle(t *testing.T) {
 			if tc.err.Status != tc.status {
 				t.Fatalf("Status = %d, want %d", tc.err.Status, tc.status)
 			}
-			if tc.err.Title != tc.title {
-				t.Fatalf("Title = %q, want %q", tc.err.Title, tc.title)
+			if tc.err.Title != msg(tc.title) {
+				t.Fatalf("Title = %q, want %q", tc.err.Title, msg(tc.title))
 			}
 			if tc.err.Detail != "detail" || tc.err.Message != "detail" {
 				t.Fatalf("Detail/Message = %q/%q, want detail", tc.err.Detail, tc.err.Message)
@@ -60,7 +62,7 @@ func TestNewUpstreamUnavailableKeepsCausePrivate(t *testing.T) {
 	if err.Status != http.StatusServiceUnavailable {
 		t.Fatalf("Status = %d, want 503", err.Status)
 	}
-	if err.Message != "Dịch vụ đang bận, vui lòng thử lại sau ít phút." {
+	if err.Message != msg(i18n.ErrorUpstreamUnavailable) {
 		t.Fatalf("Message = %q", err.Message)
 	}
 	if err.Unwrap() != cause {

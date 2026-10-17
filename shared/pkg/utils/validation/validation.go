@@ -1,11 +1,9 @@
 package validation
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"github.com/hycat-team/littlecafe-backend/shared/application/constants/apperror"
-	"github.com/hycat-team/littlecafe-backend/shared/pkg/utils/numberutils"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -16,27 +14,10 @@ import (
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
-)
 
-const (
-	errInvalidFormatTitle  = "Dữ liệu không đúng định dạng"
-	errInvalidFormatDetail = "Giá trị số quá lớn hoặc kiểu dữ liệu không hợp lệ"
-
-	errMsgRequired           = "Vui lòng nhập %s"
-	errMsgEmail              = "Định dạng email không hợp lệ"
-	errMsgUsername           = "Username phải dài 4-20 kí tự, chỉ chứa chữ, số, dấu chấm (.), và dấu gạch dưới (_)"
-	errMsgPasswordComplexity = "%s phải dài ít nhất 8 ký tự, bao gồm ít nhất 1 chữ hoa, 1 chữ thường, 1 số và 1 ký tự đặc biệt"
-	errMsgEqField            = "%s phải giống với %s"
-	errMsgNeField            = "%s phải khác với %s"
-	errMsgLen                = "%s phải dài %s kí tự"
-	errMsgGt                 = "%s phải lớn hơn %s"
-	errMsgMin                = "%s phải dài ít nhất %s kí tự"
-	errMsgMaxInt             = "%s không được lớn hơn %s"
-	errMsgMaxStr             = "%s không được vượt quá %s kí tự"
-	errMsgDateTime           = "%s phải đúng định dạng ngày %s"
-	errMsgOneOf              = "%s phải là một trong các giá trị: %s"
-	errMsgNumeric            = "%s chỉ được chứa các ký tự số"
-	errMsgDefault            = "%s: %s không hợp lệ"
+	"github.com/hycat-team/littlecafe-backend/shared/application/constants/apperror"
+	"github.com/hycat-team/littlecafe-backend/shared/pkg/i18n"
+	"github.com/hycat-team/littlecafe-backend/shared/pkg/utils/numberutils"
 )
 
 func init() {
@@ -95,15 +76,24 @@ func fieldJSONName(fe validator.FieldError) string {
 	return lowerCamelCase(fe.StructField())
 }
 
-func fieldLabel(fe validator.FieldError) string {
+func fieldLabel(ctx context.Context, fe validator.FieldError) string {
 	field := strings.TrimSpace(fe.Field())
 	if field != "" {
 		if idx := strings.Index(field, "|"); idx != -1 {
 			return field[idx+1:]
 		}
-		return humanizeFieldName(field)
+		return localizeFieldName(ctx, field)
 	}
-	return humanizeFieldName(fe.StructField())
+	return localizeFieldName(ctx, fe.StructField())
+}
+
+func localizeFieldName(ctx context.Context, name string) string {
+	jsonName := lowerCamelCase(name)
+	key := i18n.FieldLabelKey(jsonName)
+	if i18n.Default().Has(i18n.FromContext(ctx), key) {
+		return i18n.T(ctx, key)
+	}
+	return humanizeFieldName(name)
 }
 
 func lowerCamelCase(name string) string {
@@ -129,52 +119,54 @@ func lowerCamelCase(name string) string {
 	return strings.ToLower(name[:1]) + name[1:]
 }
 
-func validationMessage(fe validator.FieldError, fieldName, paramName string) string {
+func validationMessage(ctx context.Context, fe validator.FieldError, fieldName, paramName string) string {
 	switch fe.Tag() {
 	case "required":
-		return fmt.Sprintf(errMsgRequired, fieldName)
+		return i18n.T(ctx, i18n.ValidationRequired, fieldName)
 	case "email":
-		return errMsgEmail
+		return i18n.T(ctx, i18n.ValidationEmail)
 	case "username":
-		return errMsgUsername
+		return i18n.T(ctx, i18n.ValidationUsername)
 	case "password_complexity":
-		return fmt.Sprintf(errMsgPasswordComplexity, fieldName)
+		return i18n.T(ctx, i18n.ValidationPasswordComplexity, fieldName)
 	case "eqfield":
-		return fmt.Sprintf(errMsgEqField, fieldName, paramName)
+		return i18n.T(ctx, i18n.ValidationEqField, fieldName, paramName)
 	case "nefield":
-		return fmt.Sprintf(errMsgNeField, fieldName, paramName)
+		return i18n.T(ctx, i18n.ValidationNeField, fieldName, paramName)
 	case "len":
-		return fmt.Sprintf(errMsgLen, fieldName, paramName)
+		return i18n.T(ctx, i18n.ValidationLen, fieldName, paramName)
 	case "gt":
-		return fmt.Sprintf(errMsgGt, fieldName, paramName)
+		return i18n.T(ctx, i18n.ValidationGT, fieldName, paramName)
 	case "min":
-		return fmt.Sprintf(errMsgMin, fieldName, paramName)
+		return i18n.T(ctx, i18n.ValidationMin, fieldName, paramName)
 	case "max":
 		if fe.Kind().String() == "int32" || fe.Kind().String() == "int" {
-			return fmt.Sprintf(errMsgMaxInt, fieldName, paramName)
+			return i18n.T(ctx, i18n.ValidationMaxInt, fieldName, paramName)
 		}
-		return fmt.Sprintf(errMsgMaxStr, fieldName, paramName)
+		return i18n.T(ctx, i18n.ValidationMaxStr, fieldName, paramName)
 	case "nfcmax":
-		return fmt.Sprintf(errMsgMaxStr, fieldName, paramName)
+		return i18n.T(ctx, i18n.ValidationMaxStr, fieldName, paramName)
 	case "datetime":
-		return fmt.Sprintf(errMsgDateTime, fieldName, paramName)
+		return i18n.T(ctx, i18n.ValidationDateTime, fieldName, paramName)
 	case "oneof":
-		return fmt.Sprintf(errMsgOneOf, fieldName, paramName)
+		return i18n.T(ctx, i18n.ValidationOneOf, fieldName, paramName)
 	case "numeric":
-		return fmt.Sprintf(errMsgNumeric, fieldName)
+		return i18n.T(ctx, i18n.ValidationNumeric, fieldName)
 	default:
-		return fmt.Sprintf(errMsgDefault, fieldName, fe.Tag())
+		return i18n.T(ctx, i18n.ValidationDefault, fieldName, fe.Tag())
 	}
 }
 
-func TranslateValidationError(err error) *apperror.Error {
+// TranslateValidationError maps validator and binding errors to the shared
+// problem shape. Messages are rendered for the locale carried by ctx.
+func TranslateValidationError(ctx context.Context, err error) *apperror.Error {
 	var ve validator.ValidationErrors
 	if errors.As(err, &ve) {
 		items := make([]apperror.ValidationErrorItem, 0, len(ve))
 		for _, fe := range ve {
-			fieldName := fieldLabel(fe)
+			fieldName := fieldLabel(ctx, fe)
 			paramName := fe.Param()
-			msg := validationMessage(fe, fieldName, paramName)
+			msg := validationMessage(ctx, fe, fieldName, paramName)
 			items = append(items, apperror.ValidationErrorItem{
 				Field:   fieldJSONName(fe),
 				Message: msg,
@@ -184,6 +176,7 @@ func TranslateValidationError(err error) *apperror.Error {
 		appErr := apperror.NewBadRequest("")
 		if len(items) > 0 {
 			appErr.Message = items[0].Message
+			appErr.Detail = items[0].Message
 			appErr.Errors = items
 		}
 		return appErr
@@ -193,8 +186,8 @@ func TranslateValidationError(err error) *apperror.Error {
 	if errors.As(err, &unmarshalTypeErr) {
 		appErr := apperror.NewError(
 			http.StatusBadRequest,
-			errInvalidFormatTitle,
-			errInvalidFormatDetail,
+			i18n.ErrorValidationInvalidFormatTitle,
+			i18n.ErrorValidationInvalidFormatDetail,
 		)
 		if unmarshalTypeErr.Field != "" {
 			appErr.Errors = []apperror.ValidationErrorItem{{
@@ -208,8 +201,8 @@ func TranslateValidationError(err error) *apperror.Error {
 	if strings.Contains(err.Error(), "unmarshal") {
 		return apperror.NewError(
 			http.StatusBadRequest,
-			errInvalidFormatTitle,
-			errInvalidFormatDetail,
+			i18n.ErrorValidationInvalidFormatTitle,
+			i18n.ErrorValidationInvalidFormatDetail,
 		)
 	}
 
@@ -218,7 +211,8 @@ func TranslateValidationError(err error) *apperror.Error {
 	var maxBytesErr *http.MaxBytesError
 	if errors.As(err, &maxBytesErr) {
 		return apperror.NewRequestEntityTooLarge(
-			fmt.Sprintf("Dữ liệu gửi lên vượt quá giới hạn %s.", numberutils.FormatBytes(maxBytesErr.Limit)),
+			i18n.ValidationBodyTooLarge,
+			numberutils.FormatBytes(maxBytesErr.Limit),
 		)
 	}
 
@@ -227,7 +221,7 @@ func TranslateValidationError(err error) *apperror.Error {
 
 func BindJSON(c *gin.Context, obj any) error {
 	if err := c.ShouldBindJSON(obj); err != nil {
-		return TranslateValidationError(err)
+		return TranslateValidationError(c.Request.Context(), err)
 	}
 	normalizeNFC(reflect.ValueOf(obj))
 	return nil
@@ -235,14 +229,14 @@ func BindJSON(c *gin.Context, obj any) error {
 
 func BindQuery(c *gin.Context, obj any) error {
 	if err := c.ShouldBindQuery(obj); err != nil {
-		return TranslateValidationError(err)
+		return TranslateValidationError(c.Request.Context(), err)
 	}
 	return nil
 }
 
 func BindURI(c *gin.Context, obj any) error {
 	if err := c.ShouldBindUri(obj); err != nil {
-		return TranslateValidationError(err)
+		return TranslateValidationError(c.Request.Context(), err)
 	}
 	return nil
 }
@@ -250,11 +244,11 @@ func BindURI(c *gin.Context, obj any) error {
 func GetUUIDParam(c *gin.Context, name string) (uuid.UUID, error) {
 	raw := c.Param(name)
 	if raw == "" {
-		return uuid.Nil, apperror.NewBadRequest(fmt.Sprintf("Thiếu tham số %s", name))
+		return uuid.Nil, apperror.NewBadRequest(i18n.ValidationParamMissing, name)
 	}
 	id, err := uuid.Parse(raw)
 	if err != nil {
-		return uuid.Nil, apperror.NewBadRequest(fmt.Sprintf("Tham số %s không hợp lệ", name))
+		return uuid.Nil, apperror.NewBadRequest(i18n.ValidationParamInvalid, name)
 	}
 	return id, nil
 }
@@ -262,7 +256,7 @@ func GetUUIDParam(c *gin.Context, name string) (uuid.UUID, error) {
 func GetStringParam(c *gin.Context, name string) (string, error) {
 	raw := c.Param(name)
 	if raw == "" {
-		return "", apperror.NewBadRequest(fmt.Sprintf("Thiếu tham số %s", name))
+		return "", apperror.NewBadRequest(i18n.ValidationParamMissing, name)
 	}
 	return raw, nil
 }
@@ -270,11 +264,11 @@ func GetStringParam(c *gin.Context, name string) (string, error) {
 func GetInt64Param(c *gin.Context, name string) (int64, error) {
 	raw := c.Param(name)
 	if raw == "" {
-		return 0, apperror.NewBadRequest(fmt.Sprintf("Thiếu tham số %s", name))
+		return 0, apperror.NewBadRequest(i18n.ValidationParamMissing, name)
 	}
 	val, err := strconv.ParseInt(raw, 10, 64)
 	if err != nil {
-		return 0, apperror.NewBadRequest(fmt.Sprintf("Tham số %s không hợp lệ", name))
+		return 0, apperror.NewBadRequest(i18n.ValidationParamInvalid, name)
 	}
 	return val, nil
 }

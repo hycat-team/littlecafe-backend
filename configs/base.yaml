@@ -74,3 +74,7 @@ cloudinary:
 
 admin:
   audit_retention_months: ${ADMIN_AUDIT_RETENTION_MONTHS:-24}
+
+i18n:
+  default_locale: ${I18N_DEFAULT_LOCALE:-vi}
+  supported_locales: ${I18N_SUPPORTED_LOCALES:-vi,en}

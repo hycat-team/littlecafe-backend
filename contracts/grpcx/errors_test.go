@@ -1,16 +1,22 @@
 package grpcx
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"testing"
 
 	"github.com/hycat-team/littlecafe-backend/shared/application/constants/apperror"
+	"github.com/hycat-team/littlecafe-backend/shared/pkg/i18n"
 
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+func genericText() string {
+	return i18n.Default().T(i18n.DefaultLocale, i18n.ErrorInternalGeneric)
+}
 
 func TestToGRPCErrorMapsStatusAndMessage(t *testing.T) {
 	cases := []struct {
@@ -20,7 +26,7 @@ func TestToGRPCErrorMapsStatusAndMessage(t *testing.T) {
 		message string
 	}{
 		{"nil", nil, codes.OK, ""},
-		{"plain error", errors.New("boom"), codes.Internal, apperror.GenericInternalMessage},
+		{"plain error", errors.New("boom"), codes.Internal, genericText()},
 		{"bad request", apperror.NewBadRequest("Dữ liệu không hợp lệ"), codes.InvalidArgument, "Dữ liệu không hợp lệ"},
 		{"unauthorized", apperror.NewUnauthorized("Vui lòng đăng nhập"), codes.Unauthenticated, "Vui lòng đăng nhập"},
 		{"forbidden", apperror.NewForbidden("Không có quyền"), codes.PermissionDenied, "Không có quyền"},
@@ -28,8 +34,8 @@ func TestToGRPCErrorMapsStatusAndMessage(t *testing.T) {
 		{"conflict", apperror.NewConflict("Bị trùng"), codes.AlreadyExists, "Bị trùng"},
 		{"too many", apperror.NewTooManyRequest("Quá nhanh"), codes.ResourceExhausted, "Quá nhanh"},
 		{"unavailable", apperror.NewServiceUnavailable("Bảo trì"), codes.Unavailable, "Bảo trì"},
-		{"internal degrades to generic", apperror.NewInternalError("chi tiết nội bộ"), codes.Internal, apperror.GenericInternalMessage},
-		{"unmapped status degrades to generic", apperror.NewError(http.StatusTeapot, "Trà", "chi tiết"), codes.Internal, apperror.GenericInternalMessage},
+		{"internal degrades to generic", apperror.NewInternalError("chi tiết nội bộ"), codes.Internal, genericText()},
+		{"unmapped status degrades to generic", apperror.NewError(http.StatusTeapot, "Trà", "chi tiết"), codes.Internal, genericText()},
 	}
 
 	for _, tc := range cases {
@@ -65,6 +71,29 @@ func TestToGRPCErrorCarriesCodeAsErrorInfo(t *testing.T) {
 	}
 	if st.Message() != "Không tìm thấy đơn hàng" {
 		t.Fatalf("message = %q", st.Message())
+	}
+}
+
+func TestToGRPCErrorWithContextLocalizesAndCarriesMetadata(t *testing.T) {
+	err := apperror.NewNotFound(i18n.ErrorSearchIndexNotFound)
+	err.Code = "ORDER_0001"
+
+	ctx := i18n.WithLocale(context.Background(), i18n.EN)
+	st := status.Convert(ToGRPCErrorWithContext(ctx, err))
+
+	if st.Message() != i18n.Default().T(i18n.EN, i18n.ErrorSearchIndexNotFound) {
+		t.Fatalf("message = %q", st.Message())
+	}
+
+	info := errorInfo(t, st)
+	if info.GetReason() != "ORDER_0001" {
+		t.Fatalf("Reason = %q", info.GetReason())
+	}
+	if info.GetMetadata()["messageKey"] != i18n.ErrorSearchIndexNotFound {
+		t.Fatalf("messageKey = %q", info.GetMetadata()["messageKey"])
+	}
+	if info.GetMetadata()["locale"] != string(i18n.EN) {
+		t.Fatalf("locale = %q", info.GetMetadata()["locale"])
 	}
 }
 
@@ -186,10 +215,15 @@ func TestToAppErrorPassthroughAndNil(t *testing.T) {
 
 func errorInfoReason(t *testing.T, st *status.Status) string {
 	t.Helper()
+	return errorInfo(t, st).GetReason()
+}
+
+func errorInfo(t *testing.T, st *status.Status) *errdetails.ErrorInfo {
+	t.Helper()
 	for _, detail := range st.Details() {
 		if info, ok := detail.(*errdetails.ErrorInfo); ok {
-			return info.GetReason()
+			return info
 		}
 	}
-	return ""
+	return &errdetails.ErrorInfo{}
 }

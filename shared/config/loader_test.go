@@ -51,7 +51,7 @@ func writeTempConfig(t *testing.T, dir, name, content string) string {
 
 func clearEnvOverrides(t *testing.T) {
 	t.Helper()
-	for _, key := range []string{"APP_MODE", "SERVER_ENV", "SERVER_PORT", "GRPC_PORT", "DB_MIGRATE_ON_START", "CONFIG_OVERLAY"} {
+	for _, key := range []string{"APP_MODE", "SERVER_ENV", "SERVER_PORT", "GRPC_PORT", "DB_MIGRATE_ON_START", "CONFIG_OVERLAY", "I18N_DEFAULT_LOCALE", "I18N_SUPPORTED_LOCALES"} {
 		t.Setenv(key, "")
 	}
 }
@@ -123,6 +123,48 @@ func TestLoadRejectsUnknownKeys(t *testing.T) {
 	cfg := &Config{}
 	if err := Load("order", cfg); err == nil {
 		t.Fatal("Load must reject unknown configuration keys")
+	}
+}
+
+func TestLoadDefaultsI18n(t *testing.T) {
+	clearEnvOverrides(t)
+	dir := t.TempDir()
+	base := writeTempConfig(t, dir, "base.yaml", validBaseConfig)
+	t.Setenv("CONFIG_BASE", base)
+
+	cfg := &Config{}
+	if err := Load("order", cfg); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.I18n.DefaultLocale != "vi" {
+		t.Fatalf("DefaultLocale = %q, want vi", cfg.I18n.DefaultLocale)
+	}
+	if cfg.I18n.SupportedLocales != "vi,en" {
+		t.Fatalf("SupportedLocales = %q, want vi,en", cfg.I18n.SupportedLocales)
+	}
+}
+
+func TestLoadRejectsUnsupportedLocale(t *testing.T) {
+	clearEnvOverrides(t)
+	dir := t.TempDir()
+	base := writeTempConfig(t, dir, "base.yaml", validBaseConfig+"i18n:\n  default_locale: fr\n  supported_locales: vi,en\n")
+	t.Setenv("CONFIG_BASE", base)
+
+	cfg := &Config{}
+	if err := Load("order", cfg); err == nil {
+		t.Fatal("Load must reject an unsupported default locale")
+	}
+}
+
+func TestLoadRejectsDefaultLocaleOutsideSupported(t *testing.T) {
+	clearEnvOverrides(t)
+	dir := t.TempDir()
+	base := writeTempConfig(t, dir, "base.yaml", validBaseConfig+"i18n:\n  default_locale: en\n  supported_locales: vi\n")
+	t.Setenv("CONFIG_BASE", base)
+
+	cfg := &Config{}
+	if err := Load("order", cfg); err == nil {
+		t.Fatal("Load must reject a default locale that is not in supported_locales")
 	}
 }
 

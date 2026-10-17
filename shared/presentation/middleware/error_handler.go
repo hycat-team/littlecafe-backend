@@ -3,6 +3,7 @@ package middleware
 import (
 	"github.com/hycat-team/littlecafe-backend/shared/application/constants/apperror"
 	"github.com/hycat-team/littlecafe-backend/shared/config"
+	"github.com/hycat-team/littlecafe-backend/shared/pkg/i18n"
 	"github.com/hycat-team/littlecafe-backend/shared/pkg/logger"
 	"github.com/hycat-team/littlecafe-backend/shared/pkg/utils/errorutils"
 	"net/http"
@@ -32,9 +33,9 @@ func GlobalErrorHandler(log logger.Interface, appEnv string) gin.HandlerFunc {
 				res := apperror.Error{
 					Type:     "about:blank",
 					Status:   http.StatusInternalServerError,
-					Title:    "Lỗi hệ thống",
-					Detail:   apperror.PanicRecoveryMessage,
-					Message:  apperror.PanicRecoveryMessage,
+					Title:    i18n.T(c.Request.Context(), i18n.ErrorTitleInternal),
+					Detail:   i18n.T(c.Request.Context(), i18n.ErrorInternalPanic),
+					Message:  i18n.T(c.Request.Context(), i18n.ErrorInternalPanic),
 					Instance: c.Request.URL.Path,
 					TraceID:  c.GetHeader("X-Trace-ID"),
 				}
@@ -64,21 +65,26 @@ func GlobalErrorHandler(log logger.Interface, appEnv string) gin.HandlerFunc {
 			appErr = apperror.NewInternalError(apperror.GenericInternalMessage)
 		}
 
+		localized := appErr.Localize(i18n.FromContext(c.Request.Context()))
+
 		fields := []zap.Field{
-			zap.Int("status", appErr.Status),
-			zap.String("title", appErr.Title),
-			zap.String("message", appErr.Message),
+			zap.Int("status", localized.Status),
+			zap.String("title", localized.Title),
+			zap.String("message", localized.Message),
 			zap.String("path", c.Request.URL.Path),
 		}
-		if rawErr != nil && rawErr.Error() != appErr.Message {
+		if localized.MessageKey != "" {
+			fields = append(fields, zap.String("messageKey", localized.MessageKey))
+		}
+		if rawErr != nil && rawErr.Error() != localized.Message {
 			fields = append(fields, zap.String("error", rawErr.Error()))
 		}
-		if cause := appErr.Unwrap(); cause != nil {
-			if cause.Error() != appErr.Message {
+		if cause := localized.Unwrap(); cause != nil {
+			if cause.Error() != localized.Message {
 				fields = append(fields, zap.String("cause", cause.Error()))
 			}
 		}
-		if source := errorutils.PrimaryStackFrame(appErr.Stack()); source != "" {
+		if source := errorutils.PrimaryStackFrame(localized.Stack()); source != "" {
 			fields = append(fields, zap.String("source", source))
 		}
 
@@ -89,7 +95,7 @@ func GlobalErrorHandler(log logger.Interface, appEnv string) gin.HandlerFunc {
 			return
 		}
 
-		res := *appErr
+		res := *localized
 		if res.Type == "" {
 			res.Type = "about:blank"
 		}
@@ -103,14 +109,14 @@ func GlobalErrorHandler(log logger.Interface, appEnv string) gin.HandlerFunc {
 		// Debug details are gated strictly on the configured env, not
 		// gin.Mode() — staging/unset envs must not leak internals.
 		if !config.IsProductionEnv(appEnv) {
-			if rawErr != nil && rawErr.Error() != appErr.Message {
+			if rawErr != nil && rawErr.Error() != localized.Message {
 				res.DebugMessage = rawErr.Error()
 			}
-			res.StackTrace = errorutils.FilterStackTraceArray(appErr.Stack())
+			res.StackTrace = errorutils.FilterStackTraceArray(localized.Stack())
 		}
 
 		c.Header("Content-Type", "application/problem+json")
-		c.JSON(appErr.Status, res)
+		c.JSON(localized.Status, res)
 		c.Errors = nil
 		c.Abort()
 	}

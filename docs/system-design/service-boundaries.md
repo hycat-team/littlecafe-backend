@@ -22,7 +22,7 @@ Bảy service deploy độc lập; mỗi service sở hữu database riêng và 
 - **Read-only xuyên service**: gRPC/protobuf trong `contracts/`. Không đọc bảng của service khác, kể cả cùng PostgreSQL instance.
 - **Mutation xuyên service**: RabbitMQ event + transactional outbox (xem `event-driven-design.md`). Không gọi trực tiếp use case/service implementation của service khác.
 - **Saga**: Order hoặc Activity sở hữu saga khởi tạo; Notification và Reporting tham gia theo choreography.
-- **Error bridge**: `contracts/grpcx/errors.go` giữ status + message client-facing qua biên service.
+- **Error bridge**: `contracts/grpcx/errors.go` giữ status + message client-facing qua biên service; locale đi kèm qua metadata `x-littlecafe-locale`.
 - **User identity**: khi hành động thay người dùng, JWT đi qua metadata `x-littlecafe-jwt` (`contracts/grpcx/metadata.go`).
 
 ## 3. Cấm import chéo

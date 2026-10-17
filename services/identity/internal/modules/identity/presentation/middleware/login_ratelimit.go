@@ -7,6 +7,7 @@ import (
 	"github.com/hycat-team/littlecafe-backend/shared/application/constants/apperror"
 	shared_caching "github.com/hycat-team/littlecafe-backend/shared/application/interface/caching"
 	"github.com/hycat-team/littlecafe-backend/shared/config"
+	"github.com/hycat-team/littlecafe-backend/shared/pkg/i18n"
 )
 
 // LoginRateLimitMiddleware is the stricter login/OTP shield keyed by client IP
@@ -36,7 +37,7 @@ func (m *LoginRateLimitMiddleware) Handle() gin.HandlerFunc {
 			return
 		}
 		if !allowed {
-			c.Error(apperror.NewTooManyRequest("Bạn đã thử quá nhiều lần. Vui lòng thử lại sau ít phút."))
+			c.Error(apperror.NewTooManyRequest(i18n.ErrorLoginRateLimit))
 			c.Abort()
 			return
 		}

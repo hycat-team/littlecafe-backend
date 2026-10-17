@@ -110,6 +110,8 @@ make nginx-reload-local
   committed and CI verifies drift.
 - Errors are RFC 9457 Problem Details (`application/problem+json`) with `code`,
   `traceId`, and field errors.
+- Client-facing messages are localized: send `Accept-Language: vi|en` (default
+  `vi`); responses carry `Content-Language` and `Vary: Accept-Language`.
 - Important mutations require an `Idempotency-Key`.
 - See [contract conventions](docs/api/contracts.md).
 

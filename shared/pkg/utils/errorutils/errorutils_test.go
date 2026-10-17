@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/hycat-team/littlecafe-backend/shared/application/constants/apperror"
+	"github.com/hycat-team/littlecafe-backend/shared/pkg/i18n"
 )
 
 const projectFramePrefix = "github.com/hycat-team/littlecafe-backend"
@@ -120,8 +121,11 @@ func TestToAppError(t *testing.T) {
 	t.Run("unknown error degrades to generic", func(t *testing.T) {
 		appErr := ToAppError(errors.New("boom"))
 
-		if appErr.Message != apperror.GenericInternalMessage {
+		if appErr.Message != i18n.Default().T(i18n.DefaultLocale, i18n.ErrorInternalGeneric) {
 			t.Fatalf("Message = %q, want generic message", appErr.Message)
+		}
+		if appErr.MessageKey != apperror.GenericInternalMessage {
+			t.Fatalf("MessageKey = %q, want generic key", appErr.MessageKey)
 		}
 	})
 }

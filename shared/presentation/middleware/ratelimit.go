@@ -4,6 +4,7 @@ import (
 	"github.com/hycat-team/littlecafe-backend/shared/application/constants/apperror"
 	shared_caching "github.com/hycat-team/littlecafe-backend/shared/application/interface/caching"
 	"github.com/hycat-team/littlecafe-backend/shared/config"
+	"github.com/hycat-team/littlecafe-backend/shared/pkg/i18n"
 
 	"github.com/gin-gonic/gin"
 )
@@ -47,7 +48,7 @@ func (m *RateLimitMiddleware) Handle() gin.HandlerFunc {
 			return
 		}
 		if !allowed {
-			c.Error(apperror.NewTooManyRequest("Bạn đang thao tác quá nhanh. Vui lòng thử lại sau ít phút."))
+			c.Error(apperror.NewTooManyRequest(i18n.ErrorRateLimitExceeded))
 			c.Abort()
 			return
 		}

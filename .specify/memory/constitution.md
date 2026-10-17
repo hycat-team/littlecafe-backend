@@ -47,6 +47,29 @@ Sync Impact Report:
     docs/system-design/design-pattern.md.
 -->
 
+<!--
+Sync Impact Report:
+- Version change: 1.2.0 → 1.3.0 (MINOR — additive localization rules; one
+  language-boundary constraint changes from Vietnamese-only to localized
+  VI/EN).
+  Reasoning: API responses, validation, email/SMS, and notification content must
+  be served in the caller's language while Vietnamese remains the default.
+  Identifiers, packages, exported symbols, and internal log messages stay
+  English.
+- Modified sections:
+  - Code Style, Naming & Language Standards (language boundaries).
+- Added rules:
+  - Client-facing messages resolve through `shared/pkg/i18n`; the default locale
+    is `vi` and `en` is supported.
+  - Every message key MUST exist in both `vi` and `en` bundles; a missing
+    translation fails validation.
+  - gRPC propagates the locale via metadata; event envelopes carry an optional
+    `locale` field for outbound notifications.
+- Migration/compatibility: error response shape is unchanged; only the language
+  of `title`, `detail`, `errors[].message`, and success `message` varies.
+- Templates requiring updates: verified — no update needed.
+-->
+
 # LittleCafe Backend Constitution
 
 ## Core Principles
@@ -133,9 +156,12 @@ available dependencies are not decisions. Agents MUST NOT decide these.
 
 ## Code Style, Naming & Language Standards
 
-- **Language boundaries**: client-facing messages (errors, validation, UI text)
-  MUST be Vietnamese. Identifiers, package names, exported symbols, and database
-  names MUST be English.
+- **Language boundaries**: client-facing messages (errors, validation, UI text,
+  email/SMS, notification content) MUST be localized through
+  `shared/pkg/i18n`, with Vietnamese (`vi`) as the default and English (`en`) as
+  a supported locale. Every message key MUST exist in both locale bundles.
+  Identifiers, package names, exported symbols, database names, and internal log
+  messages MUST be English.
 - **JSON naming**: client-facing DTO fields MUST use camelCase (`traceId`,
   `eventType`, `messageId`), matching the approved contracts.
 - **Repository naming**: lookup methods MUST prefer the `Get` prefix
@@ -187,7 +213,8 @@ available dependencies are not decisions. Agents MUST NOT decide these.
   explicit permission.
 - **Validation checks**: every PR must verify layer boundaries
   (`deployments/scripts/check-boundaries.sh`), the centralized error shape, JSON
-  naming for client-facing DTOs, and generated-contract drift. Gate commands are
+  naming for client-facing DTOs, message-bundle key parity for every supported
+  locale, and generated-contract drift. Gate commands are
   defined in `AGENTS.md`; that table is the single source of truth and is not
   duplicated here.
 - **Shared-code ownership**: `shared/` contains only cross-cutting building
@@ -199,4 +226,4 @@ available dependencies are not decisions. Agents MUST NOT decide these.
   follows the same rule: `configs/base.yaml` holds shared sections and
   `configs/<service>.yaml` holds sections owned by one service.
 
-**Version**: 1.2.0 | **Ratified**: 2026-10-17 | **Last Amended**: 2026-10-17
+**Version**: 1.3.0 | **Ratified**: 2026-10-17 | **Last Amended**: 2026-10-17

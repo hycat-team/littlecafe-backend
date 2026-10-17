@@ -8,6 +8,12 @@ import (
 	strictgin "github.com/oapi-codegen/runtime/strictmiddleware/gin"
 )
 
+// Defines values for AcceptLanguage.
+const (
+	En AcceptLanguage = "en"
+	Vi AcceptLanguage = "vi"
+)
+
 // ProblemDetails defines model for ProblemDetails.
 type ProblemDetails struct {
 	Code   *string `json:"code,omitempty"`
@@ -22,6 +28,9 @@ type ProblemDetails struct {
 	TraceId  *string `json:"traceId,omitempty"`
 	Type     string  `json:"type"`
 }
+
+// AcceptLanguage defines model for AcceptLanguage.
+type AcceptLanguage string
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {

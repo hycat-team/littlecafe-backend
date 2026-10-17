@@ -12,10 +12,12 @@
 package grpcx
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
 	"github.com/hycat-team/littlecafe-backend/shared/application/constants/apperror"
+	"github.com/hycat-team/littlecafe-backend/shared/pkg/i18n"
 
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
@@ -23,8 +25,8 @@ import (
 )
 
 // ToAppError maps a gRPC transport error to a centralized apperror.
-// Server-produced apperror messages (already Vietnamese) are preserved;
-// unrecognized codes degrade to a generic message.
+// Server-produced messages (already localized by the caller's locale) are
+// preserved; unrecognized codes degrade to a generic message.
 func ToAppError(err error) error {
 	if err == nil {
 		return nil
@@ -65,23 +67,40 @@ func ToAppError(err error) error {
 	return mapped
 }
 
-// ToGRPCError converts a centralized apperror into a gRPC status error, so
-// remote clients receive the same client-facing message the server intended.
-// A non-empty apperror `code` is attached as an ErrorInfo detail.
+// ToGRPCError converts a centralized apperror into a gRPC status error using
+// the default locale.
 func ToGRPCError(err error) error {
+	return ToGRPCErrorWithContext(context.Background(), err)
+}
+
+// ToGRPCErrorWithContext converts a centralized apperror into a gRPC status
+// error rendered for the locale carried by ctx. A non-empty apperror `code` is
+// attached as an ErrorInfo detail together with the message key and locale so a
+// receiving service can re-render the same message.
+func ToGRPCErrorWithContext(ctx context.Context, err error) error {
 	if err == nil {
 		return nil
 	}
 
+	locale := i18n.FromContext(ctx)
+
 	var appErr *apperror.Error
 	if !errors.As(err, &appErr) {
-		return status.Error(codes.Internal, apperror.GenericInternalMessage)
+		return status.Error(codes.Internal, i18n.Default().T(locale, i18n.ErrorInternalGeneric))
 	}
 
-	code, message := grpcStatusFor(appErr)
+	localized := appErr.Localize(locale)
+	code, message := grpcStatusFor(localized)
 	st := status.New(code, message)
 	if appErr.Code != "" {
-		if withDetails, detailErr := st.WithDetails(&errdetails.ErrorInfo{Reason: appErr.Code}); detailErr == nil {
+		info := &errdetails.ErrorInfo{Reason: appErr.Code}
+		if appErr.MessageKey != "" {
+			info.Metadata = map[string]string{
+				"messageKey": appErr.MessageKey,
+				"locale":     string(locale),
+			}
+		}
+		if withDetails, detailErr := st.WithDetails(info); detailErr == nil {
 			st = withDetails
 		}
 	}
@@ -89,23 +108,27 @@ func ToGRPCError(err error) error {
 }
 
 func grpcStatusFor(appErr *apperror.Error) (codes.Code, string) {
+	message := appErr.Message
+	if message == "" {
+		message = i18n.Default().T(i18n.DefaultLocale, i18n.ErrorInternalGeneric)
+	}
 	switch appErr.Status {
 	case http.StatusNotFound:
-		return codes.NotFound, appErr.Message
+		return codes.NotFound, message
 	case http.StatusBadRequest:
-		return codes.InvalidArgument, appErr.Message
+		return codes.InvalidArgument, message
 	case http.StatusUnauthorized:
-		return codes.Unauthenticated, appErr.Message
+		return codes.Unauthenticated, message
 	case http.StatusForbidden:
-		return codes.PermissionDenied, appErr.Message
+		return codes.PermissionDenied, message
 	case http.StatusConflict:
-		return codes.AlreadyExists, appErr.Message
+		return codes.AlreadyExists, message
 	case http.StatusTooManyRequests:
-		return codes.ResourceExhausted, appErr.Message
+		return codes.ResourceExhausted, message
 	case http.StatusServiceUnavailable:
-		return codes.Unavailable, appErr.Message
+		return codes.Unavailable, message
 	default:
-		return codes.Internal, apperror.GenericInternalMessage
+		return codes.Internal, i18n.Default().T(i18n.DefaultLocale, i18n.ErrorInternalGeneric)
 	}
 }
 

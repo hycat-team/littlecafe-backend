@@ -21,5 +21,9 @@ func DialService(rawURL string, files MTLSFiles) (*grpc.ClientConn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return grpc.NewClient(target, grpc.WithTransportCredentials(creds))
+	return grpc.NewClient(target,
+		grpc.WithTransportCredentials(creds),
+		grpc.WithChainUnaryInterceptor(LocaleUnaryClientInterceptor()),
+		grpc.WithChainStreamInterceptor(LocaleStreamClientInterceptor()),
+	)
 }

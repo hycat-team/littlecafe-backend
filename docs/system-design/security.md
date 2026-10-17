@@ -33,7 +33,7 @@ Tài liệu này mô tả các cơ chế bảo mật đang có trong code và c�
 - Env: `GRPC_TLS_CA_FILE`, `GRPC_TLS_CERT_FILE`, `GRPC_TLS_KEY_FILE`; `GRPC_MTLS_REQUIRED=true` bắt buộc có đủ 3 path, thiếu → fail ngay khi khởi động (fail closed).
 - Certificate do private CA cấp, nằm ngoài Git, mount read-only tại `/run/littlecafe/certs`. Script `deployments/scripts/rotate-mtls-certs.sh` tạo CA/server/client cert; leaf 90 ngày, CA 10 năm (`LITTLECAFE_CERT_DAYS`, `LITTLECAFE_CA_DAYS`). Chi tiết vận hành: `docs/operations/certificates.md`.
 - **User JWT đi kèm khi service hành động thay người dùng**: `contracts/grpcx/metadata.go` truyền metadata `x-littlecafe-jwt`; mTLS xác thực service, metadata xác thực người dùng.
-- Lỗi gRPC được bridge giữ nguyên status, message client-facing và `code` (qua `google.rpc.ErrorInfo.Reason`); field errors dự trữ cho `google.rpc.BadRequest.FieldViolations`. Details là additive, client bỏ qua loại không biết.
+- Lỗi gRPC được bridge giữ nguyên status, message client-facing và `code` (qua `google.rpc.ErrorInfo.Reason`); locale lan qua metadata `x-littlecafe-locale` và `ErrorInfo.Metadata` (`messageKey`, `locale`); field errors dự trữ cho `google.rpc.BadRequest.FieldViolations`. Details là additive, client bỏ qua loại không biết.
 
 ## 3. Phân quyền (RBAC)
 

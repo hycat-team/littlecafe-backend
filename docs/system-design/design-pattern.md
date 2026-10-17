@@ -11,9 +11,9 @@ Mọi lỗi HTTP trả về `Content-Type: application/problem+json` theo RFC 94
 | Field | Kiểu | Bắt buộc | Ghi chú |
 |---|---|---|---|
 | `type` | string (uri-reference) | có | mặc định `about:blank` |
-| `title` | string | có | tiêu đề tiếng Việt theo loại lỗi |
+| `title` | string | có | tiêu đề theo loại lỗi, localize theo `Accept-Language` (mặc định `vi`) |
 | `status` | integer | có | HTTP status |
-| `detail` | string | không | message client-facing tiếng Việt |
+| `detail` | string | không | message client-facing, localize theo `Accept-Language` |
 | `instance` | string | không | request path |
 | `code` | string | không | error code nghiệp vụ, xem §1.7 |
 | `traceId` | string | không | lấy từ header `X-Trace-ID` do Nginx sinh |
@@ -25,35 +25,40 @@ Hai field debug nằm **ngoài contract**, chỉ xuất hiện khi `SERVER_ENV` 
 
 `shared/application/constants/apperror` là nguồn duy nhất tạo lỗi:
 
-- `New(status, title, message)` / `NewError(status, title, detail)`: constructor gốc, gắn stack.
-- `NewBadRequest`, `NewNotFound`, `NewConflict`, `NewUnauthorized`, `NewForbidden`, `NewTooManyRequest`, `NewRequestEntityTooLarge`, `NewInternalError`, `NewServiceUnavailable`: factory theo HTTP status với title tiếng Việt cố định.
+- `New(status, titleKey, messageKey, args...)` / `NewError(status, titleKey, detailKey, args...)`: constructor gốc, nhận **message key** trong `shared/pkg/i18n` và gắn stack. Key không có trong catalog được giữ nguyên (dùng cho message passthrough từ service khác).
+- `NewBadRequest`, `NewNotFound`, `NewConflict`, `NewUnauthorized`, `NewForbidden`, `NewTooManyRequest`, `NewRequestEntityTooLarge`, `NewInternalError`, `NewServiceUnavailable`: factory theo HTTP status; title lấy từ catalog (`error.title.*`).
 - `NewUpstreamUnavailable(cause)`: 503 an toàn cho lỗi nhà cung cấp; raw error chỉ nằm trong `Cause`, không serialize.
 - `static_errors.go`: helper dùng lại (`ErrUnauthorized`, `ErrForbidden`, `ErrInvalidToken`, `ErrInvalidAccessToken`, `ErrUnexpectedSigningToken`, `ErrSearchIndexNotFound`).
-- `Wrap(err, fallbackMsg...)` / `From(err)`: bọc lỗi ngoài thành 500; raw text không bao giờ lộ ra client, `Cause` giữ cho log.
-- `GenericInternalMessage` và `PanicRecoveryMessage`: hai message client-facing duy nhất cho lỗi không nhận diện và panic.
+- `Wrap(err, fallbackKey...)` / `From(err)`: bọc lỗi ngoài thành 500; raw text không bao giờ lộ ra client, `Cause` giữ cho log.
+- `GenericInternalMessage` và `PanicRecoveryMessage`: hai **key** message client-facing duy nhất cho lỗi không nhận diện và panic.
+- `Error.Localize(loc)`: trả bản copy đã render `title/detail/message` theo locale; middleware dùng hàm này trước khi serialize. `Error.Message`/`Title`/`Detail` luôn chứa bản render default-locale để log và các caller không có request context vẫn hoạt động.
 
 ### 1.3 Luồng xử lý
 
-1. Handler trả `error` qua `presentation.WrapHandler` → `c.Error(err)`.
-2. `middleware.GlobalErrorHandler` lấy lỗi cuối, chuyển qua `errorutils.ToAppError` (`apperror.From`/`Wrap`), log Zap, rồi serialize Problem Details.
-3. Panic được recover trong cùng middleware; trả 500 với `PanicRecoveryMessage`, stack chỉ ở non-prod.
-4. `res.Instance` = request path; `res.TraceID` = `X-Trace-ID`; `Detail` rỗng thì lấy `Message`.
+1. `middleware.LocaleMiddleware` (đăng ký sau `GlobalErrorHandler`) parse `Accept-Language`, chọn locale trong `vi`/`en`, lưu vào `context.Context` của request và set `Content-Language`.
+2. Handler trả `error` qua `presentation.WrapHandler` → `c.Error(err)`.
+3. `middleware.GlobalErrorHandler` lấy lỗi cuối, chuyển qua `errorutils.ToAppError` (`apperror.From`/`Wrap`), gọi `Localize` theo locale của request, log Zap, rồi serialize Problem Details.
+4. Panic được recover trong cùng middleware; trả 500 với `PanicRecoveryMessage`, stack chỉ ở non-prod.
+5. `res.Instance` = request path; `res.TraceID` = `X-Trace-ID`; `Detail` rỗng thì lấy `Message`.
+
+Router phải bật `gin.Engine.ContextWithFallback = true` để `i18n.FromContext(c)` đọc được locale đã lưu trên request context.
 
 ### 1.4 Validation
 
 `shared/pkg/utils/validation`:
 
-- `BindJSON` / `BindQuery` / `BindURI`: bind + `TranslateValidationError` + chuẩn hóa NFC cho string.
-- `TranslateValidationError` map `validator.ValidationErrors` sang `errors[]` với message tiếng Việt; `json.UnmarshalTypeError` và body vượt `http.MaxBytesReader` cũng được map (`413`).
-- `GetUUIDParam` và helper query trả `NewBadRequest` tiếng Việt.
+- `BindJSON` / `BindQuery` / `BindURI`: bind + `TranslateValidationError(ctx, err)` + chuẩn hóa NFC cho string.
+- `TranslateValidationError` map `validator.ValidationErrors` sang `errors[]`; message resolve từ catalog (`validation.*`) theo locale của request; field label resolve từ `field.<jsonName>` (fallback humanize). `json.UnmarshalTypeError` và body vượt `http.MaxBytesReader` cũng được map (`413`).
+- `GetUUIDParam` và helper query trả `NewBadRequest` với key `validation.param.*`; middleware localize khi serialize.
 
 ### 1.5 Error bridge qua gRPC
 
 `contracts/grpcx/errors.go`:
 
-- `ToAppError(err)`: map gRPC status → apperror (NotFound, InvalidArgument/FailedPrecondition, Unauthenticated, PermissionDenied, AlreadyExists/Aborted, ResourceExhausted, Unavailable/DeadlineExceeded); message server (tiếng Việt) được giữ.
-- `ToGRPCError(err)`: map ngược apperror → gRPC status để remote client nhận đúng message.
-- **Wire contract cho lỗi nghiệp vụ**: `code` đi qua gRPC bằng standard detail `google.rpc.ErrorInfo.Reason`; field errors (dự trữ) đi bằng `google.rpc.BadRequest.FieldViolations`. Khi `code` rỗng, bridge giữ nguyên hành vi cũ (không gửi details).
+- `ToAppError(err)`: map gRPC status → apperror (NotFound, InvalidArgument/FailedPrecondition, Unauthenticated, PermissionDenied, AlreadyExists/Aborted, ResourceExhausted, Unavailable/DeadlineExceeded); message server (đã localize) được giữ.
+- `ToGRPCError(err)` / `ToGRPCErrorWithContext(ctx, err)`: map ngược apperror → gRPC status, render theo locale trong `ctx` (bản không có ctx dùng default locale).
+- **Wire contract cho lỗi nghiệp vụ**: `code` đi qua gRPC bằng standard detail `google.rpc.ErrorInfo.Reason`; khi có `code`, `ErrorInfo.Metadata` mang thêm `messageKey` và `locale` để service nhận có thể re-render. Field errors (dự trữ) đi bằng `google.rpc.BadRequest.FieldViolations`. Khi `code` rỗng, bridge giữ nguyên hành vi cũ (không gửi details).
+- **Locale propagation**: `grpcx.ContextWithLocale` ghi `x-littlecafe-locale`; server options mặc định gắn unary/stream interceptor đọc metadata vào `context.Context`; client interceptor trong `DialService` tự forward locale từ ctx.
 - **Tương thích**: details là danh sách additive — thêm loại detail mới không phá client cũ; client bỏ qua loại detail không biết. Không dùng message để rẽ nhánh; muốn rẽ nhánh theo lỗi thì so `code`.
 
 ### 1.6 Test
@@ -70,10 +75,10 @@ Hai field debug nằm **ngoài contract**, chỉ xuất hiện khi `SERVER_ENV` 
 ## 2. Handler và response
 
 - Handler trả lỗi theo chữ ký `func(c *gin.Context) error`, bọc bằng `presentation.WrapHandler`.
-- Response thành công dùng `APIResponse{message, data}` qua `presentation.Success` / `Created` / `Accepted`.
+- Response thành công dùng `APIResponse{message, data}` qua `presentation.Success` / `Created` / `Accepted`; dùng `LocalizedSuccess` / `LocalizedCreated` / `LocalizedAccepted` (hoặc `presentation.Message`) với message key để resolve theo locale.
 - HTTP contract-first: route khai báo trong `contracts/openapi/components.yaml` và generate strict server interface bằng `oapi-codegen` (`make openapi-gen`); không tự thêm route trong handler trước contract.
 - **Auth middleware (forward-convention; code do feature Identity implement)**: `Handle()` bắt buộc JWT hợp lệ (401 nếu thiếu/sai), `OptionalHandle()` parse nếu có nhưng không fail khi thiếu. Cả hai set `CtxUserId`/`CtxRoleSlug`/`CtxAccessToken` (`shared/pkg/utils/contextutils`). Phân quyền là middleware riêng `RolesAuthorize(roleslug.ADMIN, roleslug.USER)`; RBAC không thay thế ownership hay Guardian-Child.
-- Message success/error khai báo constant ở đầu file handler (xem §10.3).
+- Message success/error khai báo constant **message key** ở đầu file handler (xem §10.3 và §16).
 
 ## 3. Repository và Unit of Work
 
@@ -134,7 +139,7 @@ Hai cơ chế Redis, chọn theo ngữ nghĩa (không gộp "cho nhất quán"):
 
 - **Shield theo IP (token bucket / GCRA)** — `middleware.RateLimitMiddleware` + `caching.RedisTokenBucketLimiter` (`ITokenBucketLimiter`): throttling mượt, key theo `c.ClientIP()`; `token_limit` = burst, `tokens_per_period`/`replenishment_seconds` = tốc độ refill. Atomic Lua + Redis `TIME` nên chính xác giữa các instance. Fail-open khi Redis lỗi; Nginx `limit_req` vẫn là shield thô ở biên.
 - **Quota nghiệp vụ (fixed window)** — `caching.RedisRateLimiter` (`IRateLimiter.Allow(key, limit, windowSeconds)`): "N lần / chu kỳ" chính xác cho một subject, dùng ở use case và cho login/OTP (`LoginRateLimitMiddleware` của Identity).
-- Vượt hạn mức trả `429` qua `apperror.NewTooManyRequest` với message tiếng Việt.
+- Vượt hạn mức trả `429` qua `apperror.NewTooManyRequest` với message key (`error.rate_limit.exceeded`, `error.login.rate_limit_exceeded`).
 - Config `rate_limit.*` được validate khi boot (`token_limit`, `tokens_per_period`, `replenishment_seconds` phải > 0).
 - `ClientIP()` phải resolve đúng client thật sau proxy/LB (Gin trusted proxy); nếu không mọi user chung một bucket.
 
@@ -153,12 +158,12 @@ Hai cơ chế Redis, chọn theo ngữ nghĩa (không gộp "cho nhất quán"):
 ## 9. Quy ước bổ sung
 
 - JSON DTO client-facing dùng camelCase (`traceId`, `eventType`, `messageId`) — khớp contract đã duyệt.
-- Client-facing message tiếng Việt; identifier/package/field code giữ tiếng Anh.
+- Client-facing message localize (`vi` mặc định, `en` hỗ trợ); identifier/package/field code giữ tiếng Anh. Xem §16.
 - Không tạo entity/route/RPC/event/fixture giả để minh họa.
 
 ## 10. Quy ước constants
 
-Áp dụng cho hằng số enum/domain (status, type, code, key, reason...) trong `shared/` và trong service. Không áp dụng cho message câu tiếng Việt (xem §1), literal của protocol bên thứ ba, và giá trị đã phát hành ra contract/DB.
+Áp dụng cho hằng số enum/domain (status, type, code, key, reason...) trong `shared/` và trong service. Không áp dụng cho message key (xem §16), literal của protocol bên thứ ba, và giá trị đã phát hành ra contract/DB.
 
 ### 10.1 Giá trị string
 
@@ -187,7 +192,7 @@ Hai cơ chế Redis, chọn theo ngữ nghĩa (không gộp "cho nhất quán"):
 | Package | Dùng cho |
 |---|---|
 | `contextutils` | `GetUserId`/`GetUserIdOptional`/`GetRoleSlug`/`GetAccessToken` đọc giá trị auth middleware set trên gin context; key ở `key.go` |
-| `validation` | `BindJSON`/`BindQuery`/`BindURI`, `GetUUIDParam`/`GetStringParam`/`GetInt64Param`; validator `username`, `neqfield`, `password_complexity`, `nfcmax`; message tiếng Việt |
+| `validation` | `BindJSON`/`BindQuery`/`BindURI`, `GetUUIDParam`/`GetStringParam`/`GetInt64Param`; validator `username`, `neqfield`, `password_complexity`, `nfcmax`; message localize theo request locale |
 | `errorutils` | `ToAppError`, `WrapError`, `FilterStackTraceArray`, `PrimaryStackFrame` |
 | `numberutils` | `FormatBytes` |
 | `sliceutils` | `IndexBy`, `UniqueUUIDs`, `UniqueAndSortStrings`, ... |
@@ -195,7 +200,7 @@ Hai cơ chế Redis, chọn theo ngữ nghĩa (không gộp "cho nhất quán"):
 | `cryptoutils` | `Encrypt`/`Decrypt` AES-GCM |
 | `timeutils` | `BusinessLocation`, `FormatAPI`, `GetNow` (Asia/Ho_Chi_Minh) |
 
-Guideline: handler MUST dùng `validation.Bind*` thay `c.ShouldBind*` để có message tiếng Việt nhất quán.
+Guideline: handler MUST dùng `validation.Bind*` thay `c.ShouldBind*` để có message localize nhất quán.
 
 ## 12. Pagination
 
@@ -249,3 +254,53 @@ services/<service>/contract/<owner>/transport/mapper.go
 - Generated client (`contracts/<owner>/.../client`) là adapter mỏng: marshal, gọi stub, map lỗi transport, delegate mapping cho `transport`; MUST NOT import domain enum/constant của owner.
 - Cùng package `transport` dùng lại cho gRPC server trong service → một nguồn mapping duy nhất.
 - Lỗi qua biên service đi qua bridge `contracts/grpcx/errors.go` (xem §1.5).
+
+## 16. Đa ngôn ngữ (i18n)
+
+Phạm vi: mọi nội dung **trả ra client** — response HTTP (Problem Details, validation, success message), email/SMS và nội dung notification. Log nội bộ vẫn tiếng Anh; khi log lỗi API thì log đúng chuỗi đã trả cho client.
+
+### 16.1 Locale
+
+- Hỗ trợ `vi` (mặc định) và `en`; danh sách chuẩn ở `shared/pkg/i18n` (`SupportedLocales`).
+- Nguồn locale: header `Accept-Language`; thiếu hoặc không hỗ trợ → default locale.
+- Response set `Content-Language` và `Vary: Accept-Language`.
+- Negotiation dùng `golang.org/x/text/language` (không thêm dependency mới).
+
+### 16.2 Catalog và message key
+
+- Catalog: `shared/pkg/i18n`, bundle JSON embed (`locales/vi.json`, `locales/en.json`); `Validate()` kiểm tra key-set khớp giữa các locale.
+- Key đặt tên theo namespace: `error.title.*`, `error.*`, `validation.*`, `field.*`, `success.*`, `notification.*`.
+- Key dùng chung khai báo trong `shared/pkg/i18n/keys.go`; message riêng của service đăng ký lúc boot:
+
+```go
+//go:embed locales/*.json
+var bundleFS embed.FS
+
+func registerMessages() {
+    i18n.Default().Register(i18n.VI, viMessages)
+    i18n.Default().Register(i18n.EN, enMessages)
+}
+```
+
+- Bundle của service nằm trong service đó (shared-code ownership); test phải kiểm tra key-set parity và sự tồn tại của mọi key service dùng.
+
+### 16.3 Request flow
+
+- `middleware.LocaleMiddleware` chạy sau `GlobalErrorHandler`, lưu locale vào `context.Context` (`i18n.WithLocale`) và `Content-Language`.
+- Error: `apperror` mang `TitleKey`/`MessageKey`/`MessageArgs`; `GlobalErrorHandler` gọi `Localize(locale)` trước khi serialize.
+- Success: handler dùng `presentation.LocalizedSuccess/Created/Accepted` (message key).
+- Validation: `TranslateValidationError(ctx, err)` resolve message theo locale của request; item trong `errors[]` đã localize.
+- Đọc locale trong handler: `i18n.FromContext(c)` (cần `gin.Engine.ContextWithFallback = true`) hoặc `i18n.FromContext(c.Request.Context())`.
+
+### 16.4 Cross-service và event
+
+- gRPC: locale đi qua metadata `x-littlecafe-locale`; `grpcx.ServerOptionsFromEnv` gắn interceptor đọc locale vào ctx, `DialService` tự forward locale. `ToGRPCErrorWithContext` render theo locale và (khi có `code`) gửi `messageKey`/`locale` trong `ErrorInfo.Metadata`.
+- Event: `EventEnvelope.locale` (AsyncAPI, additive) mang locale của user; consumer gọi `i18n.WithLocale(ctx, locale)` trước khi render notification. Không có locale → default `vi`.
+- Notification/Reporting không đọc DB service khác; locale lấy từ event hoặc preference do owner cung cấp.
+
+### 16.5 Quy ước
+
+- Không hardcode câu client-facing trong handler/use case; luôn dùng key.
+- Không đặt nội dung client-facing trong log message; log message giữ tiếng Anh.
+- Thêm key mới phải thêm đủ `vi` và `en` trong cùng thay đổi; key thiếu bản dịch làm `Catalog.Validate()` fail khi boot/test.
+- Feature đổi hành vi message/header phải cập nhật `specs/<feature>/frontend-guide.md`.
