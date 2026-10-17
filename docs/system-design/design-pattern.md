@@ -196,7 +196,7 @@ Hai cơ chế Redis, chọn theo ngữ nghĩa (không gộp "cho nhất quán"):
 | `errorutils` | `ToAppError`, `WrapError`, `FilterStackTraceArray`, `PrimaryStackFrame` |
 | `numberutils` | `FormatBytes` |
 | `sliceutils` | `IndexBy`, `UniqueUUIDs`, `UniqueAndSortStrings`, ... |
-| `jwtutils` | `GenerateTokenES256`, `ValidateTokenES256`, load EC key |
+| `jwtutils` | `ValidateTokenES256`, load EC public key (verify dùng chung; signer ES256 nằm ở Identity `infrastructure/security/jwtsigner`) |
 | `cryptoutils` | `Encrypt`/`Decrypt` AES-GCM |
 | `timeutils` | `BusinessLocation`, `FormatAPI`, `GetNow` (Asia/Ho_Chi_Minh) |
 

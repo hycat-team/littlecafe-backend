@@ -92,12 +92,12 @@ wire-all:
 
 buf-gen:
 	@echo Generating protobuf stubs into contracts/...
-	@$(if $(strip $(PROTO_FILES)),buf generate,echo No protobuf contracts yet; skipping generation.)
+	@$(if $(strip $(PROTO_FILES)),buf generate,echo "No protobuf contracts yet; skipping generation.")
 	@echo Protobuf generation finished.
 
 buf-lint:
 	@echo Linting protobuf contracts...
-	@$(if $(strip $(PROTO_FILES)),buf lint,echo No protobuf contracts yet; skipping lint.)
+	@$(if $(strip $(PROTO_FILES)),buf lint,echo "No protobuf contracts yet; skipping lint.")
 	@echo Protobuf lint finished.
 
 openapi-gen:
