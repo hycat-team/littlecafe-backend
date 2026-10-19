@@ -15,18 +15,18 @@ CREATE DATABASE littlecafe_ai OWNER littlecafe_ai;
 CREATE DATABASE littlecafe_notification OWNER littlecafe_notification;
 CREATE DATABASE littlecafe_reporting OWNER littlecafe_reporting;
 
-\\connect littlecafe_identity
+\connect littlecafe_identity
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
-\\connect littlecafe_order
+\connect littlecafe_order
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
-\\connect littlecafe_activity
+\connect littlecafe_activity
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
-\\connect littlecafe_wallet
+\connect littlecafe_wallet
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
-\\connect littlecafe_ai
+\connect littlecafe_ai
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS vector;
-\\connect littlecafe_notification
+\connect littlecafe_notification
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
-\\connect littlecafe_reporting
+\connect littlecafe_reporting
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
