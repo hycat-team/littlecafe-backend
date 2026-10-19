@@ -1,5 +1,6 @@
 -- +goose Up
-CREATE EXTENSION IF NOT EXISTS vector;\nCREATE TABLE IF NOT EXISTS outbox_records (
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE TABLE IF NOT EXISTS outbox_records (
     id UUID PRIMARY KEY,
     topic VARCHAR(255) NOT NULL,
     payload JSONB NOT NULL,
