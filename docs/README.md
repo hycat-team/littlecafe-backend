@@ -2,7 +2,7 @@
 
 Tài liệu nghiệp vụ chuẩn nằm trong repository `littlecafe-docs`. Repository này chỉ lưu kiến trúc triển khai, contract machine-readable, hướng dẫn phát triển và vận hành.
 
-Đọc theo thứ tự: [kiến trúc](system-design/architecture.md), [contract](api/contracts.md), [phát triển local](development/local-setup.md), [vận hành](operations/deployment.md).
+Đọc theo thứ tự: [kiến trúc](system-design/architecture.md), [contract](api/contracts.md), [phát triển local](development/local-setup.md), [môi trường](development/environments.md), [vận hành](operations/deployment.md).
 
 ## System design
 

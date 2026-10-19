@@ -17,11 +17,15 @@
 - Before writing or changing code, read the relevant `docs/system-design/` and
   `docs/development/` documents for the task. `docs/system-design/` is the
   agent's source of implementation truth and must stay accurate.
+- Before changing configuration, secrets, environment-specific behavior, or
+  deployment files, read `docs/development/environments.md`.
 
 ### Authoritative sources
 
 - Business requirements, workflows, and ADRs live in the `littlecafe-docs`
   repository.
+- Environment and release policy lives in
+  `littlecafe-docs/deployment/environments.md`.
 - Machine-readable API/event/gRPC contracts live in `contracts/` in this
   repository.
 - Source code and tests are implementation evidence; when they conflict with an
@@ -83,6 +87,17 @@ commands in other documents or skills.
   (Google OAuth in Identity, Brevo email in Notification, payment provider in
   Wallet); `configs/base.yaml` holds shared sections, `configs/<service>.yaml`
   holds service-owned sections.
+- **Environment-aware coding** — follow `docs/development/environments.md`:
+  - Pure constants belong in `configs/`; env holds secrets and values that
+    differ per environment. Never hardcode hosts, ports, URLs, or credentials.
+  - Do not branch business logic on the environment; use config or flags.
+  - When adding or changing a setting, update configs, all env examples,
+    dev/prod/staging Compose, CI Compose validation, and operations docs.
+  - Never commit real secrets; `.env.*` stay on the machine/VPS with mode 600.
+  - Migrations must run on an empty database and stay idempotent; keep the
+    `db-init` and `migrate-only` contracts.
+  - Deployment-behavior changes must update `docs/operations/` and the
+    environment guide.
 - Write tests with the change; run codegen and check drift.
 - If a feature changes an HTTP endpoint, event payload, or client-facing DTO,
   update `specs/<feature>/frontend-guide.md` and only set

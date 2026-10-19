@@ -163,6 +163,7 @@ Each module follows Clean Architecture
 ## Further Reading
 
 - [Documentation index](docs/README.md)
+- [Environments](docs/development/environments.md) — config vs env, secrets, migrations, deployment flow
 - [System design](docs/system-design/architecture.md) — topology, boundaries, events, security
 - [Design patterns](docs/system-design/design-pattern.md) — error shape, handler, repository, worker
 - [Agent workflow](docs/development/agent-workflow.md) and [AGENTS.md](AGENTS.md)
