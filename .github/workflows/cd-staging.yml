@@ -217,22 +217,30 @@ jobs:
           exit 1
 
   smoke-public:
-    name: Smoke public staging API
+    name: Smoke staging API from VPS
     needs: deploy
     runs-on: ubuntu-latest
     environment: staging
     steps:
-      - name: Check public health endpoint
+      - name: Prepare SSH
         shell: bash
-        env:
-          STAGING_HEALTH_URL: ${{ vars.STAGING_HEALTH_URL }}
         run: |
-          url="${STAGING_HEALTH_URL:-https://staging-api.littlecafe.kids:8443/api/v1/health}"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+      - name: Check health endpoint through the staging nginx
+        shell: bash
+        run: |
           for attempt in $(seq 1 12); do
-            if curl --fail --silent --show-error --max-time 15 "${url}" >/dev/null; then
+            if ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+              "curl --fail --silent --show-error --max-time 15 \
+               --resolve staging-api.littlecafe.kids:8443:127.0.0.1 \
+               https://staging-api.littlecafe.kids:8443/api/v1/health" >/dev/null; then
               exit 0
             fi
             sleep 5
           done
-          echo "Public staging API smoke test failed: ${url}"
+          echo "Staging health check through nginx failed"
           exit 1

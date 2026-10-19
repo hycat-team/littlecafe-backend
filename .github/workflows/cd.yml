@@ -225,22 +225,30 @@ jobs:
           exit 1
 
   smoke-public:
-    name: Smoke public API
+    name: Smoke production API from VPS
     needs: deploy
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - name: Check public health endpoint
+      - name: Prepare SSH
         shell: bash
-        env:
-          PRODUCTION_HEALTH_URL: ${{ vars.PRODUCTION_HEALTH_URL }}
         run: |
-          url="${PRODUCTION_HEALTH_URL:-https://api.littlecafe.kids:8444/api/v1/health}"
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+      - name: Check health endpoint through the production nginx
+        shell: bash
+        run: |
           for attempt in $(seq 1 12); do
-            if curl --fail --silent --show-error --max-time 15 "${url}" >/dev/null; then
+            if ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+              "curl --fail --silent --show-error --max-time 15 \
+               --resolve api.littlecafe.kids:8444:127.0.0.1 \
+               https://api.littlecafe.kids:8444/api/v1/health" >/dev/null; then
               exit 0
             fi
             sleep 5
           done
-          echo "Public API smoke test failed: ${url}"
+          echo "Production health check through nginx failed"
           exit 1
