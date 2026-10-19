@@ -114,7 +114,7 @@ services:
     restart: "no"
     mem_limit: 96m
     env_file: ../.env.staging
-    command: ["/app/app", "-migrate-only"]
+    command: ["-migrate-only"]
     environment:
       <<: *runtime-env
       DB_USER: littlecafe_identity
@@ -148,7 +148,7 @@ services:
     restart: "no"
     mem_limit: 96m
     env_file: ../.env.staging
-    command: ["/app/app", "-migrate-only"]
+    command: ["-migrate-only"]
     environment:
       <<: *runtime-env
       DB_USER: littlecafe_order
@@ -181,7 +181,7 @@ services:
     restart: "no"
     mem_limit: 96m
     env_file: ../.env.staging
-    command: ["/app/app", "-migrate-only"]
+    command: ["-migrate-only"]
     environment:
       <<: *runtime-env
       DB_USER: littlecafe_activity
@@ -214,7 +214,7 @@ services:
     restart: "no"
     mem_limit: 96m
     env_file: ../.env.staging
-    command: ["/app/app", "-migrate-only"]
+    command: ["-migrate-only"]
     environment:
       <<: *runtime-env
       DB_USER: littlecafe_wallet
@@ -247,7 +247,7 @@ services:
     restart: "no"
     mem_limit: 96m
     env_file: ../.env.staging
-    command: ["/app/app", "-migrate-only"]
+    command: ["-migrate-only"]
     environment:
       <<: *runtime-env
       DB_USER: littlecafe_ai
@@ -276,7 +276,7 @@ services:
     restart: "no"
     mem_limit: 96m
     env_file: ../.env.staging
-    command: ["/app/app", "-migrate-only"]
+    command: ["-migrate-only"]
     environment:
       <<: *runtime-env
       DB_USER: littlecafe_notification
@@ -305,7 +305,7 @@ services:
     restart: "no"
     mem_limit: 96m
     env_file: ../.env.staging
-    command: ["/app/app", "-migrate-only"]
+    command: ["-migrate-only"]
     environment:
       <<: *runtime-env
       DB_USER: littlecafe_reporting
