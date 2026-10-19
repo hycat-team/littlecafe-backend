@@ -11,6 +11,9 @@ x-security: &security
 
 x-runtime: &runtime
   restart: unless-stopped
+  # Run as the VPS deploy user so deploy-owned secrets (700 dirs, 600 keys)
+  # are readable without making them world-readable.
+  user: "${APP_UID:-1000}:${APP_GID:-1000}"
   env_file: ../.env.production
   environment: &runtime-env
     CONFIG_BASE: configs/base.yaml
