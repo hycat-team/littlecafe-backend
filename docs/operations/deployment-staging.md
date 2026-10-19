@@ -7,7 +7,8 @@ local. Stack chạy độc lập trên VPS, tách khỏi production và khỏi s
 - Nhánh trigger: `develop` (push) hoặc dispatch thủ công.
 - Thư mục trên VPS: `/opt/littlecafe-staging`.
 - URL: `https://staging-api.littlecafe.kids:8443/api/v1`.
-- CORS cho phép `http://localhost:*` và `http://127.0.0.1:*`.
+- CORS đọc `FRONTEND_ORIGINS` (CSV); mặc định staging cho
+  `http://localhost:3000` và `http://127.0.0.1:3000`.
 
 ## Chuẩn bị một lần trên VPS
 

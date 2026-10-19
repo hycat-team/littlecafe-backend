@@ -29,6 +29,7 @@ Tài liệu này là chuẩn cho developer và agent khi viết code, thêm conf
 | Host/endpoint thay đổi theo môi trường | env hoặc Compose `environment` | `DB_HOST`, `REDIS_HOST`, `RABBITMQ_HOST` |
 | Secret | env file trên máy/VPS hoặc file secret | DB password, provider API key, private key path |
 | Định danh môi trường / flag vận hành | env | `APP_MODE`, `SERVER_ENV`, `LOG_LEVEL`, `EMAIL_ENABLED` |
+| CORS frontend origins | `server.frontend_origins` (đọc từ env `FRONTEND_ORIGINS`) | `https://a.example.com,https://b.example.com` |
 | Chỉ dùng cho Compose | Compose hoặc env | `TZ`, mount path, `APP_UID`/`APP_GID` |
 
 Nguyên tắc:
@@ -37,6 +38,8 @@ Nguyên tắc:
 - Chỉ secret và giá trị **thực sự khác theo môi trường** mới đưa vào env.
 - Không hardcode host, port, URL, credential trong code.
 - Không rẽ nhánh business logic theo môi trường; dùng config hoặc feature flag.
+- CORS xử lý ở Go middleware; `FRONTEND_ORIGINS` là danh sách CSV. `*` chỉ hợp
+  lệ ngoài production; production phải liệt kê origin cụ thể.
 
 ### 2.2. Khi thêm hoặc đổi một setting
 
@@ -114,7 +117,7 @@ fail fast khi khởi động.
 ### Staging
 
 - Push `develop` để CD build, migrate, rollout, smoke.
-- Kiểm tra container healthy, health qua nginx, CORS với origin localhost,
+- Kiểm tra container healthy, health qua nginx, CORS theo `FRONTEND_ORIGINS`,
   log không có lỗi cấu hình.
 - Frontend test trên staging trước khi xem xét production.
 
@@ -142,6 +145,8 @@ feature branch -> develop -> CD staging -> verify/UAT
 ```
 
 - Chỉ tag trên `main`.
+- Push chỉ đổi `docs/**` hoặc `*.md` bỏ qua CI và CD staging; sửa workflow vẫn
+  chạy.
 - Rollback: dispatch lại tag/commit cũ hoặc sửa digest trong `.env.deploy` /
   `.env.staging.deploy` rồi `up -d <service>`.
 - Không chạy `down -v` trên production; chỉ dùng cho staging khi reset có chủ ý.

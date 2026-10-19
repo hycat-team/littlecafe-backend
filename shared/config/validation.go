@@ -18,6 +18,20 @@ func validateConfig(cfg *Config) error {
 	if cfg.Server.Port <= 0 || cfg.Server.Port > 65535 {
 		return fmt.Errorf("server.port must be within 1-65535 (got %d)", cfg.Server.Port)
 	}
+	if len(cfg.Server.FrontendOrigins) == 0 {
+		return fmt.Errorf("server.frontend_origins must contain at least one origin")
+	}
+	for _, origin := range cfg.Server.FrontendOrigins {
+		if origin == "*" {
+			if IsProductionEnv(cfg.App.Env) {
+				return fmt.Errorf("server.frontend_origins must not contain * in production")
+			}
+			continue
+		}
+		if !strings.HasPrefix(origin, "http://") && !strings.HasPrefix(origin, "https://") {
+			return fmt.Errorf("server.frontend_origins contains invalid origin %q", origin)
+		}
+	}
 	if strings.TrimSpace(cfg.Database.Host) == "" {
 		return fmt.Errorf("database.host is required")
 	}

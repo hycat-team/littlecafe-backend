@@ -21,6 +21,7 @@ func NewRouter(cfg *config.Config, log logger.Interface, modules []ModuleRouter)
 	engine := gin.New()
 	engine.ContextWithFallback = true
 	engine.Use(gin.Recovery())
+	engine.Use(middleware.CORSMiddleware(cfg.Server.FrontendOrigins))
 	engine.Use(middleware.GlobalErrorHandler(log, cfg.App.Env))
 	engine.Use(middleware.NewLocaleMiddleware(cfg).Handle())
 

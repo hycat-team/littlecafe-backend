@@ -73,7 +73,13 @@ type App struct {
 type Server struct {
 	Port     int `mapstructure:"port"`
 	GRPCPort int `mapstructure:"grpc_port"`
-	SSE      SSE `mapstructure:"sse"`
+	// FrontendOriginsRaw is the comma-separated FRONTEND_ORIGINS value. Use
+	// FrontendOrigins after load; it is normalized and split.
+	FrontendOriginsRaw string `mapstructure:"frontend_origins"`
+	// FrontendOrigins is derived from FrontendOriginsRaw after load. It is not
+	// mapped from YAML/env directly.
+	FrontendOrigins []string `mapstructure:"-"`
+	SSE             SSE      `mapstructure:"sse"`
 }
 
 // Database holds Postgres connection settings.

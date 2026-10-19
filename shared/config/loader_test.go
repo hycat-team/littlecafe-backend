@@ -24,6 +24,7 @@ app:
 server:
   port: 8080
   grpc_port: 9090
+  frontend_origins: http://localhost:3000
 database:
   host: localhost
   port: 5432
@@ -187,4 +188,38 @@ type validatingConfig struct {
 
 func (v *validatingConfig) Validate() error {
 	return os.ErrInvalid
+}
+
+func TestSplitFrontendOrigins(t *testing.T) {
+	got := splitFrontendOrigins(" https://a.example.com/ , ,http://localhost:3000, ")
+	want := []string{"https://a.example.com", "http://localhost:3000"}
+	if len(got) != len(want) {
+		t.Fatalf("splitFrontendOrigins() = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("splitFrontendOrigins()[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+func TestValidateRejectsWildcardOriginInProduction(t *testing.T) {
+	cfg := &Config{}
+	cfg.App.Mode = "all"
+	cfg.App.Env = "production"
+	cfg.Server.Port = 8080
+	cfg.Server.FrontendOrigins = []string{"*"}
+	cfg.Database.Host = "localhost"
+	cfg.Database.Name = "littlecafe_identity"
+	cfg.Database.Port = 5432
+	cfg.Jwt.Algorithm = "ES256"
+	cfg.Jwt.PublicKeyFile = "/tmp/jwt-public.pem"
+	cfg.Outbox.BatchSize = 1
+	cfg.RateLimit.TokenLimit = 1
+	cfg.RateLimit.TokensPerPeriod = 1
+	cfg.RateLimit.ReplenishmentSeconds = 1
+
+	if err := validateConfig(cfg); err == nil {
+		t.Fatal("validateConfig must reject * in production")
+	}
 }

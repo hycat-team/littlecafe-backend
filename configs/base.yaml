@@ -5,6 +5,7 @@ app:
 server:
   port: 8080
   grpc_port: 9090
+  frontend_origins: ${FRONTEND_ORIGINS:-http://localhost:3000}
   sse:
     heartbeat_seconds: 15
     replay_buffer_size: 100

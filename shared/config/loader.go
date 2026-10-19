@@ -73,6 +73,7 @@ func Load(serviceName string, target ServiceConfig) error {
 
 	common := target.Common()
 	applyEnvOverrides(common)
+	common.Server.FrontendOrigins = splitFrontendOrigins(common.Server.FrontendOriginsRaw)
 	if err := validateConfig(common); err != nil {
 		return err
 	}
@@ -120,6 +121,20 @@ func loadLocalDotEnv(configPath string) {
 			return
 		}
 	}
+}
+
+// splitFrontendOrigins parses the comma-separated FRONTEND_ORIGINS value into a
+// normalized list (trimmed, trailing slash removed, empties dropped).
+func splitFrontendOrigins(raw string) []string {
+	parts := strings.Split(raw, ",")
+	origins := make([]string, 0, len(parts))
+	for _, part := range parts {
+		normalized := strings.TrimRight(strings.TrimSpace(part), "/")
+		if normalized != "" {
+			origins = append(origins, normalized)
+		}
+	}
+	return origins
 }
 
 func applyEnvOverrides(cfg *Config) {

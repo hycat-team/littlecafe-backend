@@ -338,9 +338,8 @@ services:
     mem_limit: 48m
     environment:
       API_DOMAIN: ${API_DOMAIN:?API_DOMAIN is required}
-      WEB_ORIGIN: ${WEB_ORIGIN:?WEB_ORIGIN is required}
       HTTPS_PORT: ${HTTPS_PORT:-8443}
-      NGINX_ENVSUBST_FILTER: ^(API_DOMAIN|WEB_ORIGIN|HTTPS_PORT)
+      NGINX_ENVSUBST_FILTER: ^(API_DOMAIN|HTTPS_PORT)
       TZ: Asia/Ho_Chi_Minh
     ports: ["${HTTP_PORT:-8081}:80", "${HTTPS_PORT:-8443}:443"]
     volumes:
