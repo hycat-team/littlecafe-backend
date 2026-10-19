@@ -14,19 +14,13 @@ x-runtime: &runtime
   env_file: ../.env.production
   environment: &runtime-env
     CONFIG_BASE: configs/base.yaml
-    SERVER_PORT: "8080"
     DB_HOST: postgres
-    DB_PORT: "5432"
-    DB_SSLMODE: disable
-    DB_TIMEZONE: Asia/Ho_Chi_Minh
     DB_MIGRATE_ON_START: "false"
     REDIS_HOST: redis
-    REDIS_PORT: "6379"
     RABBITMQ_HOST: rabbitmq
-    RABBITMQ_PORT: "5672"
     JWT_PUBLIC_KEY: /run/littlecafe/jwt/jwt-public.pem
     JWT_PRIVATE_KEY: ""
-    TZ: ${TZ:-Asia/Ho_Chi_Minh}
+    TZ: Asia/Ho_Chi_Minh
   depends_on:
     postgres: {condition: service_healthy}
     redis: {condition: service_healthy}
@@ -47,7 +41,7 @@ services:
       POSTGRES_USER: ${POSTGRES_ADMIN_USER:?POSTGRES_ADMIN_USER is required}
       POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?POSTGRES_ADMIN_PASSWORD is required}
       POSTGRES_DB: postgres
-      TZ: ${TZ:-Asia/Ho_Chi_Minh}
+      TZ: Asia/Ho_Chi_Minh
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -65,7 +59,7 @@ services:
     env_file: ../.env.production
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
-      TZ: ${TZ:-Asia/Ho_Chi_Minh}
+      TZ: Asia/Ho_Chi_Minh
     command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$${REDIS_PASSWORD}\""]
     healthcheck:
       test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep -q PONG"]
@@ -83,7 +77,7 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?RABBITMQ_USER is required}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
-      TZ: ${TZ:-Asia/Ho_Chi_Minh}
+      TZ: Asia/Ho_Chi_Minh
     volumes: ["rabbitmq-data:/var/lib/rabbitmq"]
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
@@ -105,7 +99,7 @@ services:
       PGUSER: ${POSTGRES_ADMIN_USER:?POSTGRES_ADMIN_USER is required}
       PGPASSWORD: ${POSTGRES_ADMIN_PASSWORD:?POSTGRES_ADMIN_PASSWORD is required}
       PGDATABASE: postgres
-      TZ: ${TZ:-Asia/Ho_Chi_Minh}
+      TZ: Asia/Ho_Chi_Minh
     volumes:
       - ./scripts/init-db.sh:/init-db.sh:ro
     entrypoint: ["/bin/sh", "/init-db.sh"]
@@ -140,14 +134,13 @@ services:
       DB_USER: littlecafe_identity
       DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?IDENTITY_DB_PASSWORD is required}
       DB_NAME: littlecafe_identity
-      GRPC_PORT: "9090"
       GRPC_TLS_CA_FILE: /run/littlecafe/certs/ca.crt
       GRPC_TLS_CERT_FILE: /run/littlecafe/certs/identity.crt
       GRPC_TLS_KEY_FILE: /run/littlecafe/certs/identity.key
       JWT_PRIVATE_KEY: /run/littlecafe/jwt/jwt-private.pem
     volumes:
-      - ${CERTS_DIR:-/opt/littlecafe/secrets/certs}:/run/littlecafe/certs:ro
-      - ${JWT_DIR:-/opt/littlecafe/secrets/jwt}:/run/littlecafe/jwt:ro
+      - ${CERTS_DIR:-/opt/littlecafe-secrets/certs}:/run/littlecafe/certs:ro
+      - ${JWT_DIR:-/opt/littlecafe-secrets/jwt}:/run/littlecafe/jwt:ro
 
   migrate-order:
     image: ${ORDER_IMAGE:?ORDER_IMAGE is required}
@@ -175,13 +168,12 @@ services:
       DB_USER: littlecafe_order
       DB_PASSWORD: ${ORDER_DB_PASSWORD:?ORDER_DB_PASSWORD is required}
       DB_NAME: littlecafe_order
-      GRPC_PORT: "9090"
       GRPC_TLS_CA_FILE: /run/littlecafe/certs/ca.crt
       GRPC_TLS_CERT_FILE: /run/littlecafe/certs/order.crt
       GRPC_TLS_KEY_FILE: /run/littlecafe/certs/order.key
     volumes:
-      - ${CERTS_DIR:-/opt/littlecafe/secrets/certs}:/run/littlecafe/certs:ro
-      - ${JWT_DIR:-/opt/littlecafe/secrets/jwt}/jwt-public.pem:/run/littlecafe/jwt/jwt-public.pem:ro
+      - ${CERTS_DIR:-/opt/littlecafe-secrets/certs}:/run/littlecafe/certs:ro
+      - ${JWT_DIR:-/opt/littlecafe-secrets/jwt}/jwt-public.pem:/run/littlecafe/jwt/jwt-public.pem:ro
 
   migrate-activity:
     image: ${ACTIVITY_IMAGE:?ACTIVITY_IMAGE is required}
@@ -209,13 +201,12 @@ services:
       DB_USER: littlecafe_activity
       DB_PASSWORD: ${ACTIVITY_DB_PASSWORD:?ACTIVITY_DB_PASSWORD is required}
       DB_NAME: littlecafe_activity
-      GRPC_PORT: "9090"
       GRPC_TLS_CA_FILE: /run/littlecafe/certs/ca.crt
       GRPC_TLS_CERT_FILE: /run/littlecafe/certs/activity.crt
       GRPC_TLS_KEY_FILE: /run/littlecafe/certs/activity.key
     volumes:
-      - ${CERTS_DIR:-/opt/littlecafe/secrets/certs}:/run/littlecafe/certs:ro
-      - ${JWT_DIR:-/opt/littlecafe/secrets/jwt}/jwt-public.pem:/run/littlecafe/jwt/jwt-public.pem:ro
+      - ${CERTS_DIR:-/opt/littlecafe-secrets/certs}:/run/littlecafe/certs:ro
+      - ${JWT_DIR:-/opt/littlecafe-secrets/jwt}/jwt-public.pem:/run/littlecafe/jwt/jwt-public.pem:ro
 
   migrate-wallet:
     image: ${WALLET_IMAGE:?WALLET_IMAGE is required}
@@ -243,13 +234,12 @@ services:
       DB_USER: littlecafe_wallet
       DB_PASSWORD: ${WALLET_DB_PASSWORD:?WALLET_DB_PASSWORD is required}
       DB_NAME: littlecafe_wallet
-      GRPC_PORT: "9090"
       GRPC_TLS_CA_FILE: /run/littlecafe/certs/ca.crt
       GRPC_TLS_CERT_FILE: /run/littlecafe/certs/wallet.crt
       GRPC_TLS_KEY_FILE: /run/littlecafe/certs/wallet.key
     volumes:
-      - ${CERTS_DIR:-/opt/littlecafe/secrets/certs}:/run/littlecafe/certs:ro
-      - ${JWT_DIR:-/opt/littlecafe/secrets/jwt}/jwt-public.pem:/run/littlecafe/jwt/jwt-public.pem:ro
+      - ${CERTS_DIR:-/opt/littlecafe-secrets/certs}:/run/littlecafe/certs:ro
+      - ${JWT_DIR:-/opt/littlecafe-secrets/jwt}/jwt-public.pem:/run/littlecafe/jwt/jwt-public.pem:ro
 
   migrate-ai:
     image: ${AI_IMAGE:?AI_IMAGE is required}
@@ -278,7 +268,7 @@ services:
       DB_PASSWORD: ${AI_DB_PASSWORD:?AI_DB_PASSWORD is required}
       DB_NAME: littlecafe_ai
     volumes:
-      - ${JWT_DIR:-/opt/littlecafe/secrets/jwt}/jwt-public.pem:/run/littlecafe/jwt/jwt-public.pem:ro
+      - ${JWT_DIR:-/opt/littlecafe-secrets/jwt}/jwt-public.pem:/run/littlecafe/jwt/jwt-public.pem:ro
 
   migrate-notification:
     image: ${NOTIFICATION_IMAGE:?NOTIFICATION_IMAGE is required}
@@ -307,7 +297,7 @@ services:
       DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?NOTIFICATION_DB_PASSWORD is required}
       DB_NAME: littlecafe_notification
     volumes:
-      - ${JWT_DIR:-/opt/littlecafe/secrets/jwt}/jwt-public.pem:/run/littlecafe/jwt/jwt-public.pem:ro
+      - ${JWT_DIR:-/opt/littlecafe-secrets/jwt}/jwt-public.pem:/run/littlecafe/jwt/jwt-public.pem:ro
 
   migrate-reporting:
     image: ${REPORTING_IMAGE:?REPORTING_IMAGE is required}
@@ -336,7 +326,7 @@ services:
       DB_PASSWORD: ${REPORTING_DB_PASSWORD:?REPORTING_DB_PASSWORD is required}
       DB_NAME: littlecafe_reporting
     volumes:
-      - ${JWT_DIR:-/opt/littlecafe/secrets/jwt}/jwt-public.pem:/run/littlecafe/jwt/jwt-public.pem:ro
+      - ${JWT_DIR:-/opt/littlecafe-secrets/jwt}/jwt-public.pem:/run/littlecafe/jwt/jwt-public.pem:ro
 
   nginx:
     image: nginx:alpine
@@ -346,13 +336,12 @@ services:
       API_DOMAIN: ${API_DOMAIN:?API_DOMAIN is required}
       WEB_ORIGIN: ${WEB_ORIGIN:?WEB_ORIGIN is required}
       HTTPS_PORT: ${HTTPS_PORT:-443}
-      NGINX_CLIENT_MAX_BODY_SIZE: ${NGINX_CLIENT_MAX_BODY_SIZE:-20m}
-      NGINX_ENVSUBST_FILTER: ^(API_DOMAIN|WEB_ORIGIN|HTTPS_PORT|NGINX_CLIENT_MAX_BODY_SIZE)
-      TZ: ${TZ:-Asia/Ho_Chi_Minh}
+      NGINX_ENVSUBST_FILTER: ^(API_DOMAIN|WEB_ORIGIN|HTTPS_PORT)
+      TZ: Asia/Ho_Chi_Minh
     ports: ["${HTTP_PORT:-80}:80", "${HTTPS_PORT:-443}:443"]
     volumes:
       - ./nginx/prod.conf:/etc/nginx/templates/default.conf.template:ro
-      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - ${TLS_DIR:-/opt/littlecafe-tls}:/etc/nginx/tls:ro
     depends_on:
       - identity
       - order

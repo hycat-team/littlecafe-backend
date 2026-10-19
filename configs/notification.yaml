@@ -3,9 +3,9 @@
 
 email:
   enabled: ${EMAIL_ENABLED:-true}
-  provider: ${EMAIL_PROVIDER:-brevo}
+  provider: brevo
   api_key: ${BREVO_API_KEY:-}
-  endpoint: ${BREVO_ENDPOINT:-https://api.brevo.com/v3/smtp/email}
-  sender_name: ${EMAIL_SENDER_NAME:-LittleCafe}
-  sender_email: ${EMAIL_SENDER_EMAIL:-no-reply@littlecafe.kids}
-  reply_to: ${EMAIL_REPLY_TO:-}
+  endpoint: https://api.brevo.com/v3/smtp/email
+  sender_name: LittleCafe
+  sender_email: no-reply@littlecafe.kids
+  reply_to: ""

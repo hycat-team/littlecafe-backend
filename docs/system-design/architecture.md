@@ -65,7 +65,7 @@ Trong mỗi module: `presentation → application → domain ← infrastructure`
 
 ## 5. Cấu hình và hạ tầng
 
-- `configs/base.yaml` là template chung; mỗi service merge thêm `configs/<service>.yaml` (section riêng của service), giá trị `${VAR:-default}` được thay bằng biến môi trường qua Viper. `shared/config/validation.go` kiểm tra bắt buộc (port, database, `JWT_ALGORITHM=ES256`, outbox batch size...).
+- `configs/base.yaml` là template chung; mỗi service merge thêm `configs/<service>.yaml` (section riêng của service). Giá trị hằng số (port, giới hạn, timeout, provider) nằm literal trong file config; chỉ secret và giá trị đặc thù môi trường (host, đường dẫn, URL, credential) mới dùng `${VAR}` và được thay qua Viper. `shared/config/validation.go` kiểm tra bắt buộc (port, database, `jwt.algorithm=ES256`, outbox batch size...).
 - **PostgreSQL** (`pgvector/pgvector:pg17`): một instance, 7 database + 7 role tách biệt. `database/init/00-init.sql` chỉ tạo extension (`pgcrypto`, `vector` cho AI) khi volume khởi tạo lần đầu; không tạo bảng.
 - **Redis**: cache, rate limit, cooldown, token blacklist, SSE Pub/Sub. Không phải nguồn dữ liệu authoritative.
 - **RabbitMQ**: event bất đồng bộ theo outbox (xem `event-driven-design.md`).

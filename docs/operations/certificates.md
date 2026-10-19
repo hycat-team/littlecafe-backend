@@ -3,7 +3,7 @@
 Script `deployments/scripts/rotate-mtls-certs.sh` tạo CA riêng, certificate server cho Identity, Order, Activity, Wallet và certificate client. Bắt buộc truyền một đường dẫn tuyệt đối nằm ngoài repository; khi xoay vòng, bộ cũ được đổi tên thành bản backup có timestamp để có thể rollback:
 
 ```sh
-deployments/scripts/rotate-mtls-certs.sh /opt/littlecafe/secrets/certs
+sh deployments/scripts/rotate-mtls-certs.sh /opt/littlecafe-secrets/certs
 ```
 
 Thời hạn mặc định là 90 ngày cho leaf certificate và 10 năm cho CA; có thể chỉnh bằng `LITTLECAFE_CERT_DAYS` và `LITTLECAFE_CA_DAYS`. Sau khi rotate, restart tuần tự client rồi server và chỉ xóa backup sau khi xác nhận toàn bộ kết nối.
@@ -14,11 +14,12 @@ Không commit private key. Production phải fail closed khi mTLS được yêu 
 
 ## JWT key và TLS
 
-- JWT ES256 nằm trong `JWT_DIR` (mặc định `/opt/littlecafe/secrets/jwt` và
-  `/opt/littlecafe-staging/secrets/jwt`). Chỉ Identity mount private key; các
+- JWT ES256 nằm trong `JWT_DIR` (mặc định `/opt/littlecafe-secrets/jwt` và
+  `/opt/littlecafe-staging-secrets/jwt`). Chỉ Identity mount private key; các
   service khác chỉ mount `jwt-public.pem`.
-- TLS của nginx đọc từ `/etc/letsencrypt/live/<API_DOMAIN>/`, mount read-only.
-  Cert cấp/gia hạn độc lập bằng `deployments/scripts/issue-certs.sh` và
-  `deployments/scripts/renew-certs.sh` (lego, DNS-01 Vercel), không phụ thuộc
-  stack khác; xem [deployment-staging.md](deployment-staging.md).
+- TLS của nginx đọc từ `TLS_DIR/<API_DOMAIN>/` (mặc định `/opt/littlecafe-tls`),
+  mount read-only tại `/etc/nginx/tls`. Cert cấp/gia hạn độc lập bằng
+  `deployments/scripts/issue-certs.sh` và `deployments/scripts/renew-certs.sh`
+  (lego, DNS-01 Vercel), không phụ thuộc stack khác; xem
+  [deployment-staging.md](deployment-staging.md).
 

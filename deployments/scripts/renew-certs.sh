@@ -3,7 +3,7 @@ set -eu
 
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 
-"${script_dir}/issue-certs.sh" renew
+sh "${script_dir}/issue-certs.sh" renew
 
 reload_nginx() {
   dir=$1

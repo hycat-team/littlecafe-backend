@@ -9,13 +9,10 @@ x-service-common: &service-common
   environment: &service-env
     CONFIG_BASE: configs/base.yaml
     DB_HOST: postgres
-    DB_PORT: "5432"
     DB_MIGRATE_ON_START: "true"
     REDIS_HOST: redis
-    REDIS_PORT: "6379"
     RABBITMQ_HOST: rabbitmq
-    RABBITMQ_PORT: "5672"
-    TZ: ${TZ:-Asia/Ho_Chi_Minh}
+    TZ: Asia/Ho_Chi_Minh
   depends_on:
     postgres: {condition: service_healthy}
     redis: {condition: service_healthy}
@@ -31,7 +28,7 @@ services:
       POSTGRES_USER: ${POSTGRES_ADMIN_USER}
       POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD}
       POSTGRES_DB: postgres
-      TZ: ${TZ:-Asia/Ho_Chi_Minh}
+      TZ: Asia/Ho_Chi_Minh
     ports: ["5432:5432"]
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -48,7 +45,7 @@ services:
     restart: unless-stopped
     env_file: ../.env
     environment:
-      TZ: ${TZ:-Asia/Ho_Chi_Minh}
+      TZ: Asia/Ho_Chi_Minh
     ports: ["6379:6379"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -64,7 +61,7 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
-      TZ: ${TZ:-Asia/Ho_Chi_Minh}
+      TZ: Asia/Ho_Chi_Minh
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -84,7 +81,6 @@ services:
       DB_USER: littlecafe_identity
       DB_PASSWORD: ${IDENTITY_DB_PASSWORD}
       DB_NAME: littlecafe_identity
-      GRPC_PORT: "9090"
     ports:
       - "8101:8080"
       - "9101:9090"
@@ -101,7 +97,6 @@ services:
       DB_USER: littlecafe_order
       DB_PASSWORD: ${ORDER_DB_PASSWORD}
       DB_NAME: littlecafe_order
-      GRPC_PORT: "9090"
     ports:
       - "8102:8080"
       - "9102:9090"
@@ -118,7 +113,6 @@ services:
       DB_USER: littlecafe_activity
       DB_PASSWORD: ${ACTIVITY_DB_PASSWORD}
       DB_NAME: littlecafe_activity
-      GRPC_PORT: "9090"
     ports:
       - "8103:8080"
       - "9103:9090"
@@ -135,7 +129,6 @@ services:
       DB_USER: littlecafe_wallet
       DB_PASSWORD: ${WALLET_DB_PASSWORD}
       DB_NAME: littlecafe_wallet
-      GRPC_PORT: "9090"
     ports:
       - "8104:8080"
       - "9104:9090"
@@ -185,8 +178,6 @@ services:
     image: nginx:alpine
     profiles: ["full"]
     restart: unless-stopped
-    environment:
-      NGINX_CLIENT_MAX_BODY_SIZE: ${NGINX_CLIENT_MAX_BODY_SIZE:-20m}
     ports: ["8080:80"]
     volumes:
       - ./nginx/local.conf:/etc/nginx/templates/default.conf.template:ro

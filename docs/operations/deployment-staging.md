@@ -11,27 +11,29 @@ local. Stack chạy độc lập trên VPS, tách khỏi production và khỏi s
 
 ## Chuẩn bị một lần trên VPS
 
-1. Tạo thư mục và quyền:
+1. Tạo thư mục secret **ngoài thư mục deploy** (để `rotate-mtls-certs.sh` chấp
+   nhận):
 
    ```bash
-   sudo mkdir -p /opt/littlecafe-staging/secrets/{certs,jwt}
-   sudo chown -R deploy:deploy /opt/littlecafe-staging
+   sudo mkdir -p /opt/littlecafe-secrets/{certs,jwt,acme} /opt/littlecafe-staging-secrets/{certs,jwt} /opt/littlecafe-tls
+   sudo chown -R deploy:deploy /opt/littlecafe-secrets /opt/littlecafe-staging-secrets /opt/littlecafe-tls
    ```
 
 2. Tạo `/opt/littlecafe-staging/.env.staging` từ `.env.staging.example`, thay
    toàn bộ mật khẩu và provider key bằng giá trị thật; `chmod 600`.
 
-3. Sinh mTLS cert riêng cho staging:
+3. Sinh mTLS cert riêng cho staging (chạy từ `/opt/littlecafe`):
 
    ```bash
-   deployments/scripts/rotate-mtls-certs.sh /opt/littlecafe-staging/secrets/certs
+   cd /opt/littlecafe
+   sh deployments/scripts/rotate-mtls-certs.sh /opt/littlecafe-staging-secrets/certs
    ```
 
 4. Sinh cặp JWT ES256 riêng cho staging trong
-   `/opt/littlecafe-staging/secrets/jwt`:
+   `/opt/littlecafe-staging-secrets/jwt`:
 
    ```bash
-   cd /opt/littlecafe-staging/secrets/jwt
+   cd /opt/littlecafe-staging-secrets/jwt
    openssl ecparam -name prime256v1 -genkey -noout -out jwt-private.pem
    openssl ec -in jwt-private.pem -pubout -out jwt-public.pem
    ```
@@ -39,23 +41,30 @@ local. Stack chạy độc lập trên VPS, tách khỏi production và khỏi s
 5. Thêm DNS A record trên Vercel: `staging-api` → IP VPS.
 
 6. Tạo Vercel API token (quyền quản lý DNS `littlecafe.kids`) và lưu vào
-   `/opt/littlecafe/secrets/vercel.token` (`chmod 600`). Cấp cert lần đầu bằng
+   `/opt/littlecafe-secrets/vercel.token` (`chmod 600`). Cấp cert lần đầu bằng
    lego qua DNS-01:
 
    ```bash
-   sudo mkdir -p /etc/letsencrypt/live/staging-api.littlecafe.kids
-   sudo chown -R deploy:deploy /etc/letsencrypt/live/staging-api.littlecafe.kids
-   ACME_EMAIL=<email> deployments/scripts/issue-certs.sh issue
+   printf '%s' '<vercel-token>' > /opt/littlecafe-secrets/vercel.token
+   printf '%s' '<email>' > /opt/littlecafe-secrets/acme/account.email
+   chmod 600 /opt/littlecafe-secrets/vercel.token /opt/littlecafe-secrets/acme/account.email
+
+   cd /opt/littlecafe
+   sh deployments/scripts/issue-certs.sh issue
    ```
 
-   Kiểm tra `/etc/letsencrypt/live/staging-api.littlecafe.kids/` có
-   `fullchain.pem` và `privkey.pem`. Có thể chạy `ACME_EMAIL=<email>` trong
-   cron bằng cách đặt biến trong script hoặc wrapper.
+   Kiểm tra `/opt/littlecafe-tls/staging-api.littlecafe.kids/` có
+   `fullchain.pem` và `privkey.pem`.
 
-7. Mở firewall port `8443` (và `8081` nếu cần):
-   `sudo ufw allow 8443/tcp`.
+7. Mở firewall port `8443` (và `8081`, `8444`, `8082` nếu cần) ở firewall của
+   nhà cung cấp VPS. Docker bypass ufw và `INPUT` thường đang `ACCEPT`, nên ưu
+   tiên mở ở panel provider; nếu provider không có firewall thì mặc định đã mở.
 
-8. Cài cron gia hạn cert gọi `deployments/scripts/renew-certs.sh`.
+8. Cài cron gia hạn cert:
+
+   ```cron
+   0 3 * * * sh /opt/littlecafe/deployments/scripts/renew-certs.sh >> /home/deploy/littlecafe-renew.log 2>&1
+   ```
 
 ## Deploy
 

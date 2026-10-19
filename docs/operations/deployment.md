@@ -20,9 +20,10 @@ littlecafe dùng port riêng và tách hoàn toàn volume/network/secret:
 | Staging | `/opt/littlecafe-staging` | 8081 | 8443 |
 | Production | `/opt/littlecafe` | 8082 | 8444 |
 
-Không publish port Postgres/Redis/RabbitMQ. TLS đọc từ `/etc/letsencrypt`,
-mount read-only vào nginx; cert cấp/gia hạn độc lập bằng lego qua DNS-01 của
-Vercel (xem [deployment-staging.md](deployment-staging.md)).
+Không publish port Postgres/Redis/RabbitMQ. TLS do littlecafe tự quản trong
+`TLS_DIR` (mặc định `/opt/littlecafe-tls`), nginx mount read-only; cert cấp/gia
+hạn độc lập bằng lego qua DNS-01 của Vercel (xem
+[deployment-staging.md](deployment-staging.md)).
 
 ## Luồng CD
 
@@ -106,11 +107,11 @@ docker compose --env-file .env.production --env-file .env.deploy \
 
 ## Certificate
 
-Nginx mount `/etc/letsencrypt` read-only. Cert phải tồn tại trước khi nginx
-khởi động. Cấp cert lần đầu bằng `deployments/scripts/issue-certs.sh` (lego,
-DNS-01 Vercel); gia hạn tự động bằng `deployments/scripts/renew-certs.sh` qua
-cron. Không phụ thuộc stack khác. Chi tiết trong
-[deployment-staging.md](deployment-staging.md) và
+Nginx mount `TLS_DIR` (mặc định `/opt/littlecafe-tls`) read-only tại
+`/etc/nginx/tls`; cert phải tồn tại trước khi nginx khởi động. Cấp cert lần đầu
+bằng `deployments/scripts/issue-certs.sh` (lego, DNS-01 Vercel); gia hạn tự động
+bằng `deployments/scripts/renew-certs.sh` qua cron. Không phụ thuộc stack khác.
+Chi tiết trong [deployment-staging.md](deployment-staging.md) và
 [certificates.md](certificates.md).
 
 ## Rollback

@@ -2,12 +2,13 @@
 set -eu
 
 LEGO_IMAGE=${LEGO_IMAGE:-goacme/lego:v5.5.2}
-LEGO_DATA=${LEGO_DATA:-/opt/littlecafe/secrets/acme}
-LETSENCRYPT_DIR=${LETSENCRYPT_DIR:-/etc/letsencrypt}
-VERCEL_TOKEN_FILE=${VERCEL_TOKEN_FILE:-/opt/littlecafe/secrets/vercel.token}
+LEGO_DATA=${LEGO_DATA:-/opt/littlecafe-secrets/acme}
+TLS_DIR=${TLS_DIR:-/opt/littlecafe-tls}
+VERCEL_TOKEN_FILE=${VERCEL_TOKEN_FILE:-/opt/littlecafe-secrets/vercel.token}
 ACME_EMAIL=${ACME_EMAIL:-}
-ACME_EMAIL_FILE=${ACME_EMAIL_FILE:-/opt/littlecafe/secrets/acme/account.email}
+ACME_EMAIL_FILE=${ACME_EMAIL_FILE:-/opt/littlecafe-secrets/acme/account.email}
 CERT_DOMAINS=${CERT_DOMAINS:-"api.littlecafe.kids staging-api.littlecafe.kids"}
+LEGO_RENEW_DAYS=${LEGO_RENEW_DAYS:-30}
 
 if [ -z "$ACME_EMAIL" ] && [ -f "$ACME_EMAIL_FILE" ]; then
   ACME_EMAIL=$(cat "$ACME_EMAIL_FILE")
@@ -29,8 +30,12 @@ if [ -n "${VERCEL_TEAM_ID:-}" ]; then
   export VERCEL_TEAM_ID
 fi
 
-mkdir -p "$LEGO_DATA" "$LETSENCRYPT_DIR/live"
+# Certificates are installed into a stack-owned directory (no sudo, no
+# dependency on any shared /etc/letsencrypt).
+mkdir -p "$LEGO_DATA" "$TLS_DIR"
 
+# lego v5 keeps all flags under the "run" subcommand and removes the standalone
+# "renew" command: "lego run" gets or renews depending on --renew-days.
 run_lego() {
   docker run --rm \
     --user "$(id -u):$(id -g)" \
@@ -38,12 +43,13 @@ run_lego() {
     -e VERCEL_API_TOKEN \
     ${VERCEL_TEAM_ID:+-e VERCEL_TEAM_ID} \
     "${LEGO_IMAGE}" \
-    --email "$ACME_EMAIL" --dns vercel --accept-tos --path /data "$@"
+    run --email "$ACME_EMAIL" --dns vercel --accept-tos --path /data \
+    --no-bundle --renew-days "$LEGO_RENEW_DAYS" "$@"
 }
 
 install_cert() {
   domain=$1
-  cert_dir="$LETSENCRYPT_DIR/live/$domain"
+  cert_dir="$TLS_DIR/$domain"
   crt="$LEGO_DATA/certificates/$domain.crt"
   key="$LEGO_DATA/certificates/$domain.key"
   issuer="$LEGO_DATA/certificates/$domain.issuer.crt"
@@ -62,41 +68,22 @@ install_cert() {
   cp "$key" "$cert_dir/privkey.pem"
   chmod 644 "$cert_dir/fullchain.pem"
   chmod 600 "$cert_dir/privkey.pem"
-  echo "installed certificate for $domain"
+  echo "installed certificate for $domain at $cert_dir"
 }
 
-issue_missing() {
-  for domain in $CERT_DOMAINS; do
-    if [ ! -f "$LEGO_DATA/certificates/$domain.crt" ]; then
-      echo "issuing certificate for $domain"
-      run_lego --domains "$domain" run
-    fi
-  done
-}
-
-renew_all() {
-  echo "renewing existing certificates"
-  run_lego renew --days 30
+ensure_cert() {
+  domain=$1
+  echo "ensuring certificate for $domain"
+  run_lego --domains "$domain"
+  install_cert "$domain"
 }
 
 command=${1:-issue}
 
 case "$command" in
-  issue)
-    has_existing=0
+  issue|renew)
     for domain in $CERT_DOMAINS; do
-      [ -f "$LEGO_DATA/certificates/$domain.crt" ] && has_existing=1
-    done
-    [ "$has_existing" -eq 1 ] && renew_all
-    issue_missing
-    for domain in $CERT_DOMAINS; do
-      install_cert "$domain"
-    done
-    ;;
-  renew)
-    renew_all
-    for domain in $CERT_DOMAINS; do
-      install_cert "$domain"
+      ensure_cert "$domain"
     done
     ;;
   *)
