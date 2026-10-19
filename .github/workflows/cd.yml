@@ -193,11 +193,20 @@ jobs:
     name: Smoke container ${{ matrix.service }}
     needs: deploy
     runs-on: ubuntu-latest
+    environment: production
     strategy:
       fail-fast: false
       matrix:
         service: [identity, order, activity, wallet, ai, notification, reporting]
     steps:
+      - name: Prepare SSH
+        shell: bash
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
       - name: Wait for service healthcheck
         shell: bash
         run: |
@@ -219,6 +228,7 @@ jobs:
     name: Smoke public API
     needs: deploy
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - name: Check public health endpoint
         shell: bash
