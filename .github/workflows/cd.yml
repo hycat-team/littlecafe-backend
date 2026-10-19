@@ -109,7 +109,10 @@ jobs:
         run: |
           tar -czf /tmp/littlecafe-deploy.tar.gz \
             deployments/docker-compose.prod.yml \
-            deployments/nginx/prod.conf
+            deployments/nginx/prod.conf \
+            deployments/scripts/init-db.sh \
+            deployments/scripts/issue-certs.sh \
+            deployments/scripts/renew-certs.sh
           scp -P "${{ secrets.DEPLOY_PORT }}" /tmp/littlecafe-deploy.tar.gz \
             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/littlecafe-deploy.tar.gz"
       - name: Install deployment files
@@ -125,6 +128,22 @@ jobs:
           printf '%s' "${{ secrets.GHCR_READ_TOKEN }}" | \
             ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
             "docker login ghcr.io -u '${{ secrets.GHCR_USERNAME }}' --password-stdin"
+      - name: Bootstrap production database
+        shell: bash
+        run: |
+          ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "set -e
+             mkdir -p /opt/littlecafe
+             cd /opt/littlecafe
+             touch .env.deploy
+             for S in IDENTITY ORDER ACTIVITY WALLET AI NOTIFICATION REPORTING; do
+               if ! grep -q \"^\${S}_IMAGE=\" .env.deploy; then
+                 lower=\$(printf %s \"\${S}\" | tr '[:upper:]' '[:lower:]')
+                 printf '%s_IMAGE=ghcr.io/hycat-team/littlecafe-backend-%s:latest\\n' \"\${S}\" \"\${lower}\" >> .env.deploy
+               fi
+             done
+             chmod 600 .env.deploy
+             docker compose --env-file .env.production --env-file .env.deploy -f deployments/docker-compose.prod.yml --profile init run --rm db-init"
       - name: Deploy pinned images and migrations
         shell: bash
         env:
@@ -203,13 +222,15 @@ jobs:
     steps:
       - name: Check public health endpoint
         shell: bash
+        env:
+          PRODUCTION_HEALTH_URL: ${{ vars.PRODUCTION_HEALTH_URL }}
         run: |
+          url="${PRODUCTION_HEALTH_URL:-https://api.littlecafe.kids:8444/api/v1/health}"
           for attempt in $(seq 1 12); do
-            if curl --fail --silent --show-error --max-time 15 \
-              "https://api.littlecafe.kids/api/v1/health" >/dev/null; then
+            if curl --fail --silent --show-error --max-time 15 "${url}" >/dev/null; then
               exit 0
             fi
             sleep 5
           done
-          echo "Public API smoke test failed"
+          echo "Public API smoke test failed: ${url}"
           exit 1

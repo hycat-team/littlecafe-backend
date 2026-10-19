@@ -85,9 +85,6 @@ services:
       DB_PASSWORD: ${IDENTITY_DB_PASSWORD}
       DB_NAME: littlecafe_identity
       GRPC_PORT: "9090"
-      GRPC_TLS_CA_FILE: /run/littlecafe/certs/ca.crt
-      GRPC_TLS_CERT_FILE: /run/littlecafe/certs/identity.crt
-      GRPC_TLS_KEY_FILE: /run/littlecafe/certs/identity.key
     ports:
       - "8101:8080"
       - "9101:9090"
@@ -105,9 +102,6 @@ services:
       DB_PASSWORD: ${ORDER_DB_PASSWORD}
       DB_NAME: littlecafe_order
       GRPC_PORT: "9090"
-      GRPC_TLS_CA_FILE: /run/littlecafe/certs/ca.crt
-      GRPC_TLS_CERT_FILE: /run/littlecafe/certs/order.crt
-      GRPC_TLS_KEY_FILE: /run/littlecafe/certs/order.key
     ports:
       - "8102:8080"
       - "9102:9090"
@@ -125,9 +119,6 @@ services:
       DB_PASSWORD: ${ACTIVITY_DB_PASSWORD}
       DB_NAME: littlecafe_activity
       GRPC_PORT: "9090"
-      GRPC_TLS_CA_FILE: /run/littlecafe/certs/ca.crt
-      GRPC_TLS_CERT_FILE: /run/littlecafe/certs/activity.crt
-      GRPC_TLS_KEY_FILE: /run/littlecafe/certs/activity.key
     ports:
       - "8103:8080"
       - "9103:9090"
@@ -145,9 +136,6 @@ services:
       DB_PASSWORD: ${WALLET_DB_PASSWORD}
       DB_NAME: littlecafe_wallet
       GRPC_PORT: "9090"
-      GRPC_TLS_CA_FILE: /run/littlecafe/certs/ca.crt
-      GRPC_TLS_CERT_FILE: /run/littlecafe/certs/wallet.crt
-      GRPC_TLS_KEY_FILE: /run/littlecafe/certs/wallet.key
     ports:
       - "8104:8080"
       - "9104:9090"

@@ -12,3 +12,13 @@ Repository chỉ định contract biến môi trường: `GRPC_TLS_CA_FILE`, `GR
 
 Không commit private key. Production phải fail closed khi mTLS được yêu cầu mà thiếu một trong ba đường dẫn certificate.
 
+## JWT key và TLS
+
+- JWT ES256 nằm trong `JWT_DIR` (mặc định `/opt/littlecafe/secrets/jwt` và
+  `/opt/littlecafe-staging/secrets/jwt`). Chỉ Identity mount private key; các
+  service khác chỉ mount `jwt-public.pem`.
+- TLS của nginx đọc từ `/etc/letsencrypt/live/<API_DOMAIN>/`, mount read-only.
+  Cert cấp/gia hạn độc lập bằng `deployments/scripts/issue-certs.sh` và
+  `deployments/scripts/renew-certs.sh` (lego, DNS-01 Vercel), không phụ thuộc
+  stack khác; xem [deployment-staging.md](deployment-staging.md).
+

@@ -1,11 +1,11 @@
 -- Development bootstrap only. Production credentials are provisioned outside Git.
-CREATE ROLE littlecafe_identity LOGIN PASSWORD 'local_identity_password';
-CREATE ROLE littlecafe_order LOGIN PASSWORD 'local_order_password';
-CREATE ROLE littlecafe_activity LOGIN PASSWORD 'local_activity_password';
-CREATE ROLE littlecafe_wallet LOGIN PASSWORD 'local_wallet_password';
-CREATE ROLE littlecafe_ai LOGIN PASSWORD 'local_ai_password';
-CREATE ROLE littlecafe_notification LOGIN PASSWORD 'local_notification_password';
-CREATE ROLE littlecafe_reporting LOGIN PASSWORD 'local_reporting_password';
+CREATE ROLE littlecafe_identity LOGIN PASSWORD '12345678';
+CREATE ROLE littlecafe_order LOGIN PASSWORD '12345678';
+CREATE ROLE littlecafe_activity LOGIN PASSWORD '12345678';
+CREATE ROLE littlecafe_wallet LOGIN PASSWORD '12345678';
+CREATE ROLE littlecafe_ai LOGIN PASSWORD '12345678';
+CREATE ROLE littlecafe_notification LOGIN PASSWORD '12345678';
+CREATE ROLE littlecafe_reporting LOGIN PASSWORD '12345678';
 
 CREATE DATABASE littlecafe_identity OWNER littlecafe_identity;
 CREATE DATABASE littlecafe_order OWNER littlecafe_order;
@@ -30,4 +30,3 @@ CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 \\connect littlecafe_reporting
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
-

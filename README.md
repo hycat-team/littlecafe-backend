@@ -25,9 +25,10 @@ Module path: `github.com/hycat-team/littlecafe-backend`.
 | Notification | 8106 | - |
 | Reporting | 8107 | - |
 
-Nginx local listens on 8080. Production API is
-`https://api.littlecafe.kids/api/v1`; the public website is
-`https://littlecafe.kids`.
+Nginx local listens on 8080. On a shared VPS the production API is
+`https://api.littlecafe.kids:8444/api/v1` and staging is
+`https://staging-api.littlecafe.kids:8443/api/v1`; on a dedicated VPS use 80/443.
+The public website is `https://littlecafe.kids`.
 
 ---
 
@@ -143,11 +144,18 @@ Each module follows Clean Architecture
 ## Deployment & Operations
 
 - CD workflow `.github/workflows/cd.yml` runs on `v*` tags or manual dispatch,
-  pushes images to GHCR, pins digests in `/opt/littlecafe/.env.deploy`, runs the
-  per-service migration job, and rolls out services behind Nginx.
+  pushes images to GHCR, pins digests in `/opt/littlecafe/.env.deploy`, runs
+  `db-init` plus the per-service migration job, and rolls out services behind
+  Nginx.
+- Staging workflow `.github/workflows/cd-staging.yml` runs on `develop` or manual
+  dispatch, deploys to `/opt/littlecafe-staging`, and serves the frontend at
+  `https://staging-api.littlecafe.kids:8443/api/v1`.
+- On a shared VPS production uses ports 8082/8444 and staging uses 8081/8443 to
+  avoid the stack that already owns 80/443.
 - Rollback: dispatch with the previous commit/tag or restore the image digest and
   re-run `up -d <service>`.
 - Runbooks: [deployment](docs/operations/deployment.md),
+  [staging](docs/operations/deployment-staging.md),
   [certificates](docs/operations/certificates.md).
 
 ---

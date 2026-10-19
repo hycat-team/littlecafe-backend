@@ -1,5 +1,14 @@
 name: littlecafe-prod
 
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+x-security: &security
+  - no-new-privileges:true
+
 x-runtime: &runtime
   restart: unless-stopped
   env_file: ../.env.production
@@ -15,16 +24,24 @@ x-runtime: &runtime
     REDIS_PORT: "6379"
     RABBITMQ_HOST: rabbitmq
     RABBITMQ_PORT: "5672"
+    JWT_PUBLIC_KEY: /run/littlecafe/jwt/jwt-public.pem
+    JWT_PRIVATE_KEY: ""
     TZ: ${TZ:-Asia/Ho_Chi_Minh}
   depends_on:
     postgres: {condition: service_healthy}
     redis: {condition: service_healthy}
     rabbitmq: {condition: service_healthy}
+  mem_limit: 128m
+  stop_grace_period: 30s
+  security_opt: *security
+  logging: *logging
 
 services:
   postgres:
     image: pgvector/pgvector:pg17
     restart: unless-stopped
+    mem_limit: 512m
+    shm_size: 128m
     env_file: ../.env.production
     environment:
       POSTGRES_USER: ${POSTGRES_ADMIN_USER:?POSTGRES_ADMIN_USER is required}
@@ -33,16 +50,18 @@ services:
       TZ: ${TZ:-Asia/Ho_Chi_Minh}
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ../database/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_ADMIN_USER} -d postgres"]
       interval: 10s
       timeout: 5s
       retries: 20
+    security_opt: *security
+    logging: *logging
 
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    mem_limit: 96m
     env_file: ../.env.production
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
@@ -53,10 +72,13 @@ services:
       interval: 10s
       timeout: 5s
       retries: 20
+    security_opt: *security
+    logging: *logging
 
   rabbitmq:
     image: rabbitmq:3-management-alpine
     restart: unless-stopped
+    mem_limit: 384m
     env_file: ../.env.production
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?RABBITMQ_USER is required}
@@ -68,10 +90,35 @@ services:
       interval: 15s
       timeout: 10s
       retries: 20
+    security_opt: *security
+    logging: *logging
+
+  db-init:
+    image: pgvector/pgvector:pg17
+    profiles: ["init"]
+    restart: "no"
+    mem_limit: 64m
+    env_file: ../.env.production
+    environment:
+      PGHOST: postgres
+      PGPORT: "5432"
+      PGUSER: ${POSTGRES_ADMIN_USER:?POSTGRES_ADMIN_USER is required}
+      PGPASSWORD: ${POSTGRES_ADMIN_PASSWORD:?POSTGRES_ADMIN_PASSWORD is required}
+      PGDATABASE: postgres
+      TZ: ${TZ:-Asia/Ho_Chi_Minh}
+    volumes:
+      - ./scripts/init-db.sh:/init-db.sh:ro
+    entrypoint: ["/bin/sh", "/init-db.sh"]
+    depends_on:
+      postgres: {condition: service_healthy}
+    security_opt: *security
+    logging: *logging
 
   migrate-identity:
     image: ${IDENTITY_IMAGE:?IDENTITY_IMAGE is required}
     profiles: ["migrate"]
+    restart: "no"
+    mem_limit: 128m
     env_file: ../.env.production
     command: ["/app/app", "-migrate-only"]
     environment:
@@ -82,6 +129,8 @@ services:
       DB_MIGRATE_ON_START: "true"
     depends_on:
       postgres: {condition: service_healthy}
+    security_opt: *security
+    logging: *logging
 
   identity:
     <<: *runtime
@@ -95,12 +144,16 @@ services:
       GRPC_TLS_CA_FILE: /run/littlecafe/certs/ca.crt
       GRPC_TLS_CERT_FILE: /run/littlecafe/certs/identity.crt
       GRPC_TLS_KEY_FILE: /run/littlecafe/certs/identity.key
+      JWT_PRIVATE_KEY: /run/littlecafe/jwt/jwt-private.pem
     volumes:
       - ${CERTS_DIR:-/opt/littlecafe/secrets/certs}:/run/littlecafe/certs:ro
+      - ${JWT_DIR:-/opt/littlecafe/secrets/jwt}:/run/littlecafe/jwt:ro
 
   migrate-order:
     image: ${ORDER_IMAGE:?ORDER_IMAGE is required}
     profiles: ["migrate"]
+    restart: "no"
+    mem_limit: 128m
     env_file: ../.env.production
     command: ["/app/app", "-migrate-only"]
     environment:
@@ -111,6 +164,8 @@ services:
       DB_MIGRATE_ON_START: "true"
     depends_on:
       postgres: {condition: service_healthy}
+    security_opt: *security
+    logging: *logging
 
   order:
     <<: *runtime
@@ -126,10 +181,13 @@ services:
       GRPC_TLS_KEY_FILE: /run/littlecafe/certs/order.key
     volumes:
       - ${CERTS_DIR:-/opt/littlecafe/secrets/certs}:/run/littlecafe/certs:ro
+      - ${JWT_DIR:-/opt/littlecafe/secrets/jwt}/jwt-public.pem:/run/littlecafe/jwt/jwt-public.pem:ro
 
   migrate-activity:
     image: ${ACTIVITY_IMAGE:?ACTIVITY_IMAGE is required}
     profiles: ["migrate"]
+    restart: "no"
+    mem_limit: 128m
     env_file: ../.env.production
     command: ["/app/app", "-migrate-only"]
     environment:
@@ -140,6 +198,8 @@ services:
       DB_MIGRATE_ON_START: "true"
     depends_on:
       postgres: {condition: service_healthy}
+    security_opt: *security
+    logging: *logging
 
   activity:
     <<: *runtime
@@ -155,10 +215,13 @@ services:
       GRPC_TLS_KEY_FILE: /run/littlecafe/certs/activity.key
     volumes:
       - ${CERTS_DIR:-/opt/littlecafe/secrets/certs}:/run/littlecafe/certs:ro
+      - ${JWT_DIR:-/opt/littlecafe/secrets/jwt}/jwt-public.pem:/run/littlecafe/jwt/jwt-public.pem:ro
 
   migrate-wallet:
     image: ${WALLET_IMAGE:?WALLET_IMAGE is required}
     profiles: ["migrate"]
+    restart: "no"
+    mem_limit: 128m
     env_file: ../.env.production
     command: ["/app/app", "-migrate-only"]
     environment:
@@ -169,6 +232,8 @@ services:
       DB_MIGRATE_ON_START: "true"
     depends_on:
       postgres: {condition: service_healthy}
+    security_opt: *security
+    logging: *logging
 
   wallet:
     <<: *runtime
@@ -184,10 +249,13 @@ services:
       GRPC_TLS_KEY_FILE: /run/littlecafe/certs/wallet.key
     volumes:
       - ${CERTS_DIR:-/opt/littlecafe/secrets/certs}:/run/littlecafe/certs:ro
+      - ${JWT_DIR:-/opt/littlecafe/secrets/jwt}/jwt-public.pem:/run/littlecafe/jwt/jwt-public.pem:ro
 
   migrate-ai:
     image: ${AI_IMAGE:?AI_IMAGE is required}
     profiles: ["migrate"]
+    restart: "no"
+    mem_limit: 128m
     env_file: ../.env.production
     command: ["/app/app", "-migrate-only"]
     environment:
@@ -198,6 +266,8 @@ services:
       DB_MIGRATE_ON_START: "true"
     depends_on:
       postgres: {condition: service_healthy}
+    security_opt: *security
+    logging: *logging
 
   ai:
     <<: *runtime
@@ -207,10 +277,14 @@ services:
       DB_USER: littlecafe_ai
       DB_PASSWORD: ${AI_DB_PASSWORD:?AI_DB_PASSWORD is required}
       DB_NAME: littlecafe_ai
+    volumes:
+      - ${JWT_DIR:-/opt/littlecafe/secrets/jwt}/jwt-public.pem:/run/littlecafe/jwt/jwt-public.pem:ro
 
   migrate-notification:
     image: ${NOTIFICATION_IMAGE:?NOTIFICATION_IMAGE is required}
     profiles: ["migrate"]
+    restart: "no"
+    mem_limit: 128m
     env_file: ../.env.production
     command: ["/app/app", "-migrate-only"]
     environment:
@@ -221,6 +295,8 @@ services:
       DB_MIGRATE_ON_START: "true"
     depends_on:
       postgres: {condition: service_healthy}
+    security_opt: *security
+    logging: *logging
 
   notification:
     <<: *runtime
@@ -230,10 +306,14 @@ services:
       DB_USER: littlecafe_notification
       DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?NOTIFICATION_DB_PASSWORD is required}
       DB_NAME: littlecafe_notification
+    volumes:
+      - ${JWT_DIR:-/opt/littlecafe/secrets/jwt}/jwt-public.pem:/run/littlecafe/jwt/jwt-public.pem:ro
 
   migrate-reporting:
     image: ${REPORTING_IMAGE:?REPORTING_IMAGE is required}
     profiles: ["migrate"]
+    restart: "no"
+    mem_limit: 128m
     env_file: ../.env.production
     command: ["/app/app", "-migrate-only"]
     environment:
@@ -244,6 +324,8 @@ services:
       DB_MIGRATE_ON_START: "true"
     depends_on:
       postgres: {condition: service_healthy}
+    security_opt: *security
+    logging: *logging
 
   reporting:
     <<: *runtime
@@ -253,20 +335,24 @@ services:
       DB_USER: littlecafe_reporting
       DB_PASSWORD: ${REPORTING_DB_PASSWORD:?REPORTING_DB_PASSWORD is required}
       DB_NAME: littlecafe_reporting
+    volumes:
+      - ${JWT_DIR:-/opt/littlecafe/secrets/jwt}/jwt-public.pem:/run/littlecafe/jwt/jwt-public.pem:ro
 
   nginx:
     image: nginx:alpine
     restart: unless-stopped
+    mem_limit: 48m
     environment:
       API_DOMAIN: ${API_DOMAIN:?API_DOMAIN is required}
       WEB_ORIGIN: ${WEB_ORIGIN:?WEB_ORIGIN is required}
+      HTTPS_PORT: ${HTTPS_PORT:-443}
       NGINX_CLIENT_MAX_BODY_SIZE: ${NGINX_CLIENT_MAX_BODY_SIZE:-20m}
-      NGINX_ENVSUBST_FILTER: ^(API_DOMAIN|WEB_ORIGIN|NGINX_CLIENT_MAX_BODY_SIZE)
+      NGINX_ENVSUBST_FILTER: ^(API_DOMAIN|WEB_ORIGIN|HTTPS_PORT|NGINX_CLIENT_MAX_BODY_SIZE)
       TZ: ${TZ:-Asia/Ho_Chi_Minh}
-    ports: ["80:80", "443:443"]
+    ports: ["${HTTP_PORT:-80}:80", "${HTTPS_PORT:-443}:443"]
     volumes:
       - ./nginx/prod.conf:/etc/nginx/templates/default.conf.template:ro
-      - ${TLS_DIR:-/opt/littlecafe/secrets/tls}:/etc/nginx/tls:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - identity
       - order
@@ -275,6 +361,8 @@ services:
       - ai
       - notification
       - reporting
+    security_opt: *security
+    logging: *logging
 
 volumes:
   postgres-data:

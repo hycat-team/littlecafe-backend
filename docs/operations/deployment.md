@@ -1,25 +1,42 @@
 # Triển khai
 
-Production chạy trên một VPS bằng Docker Compose. CI kiểm tra source, contract,
+Production chạy bằng Docker Compose trên một VPS. CI kiểm tra source, contract,
 dependency boundary, image `linux/amd64` và Compose config; CI không push
 image và không chạm production.
 
-CD duy nhất cho VPS là `.github/workflows/cd.yml`. Workflow chạy khi push tag
-`v*` hoặc khi được dispatch thủ công. Khi dispatch, input `services` nhận `all`
-hoặc danh sách phân tách bằng dấu phẩy, ví dụ `identity,order`.
+CD cho VPS là `.github/workflows/cd.yml` (production) và
+`.github/workflows/cd-staging.yml` (staging). Production chạy khi push tag
+`v*` hoặc dispatch thủ công; staging chạy khi push nhánh `develop` hoặc
+dispatch thủ công. Khi dispatch, input `services` nhận `all` hoặc danh sách
+phân tách bằng dấu phẩy, ví dụ `identity,order`.
+
+## Topology trên VPS dùng chung
+
+VPS có thể đang chạy một stack khác đã chiếm 80/443.
+littlecafe dùng port riêng và tách hoàn toàn volume/network/secret:
+
+| Stack | Thư mục | HTTP | HTTPS |
+|---|---|---:|---:|
+| Staging | `/opt/littlecafe-staging` | 8081 | 8443 |
+| Production | `/opt/littlecafe` | 8082 | 8444 |
+
+Không publish port Postgres/Redis/RabbitMQ. TLS đọc từ `/etc/letsencrypt`,
+mount read-only vào nginx; cert cấp/gia hạn độc lập bằng lego qua DNS-01 của
+Vercel (xem [deployment-staging.md](deployment-staging.md)).
 
 ## Luồng CD
 
 ```text
-tag/manual dispatch
+tag/manual dispatch (prod) hoặc push develop (staging)
   -> plan + validate service list
   -> build/push image matrix lên GHCR
   -> resolve digest immutable
-  -> SSH upload compose/nginx files
-  -> update /opt/littlecafe/.env.deploy
+  -> SSH upload compose/nginx/scripts files
+  -> db-init (idempotent) provision role/database/extension
+  -> update .env.deploy / .env.staging.deploy
   -> compose pull -> migration -> up từng service
   -> recreate nginx
-  -> smoke test public health
+  -> smoke test container health + public health
 ```
 
 Mặc định nên deploy `all`, vì các service có quan hệ gRPC và Nginx phụ thuộc
@@ -27,7 +44,8 @@ toàn bộ stack. Deploy lẻ chỉ dùng khi thay đổi service độc lập �
 
 ## GitHub Environment và secrets
 
-Tạo environment `production`, bật Required reviewers nếu muốn có approval gate.
+Tạo hai environment `production` và `staging`, bật Required reviewers nếu muốn
+có approval gate.
 
 Required repository/environment secrets:
 
@@ -41,14 +59,21 @@ Required repository/environment secrets:
 | `GHCR_USERNAME` | Tài khoản đọc GHCR trên VPS |
 | `GHCR_READ_TOKEN` | PAT có quyền `read:packages` |
 
-File `/opt/littlecafe/.env.production` được tạo và quản lý ngoài Git, chứa
-database credentials, provider keys, JWT keys và đường dẫn secret mount. Compose
-nạp file này vào mọi service qua `env_file`; biến bắt buộc khai báo `${VAR:?...}`
-nên thiếu giá trị sẽ fail ngay khi parse compose. Không đưa các giá trị này vào
-GitHub workflow.
+Repository variables tùy chọn:
 
-Workflow tự quản lý `/opt/littlecafe/.env.deploy`. File này chỉ chứa các image
-reference đã pin digest, ví dụ:
+| Variable | Vai trò |
+|---|---|
+| `PRODUCTION_HEALTH_URL` | URL smoke test production (mặc định `https://api.littlecafe.kids:8444/api/v1/health`) |
+| `STAGING_HEALTH_URL` | URL smoke test staging (mặc định `https://staging-api.littlecafe.kids:8443/api/v1/health`) |
+
+File `/opt/littlecafe/.env.production` và `/opt/littlecafe-staging/.env.staging`
+được tạo ngoài Git, chứa database credentials, provider keys, JWT paths và
+đường dẫn secret mount. Compose nạp file này vào mọi service qua `env_file`;
+biến bắt buộc khai báo `${VAR:?...}` nên thiếu giá trị sẽ fail ngay khi parse
+compose. Không đưa các giá trị này vào GitHub workflow.
+
+Workflow tự quản lý `.env.deploy` (prod) và `.env.staging.deploy` (staging).
+File chỉ chứa image reference đã pin digest, ví dụ:
 
 ```text
 IDENTITY_IMAGE=ghcr.io/hycat-team/littlecafe-backend-identity@sha256:<digest>
@@ -57,38 +82,36 @@ IDENTITY_IMAGE=ghcr.io/hycat-team/littlecafe-backend-identity@sha256:<digest>
 Không dùng `docker compose down -v` trên production; thao tác đó xóa volumes
 database. Backup phải bao phủ cả bảy database trước các thay đổi hạ tầng lớn.
 
-## Provision database lần đầu
+## Provision database
 
-`database/init/00-init.sql` chỉ là bootstrap development (compose dev mount vào
-`/docker-entrypoint-initdb.d`). Compose production không mount file này, nên lần
-đầu dựng VPS phải tạo role, database và extension **một lần** bằng tài khoản admin
-trước khi deploy service.
+Bước đầu tiên của mỗi lần deploy chạy service `db-init` (profile `init`) với
+`deployments/scripts/init-db.sh`. Script idempotent: tạo role
+`littlecafe_<service>`, database `littlecafe_<service>`, extension `pgcrypto`
+cho cả bảy database và `vector` cho `littlecafe_ai`. Password lấy từ
+`<SERVICE>_DB_PASSWORD` trong env file tương ứng.
 
-Điều kiện: `/opt/littlecafe/.env.production` đã có `POSTGRES_ADMIN_USER`,
-`POSTGRES_ADMIN_PASSWORD` và password mạnh cho từng service
-(`<SERVICE>_DB_PASSWORD`). `DB_USER`/`DB_NAME` cố định trong compose
-(`littlecafe_<service>`). Password sinh ngoài Git, không commit.
+Không tạo bảng ở bước này. Sau `db-init`, CD chạy job `migrate-<service>`
+(`--profile migrate`) trước rollout service và migration Goose của service mới
+tạo schema.
+
+Nếu cần provision thủ công khi `db-init` lỗi:
 
 ```bash
 cd /opt/littlecafe
-docker compose --env-file .env.production -f deployments/docker-compose.prod.yml up -d postgres
-docker compose --env-file .env.production -f deployments/docker-compose.prod.yml \
-  exec postgres sh -c 'psql -U "$POSTGRES_USER" -d postgres'
+docker compose --env-file .env.production --env-file .env.deploy \
+  -f deployments/docker-compose.prod.yml up -d postgres
+docker compose --env-file .env.production --env-file .env.deploy \
+  -f deployments/docker-compose.prod.yml --profile init run --rm db-init
 ```
 
-Trong phiên `psql`, chạy SQL tương đương `database/init/00-init.sql` nhưng với
-password thật lấy từ `.env.production` (dán trực tiếp vào terminal, không lưu vào
-file trong repo). Với mỗi service trong bảy service: `CREATE ROLE
-littlecafe_<service> LOGIN PASSWORD '...'` rồi `CREATE DATABASE
-littlecafe_<service> OWNER littlecafe_<service>`. Sau đó `\connect` vào từng
-database để `CREATE EXTENSION IF NOT EXISTS pgcrypto`; riêng `littlecafe_ai` thêm
-`CREATE EXTENSION IF NOT EXISTS vector`.
+## Certificate
 
-- Chỉ chạy trên volume mới: `CREATE ROLE`/`CREATE DATABASE` lỗi nếu đã tồn tại.
-- Không tạo bảng ở bước này. CD chạy job `migrate-<service>` (`--profile migrate`)
-  trước rollout service và migration Goose của service mới tạo schema.
-- Đổi password về sau: `ALTER ROLE ... PASSWORD`, cập nhật `.env.production`,
-  rồi recreate service tương ứng.
+Nginx mount `/etc/letsencrypt` read-only. Cert phải tồn tại trước khi nginx
+khởi động. Cấp cert lần đầu bằng `deployments/scripts/issue-certs.sh` (lego,
+DNS-01 Vercel); gia hạn tự động bằng `deployments/scripts/renew-certs.sh` qua
+cron. Không phụ thuộc stack khác. Chi tiết trong
+[deployment-staging.md](deployment-staging.md) và
+[certificates.md](certificates.md).
 
 ## Rollback
 
@@ -106,5 +129,5 @@ Sau rollback phải kiểm tra:
 ```bash
 docker compose --env-file .env.production --env-file .env.deploy \
   -f deployments/docker-compose.prod.yml ps
-curl -fsS https://api.littlecafe.kids/api/v1/health
+curl -fsS https://api.littlecafe.kids:8444/api/v1/health
 ```

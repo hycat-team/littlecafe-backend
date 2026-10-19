@@ -2,12 +2,12 @@ name: CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, develop]
     paths-ignore:
       - "docs/**"
       - "**/*.md"
   push:
-    branches: [main]
+    branches: [main, develop]
     paths-ignore:
       - "docs/**"
       - "**/*.md"
@@ -163,11 +163,15 @@ jobs:
         run: |
           cp .env.example .env
           cp .env.production.example .env.production
+          cp .env.staging.example .env.staging
           for service in identity order activity wallet ai notification reporting; do
             upper=$(printf '%s' "${service}" | tr '[:lower:]' '[:upper:]')
             printf '%s_IMAGE=ghcr.io/hycat-team/littlecafe-backend-%s:ci\n' "${upper}" "${service}" >> .env.deploy
+            printf '%s_IMAGE=ghcr.io/hycat-team/littlecafe-backend-%s:staging-ci\n' "${upper}" "${service}" >> .env.staging.deploy
           done
       - name: Validate local Compose
         run: docker compose -f deployments/docker-compose.yml --env-file .env --profile full config --quiet
       - name: Validate production Compose
         run: docker compose -f deployments/docker-compose.prod.yml --env-file .env.production --env-file .env.deploy config --quiet
+      - name: Validate staging Compose
+        run: docker compose -f deployments/docker-compose.staging.yml --env-file .env.staging --env-file .env.staging.deploy config --quiet
