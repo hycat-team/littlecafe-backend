@@ -11,26 +11,27 @@ import (
 
 // amqpURL builds the broker URL (T065/FR-004): `amqps` when TLS is enabled
 // (managed CloudAMQP), plain `amqp` for self-hosted compatibility. An empty
-// vhost selects the default "/" vhost.
+// vhost selects the default "/" vhost. Credentials are URL-encoded by
+// url.UserPassword so passwords containing reserved characters (for example
+// base64 "/" or "+") do not corrupt the DSN.
 func amqpURL(cfg *config.Config) string {
 	scheme := "amqp"
 	if cfg.RabbitMQ.TLSEnabled {
 		scheme = "amqps"
 	}
 	vhost := strings.TrimSpace(cfg.RabbitMQ.Vhost)
-	if vhost == "" || vhost == "/" {
+	if vhost == "" {
 		vhost = "/"
-	} else {
-		vhost = "/" + url.PathEscape(strings.TrimPrefix(vhost, "/"))
+	} else if !strings.HasPrefix(vhost, "/") {
+		vhost = "/" + vhost
 	}
-	return fmt.Sprintf("%s://%s:%s@%s:%d%s",
-		scheme,
-		cfg.RabbitMQ.User,
-		cfg.RabbitMQ.Password,
-		cfg.RabbitMQ.Host,
-		cfg.RabbitMQ.Port,
-		vhost,
-	)
+	u := &url.URL{
+		Scheme: scheme,
+		Host:   fmt.Sprintf("%s:%d", cfg.RabbitMQ.Host, cfg.RabbitMQ.Port),
+		User:   url.UserPassword(cfg.RabbitMQ.User, cfg.RabbitMQ.Password),
+		Path:   vhost,
+	}
+	return u.String()
 }
 
 // amqpTLSConfig returns the TLS client config for `amqps`, or nil for
