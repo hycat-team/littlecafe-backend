@@ -124,6 +124,7 @@ services:
       DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?IDENTITY_DB_PASSWORD is required}
       DB_NAME: littlecafe_identity
       DB_MIGRATE_ON_START: "true"
+      JWT_PRIVATE_KEY: /run/littlecafe/jwt/jwt-private.pem
     depends_on:
       postgres: {condition: service_healthy}
     security_opt: *security
