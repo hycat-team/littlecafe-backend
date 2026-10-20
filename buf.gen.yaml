@@ -7,11 +7,11 @@
 # check stays clean.
 version: v1
 plugins:
-  - plugin: buf.build/protocolbuffers/go:v1.36.12
-    out: .
-    opt:
-      - paths=source_relative
-  - plugin: buf.build/grpc/go:v1.5.1
-    out: .
-    opt:
-      - paths=source_relative
+    - plugin: buf.build/protocolbuffers/go:v1.36.12
+      out: .
+      opt:
+          - paths=source_relative
+    - plugin: buf.build/grpc/go:v1.5.1
+      out: .
+      opt:
+          - paths=source_relative

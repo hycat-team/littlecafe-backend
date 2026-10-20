@@ -1,0 +1,30 @@
+{
+    "error.title.bad_request": "Thao tác không thành công",
+    "error.title.unauthorized": "Lỗi xác thực",
+    "error.title.forbidden": "Không có quyền truy cập",
+    "error.title.not_found": "Không tìm thấy dữ liệu",
+    "error.title.conflict": "Dữ liệu bị trùng lặp",
+    "error.title.too_many_requests": "Quá nhiều yêu cầu",
+    "error.title.request_entity_too_large": "Dữ liệu gửi lên quá lớn",
+    "error.title.internal": "Lỗi hệ thống",
+    "error.title.service_unavailable": "Dịch vụ tạm thời gián đoạn",
+
+    "error.internal.generic": "Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.",
+    "error.internal.panic": "Hệ thống đang gặp sự cố. Vui lòng thử lại sau ít phút hoặc liên hệ quản trị viên.",
+
+    "error.auth.invalid_token": "Token không hợp lệ",
+    "error.auth.session_expired": "Phiên đăng nhập không hợp lệ hoặc đã hết hạn",
+    "error.auth.required": "Vui lòng đăng nhập",
+    "error.forbidden.access": "Không có quyền truy cập",
+
+    "error.search_index.not_found": "Chỉ mục tìm kiếm chưa tồn tại hoặc đã bị xóa",
+    "error.upstream.unavailable": "Dịch vụ đang bận, vui lòng thử lại sau ít phút.",
+    "error.rate_limit.exceeded": "Bạn đang thao tác quá nhanh. Vui lòng thử lại sau ít phút.",
+    "error.login.rate_limit_exceeded": "Bạn đã thử quá nhiều lần. Vui lòng thử lại sau ít phút.",
+    "error.invalid_uuid": "Định dạng mã nhận diện (UUID) không hợp lệ.",
+    "error.realtime.unsupported": "Trình duyệt hoặc máy chủ không hỗ trợ kết nối thời gian thực.",
+    "error.jwt.missing_public_key": "Thiếu khóa công khai để xác thực phiên làm việc.",
+
+    "error.validation.invalid_format.title": "Dữ liệu không đúng định dạng",
+    "error.validation.invalid_format.detail": "Giá trị số quá lớn hoặc kiểu dữ liệu không hợp lệ"
+}

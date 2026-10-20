@@ -1,80 +1,80 @@
 app:
-  mode: ${APP_MODE:-all}
-  env: ${SERVER_ENV:-development}
+    mode: ${APP_MODE:-all}
+    env: ${SERVER_ENV:-development}
 
 server:
-  port: 8080
-  grpc_port: 9090
-  frontend_origins: ${FRONTEND_ORIGINS:-http://localhost:3000}
-  sse:
-    heartbeat_seconds: 15
-    replay_buffer_size: 100
-    replay_buffer_ttl_seconds: 300
+    port: 8080
+    grpc_port: 9090
+    frontend_origins: ${FRONTEND_ORIGINS:-http://localhost:3000}
+    sse:
+        heartbeat_seconds: 15
+        replay_buffer_size: 100
+        replay_buffer_ttl_seconds: 300
 
 database:
-  host: ${DB_HOST:-localhost}
-  port: 5432
-  user: ${DB_USER:-littlecafe_admin}
-  password: ${DB_PASSWORD:-123456}
-  name: ${DB_NAME:-littlecafe_identity}
-  sslmode: disable
-  timezone: Asia/Ho_Chi_Minh
-  migrate_on_start: ${DB_MIGRATE_ON_START:-false}
+    host: ${DB_HOST:-localhost}
+    port: 5432
+    user: ${DB_USER:-littlecafe_admin}
+    password: ${DB_PASSWORD:-123456}
+    name: ${DB_NAME:-littlecafe_identity}
+    sslmode: disable
+    timezone: Asia/Ho_Chi_Minh
+    migrate_on_start: ${DB_MIGRATE_ON_START:-false}
 jwt:
-  algorithm: ES256
-  public_key_file: ${JWT_PUBLIC_KEY:-}
+    algorithm: ES256
+    public_key_file: ${JWT_PUBLIC_KEY:-}
 
 logger:
-  log_level: ${LOG_LEVEL:-debug}
-  log_to_file: false
-  file_path: logs/app.log
+    log_level: ${LOG_LEVEL:-debug}
+    log_to_file: false
+    file_path: logs/app.log
 
 startup:
-  retry_attempt_1_seconds: 2
-  retry_attempt_2_seconds: 5
-  retry_attempt_3_seconds: 10
+    retry_attempt_1_seconds: 2
+    retry_attempt_2_seconds: 5
+    retry_attempt_3_seconds: 10
 
 redis:
-  host: ${REDIS_HOST:-localhost}
-  port: 6379
-  password: ${REDIS_PASSWORD:-}
-  db: 0
-  tls_enabled: false
+    host: ${REDIS_HOST:-localhost}
+    port: 6379
+    password: ${REDIS_PASSWORD:-}
+    db: 0
+    tls_enabled: false
 
 rate_limit:
-  token_limit: 60
-  tokens_per_period: 60
-  replenishment_seconds: 60
+    token_limit: 60
+    tokens_per_period: 60
+    replenishment_seconds: 60
 
 rabbitmq:
-  host: ${RABBITMQ_HOST:-localhost}
-  port: 5672
-  management_port: 15672
-  user: ${RABBITMQ_USER:-admin}
-  password: ${RABBITMQ_PASSWORD:-123456}
-  vhost: "/"
-  prefetch: 20
-  tls_enabled: false
-  management_tls_enabled: false
+    host: ${RABBITMQ_HOST:-localhost}
+    port: 5672
+    management_port: 15672
+    user: ${RABBITMQ_USER:-admin}
+    password: ${RABBITMQ_PASSWORD:-123456}
+    vhost: "/"
+    prefetch: 20
+    tls_enabled: false
+    management_tls_enabled: false
 
 outbox:
-  retry_max_attempts: 10
-  retry_interval_minutes: 1
-  cleanup_retention_days: 7
-  cleanup_interval_minutes: 60
-  batch_size: 100
-  listener_enabled: true
+    retry_max_attempts: 10
+    retry_interval_minutes: 1
+    cleanup_retention_days: 7
+    cleanup_interval_minutes: 60
+    batch_size: 100
+    listener_enabled: true
 
 cloudinary:
-  cloud_name: ${CLOUDINARY_CLOUD_NAME:-}
-  api_key: ${CLOUDINARY_API_KEY:-}
-  api_secret: ${CLOUDINARY_API_SECRET:-}
-  api_url: https://api.cloudinary.com
-  folder: littlecafe_backend
+    cloud_name: ${CLOUDINARY_CLOUD_NAME:-}
+    api_key: ${CLOUDINARY_API_KEY:-}
+    api_secret: ${CLOUDINARY_API_SECRET:-}
+    api_url: https://api.cloudinary.com
+    folder: littlecafe_backend
 
 admin:
-  audit_retention_months: 24
+    audit_retention_months: 24
 
 i18n:
-  default_locale: ${I18N_DEFAULT_LOCALE:-vi}
-  supported_locales: ${I18N_SUPPORTED_LOCALES:-vi,en}
+    default_locale: ${I18N_DEFAULT_LOCALE:-vi}
+    supported_locales: ${I18N_SUPPORTED_LOCALES:-vi,en}

@@ -1,0 +1,20 @@
+{
+    "validation.required": "Please enter %s",
+    "validation.email": "The email format is invalid",
+    "validation.username": "Username must be 4-20 characters and contain only letters, numbers, dots (.), and underscores (_)",
+    "validation.password_complexity": "%s must be at least 8 characters and include at least one uppercase letter, one lowercase letter, one number, and one special character",
+    "validation.eqfield": "%s must match %s",
+    "validation.nefield": "%s must be different from %s",
+    "validation.len": "%s must be exactly %s characters",
+    "validation.gt": "%s must be greater than %s",
+    "validation.min": "%s must be at least %s characters",
+    "validation.max_int": "%s must not be greater than %s",
+    "validation.max_str": "%s must not exceed %s characters",
+    "validation.datetime": "%s must be a valid date in the format %s",
+    "validation.oneof": "%s must be one of: %s",
+    "validation.numeric": "%s must contain only digits",
+    "validation.default": "%s: %s is invalid",
+    "validation.body_too_large": "The request payload exceeds the limit of %s.",
+    "validation.param.missing": "Missing parameter %s",
+    "validation.param.invalid": "Invalid parameter %s"
+}

@@ -268,7 +268,7 @@ Phạm vi: mọi nội dung **trả ra client** — response HTTP (Problem Detai
 
 ### 16.2 Catalog và message key
 
-- Catalog: `shared/pkg/i18n`, bundle JSON embed (`locales/vi.json`, `locales/en.json`); `Validate()` kiểm tra key-set khớp giữa các locale.
+- Catalog: `shared/pkg/i18n`, bundle JSON embed theo namespace `locales/<locale>/<domain>.json` (`error`, `validation`, `field`, `success`); loader merge tất cả file của locale, từ chối key trùng giữa các file; `Validate()` kiểm tra key-set khớp giữa các locale.
 - Key đặt tên theo namespace: `error.title.*`, `error.*`, `validation.*`, `field.*`, `success.*`, `notification.*`.
 - Key dùng chung khai báo trong `shared/pkg/i18n/keys.go`; message riêng của service đăng ký lúc boot:
 

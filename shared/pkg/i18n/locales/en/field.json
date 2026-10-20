@@ -1,0 +1,17 @@
+{
+    "field.email": "email",
+    "field.username": "username",
+    "field.password": "password",
+    "field.confirmPassword": "password confirmation",
+    "field.fullName": "full name",
+    "field.phoneNumber": "phone number",
+    "field.otp": "OTP code",
+    "field.code": "code",
+    "field.name": "name",
+    "field.title": "title",
+    "field.description": "description",
+    "field.amount": "amount",
+    "field.quantity": "quantity",
+    "field.status": "status",
+    "field.note": "note"
+}

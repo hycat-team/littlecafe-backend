@@ -1,0 +1,30 @@
+{
+    "error.title.bad_request": "Request failed",
+    "error.title.unauthorized": "Authentication error",
+    "error.title.forbidden": "Access denied",
+    "error.title.not_found": "Data not found",
+    "error.title.conflict": "Duplicate data",
+    "error.title.too_many_requests": "Too many requests",
+    "error.title.request_entity_too_large": "Request payload too large",
+    "error.title.internal": "System error",
+    "error.title.service_unavailable": "Service temporarily unavailable",
+
+    "error.internal.generic": "Something went wrong. Please try again later.",
+    "error.internal.panic": "The system is experiencing an issue. Please try again in a few minutes or contact the administrator.",
+
+    "error.auth.invalid_token": "Invalid token",
+    "error.auth.session_expired": "Your session is invalid or has expired",
+    "error.auth.required": "Please sign in",
+    "error.forbidden.access": "You do not have permission to access this resource",
+
+    "error.search_index.not_found": "The search index does not exist or has been deleted",
+    "error.upstream.unavailable": "The service is busy. Please try again in a few minutes.",
+    "error.rate_limit.exceeded": "You are performing actions too quickly. Please try again in a few minutes.",
+    "error.login.rate_limit_exceeded": "You have tried too many times. Please try again in a few minutes.",
+    "error.invalid_uuid": "The identifier (UUID) format is invalid.",
+    "error.realtime.unsupported": "The browser or server does not support realtime connections.",
+    "error.jwt.missing_public_key": "The public key required to verify the session is missing.",
+
+    "error.validation.invalid_format.title": "Invalid data format",
+    "error.validation.invalid_format.detail": "The numeric value is too large or the data type is invalid"
+}
