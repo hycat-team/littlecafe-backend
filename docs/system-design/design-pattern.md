@@ -2,6 +2,10 @@
 
 Tài liệu này mô tả các pattern đang có trong `shared` và cách dùng chúng. Khi code mâu thuẫn với tài liệu này, source là bằng chứng triển khai — báo lại để cập nhật tài liệu, không tự chọn một bên.
 
+> Đọc section liên quan khi implement; không cần đọc toàn bộ file. Ranh giới
+> service, contract map và gRPC transport: [`architecture.md`](architecture.md)
+> §7–8.
+
 ## 1. Error Pattern (RFC 9457)
 
 ### 1.1 Shape canonical
@@ -228,7 +232,13 @@ Quy ước:
 
 ## 14. DTO convention (contract-first)
 
+- OpenAPI, AsyncAPI/JSON Schema và protobuf trong `contracts/` là nguồn
+  machine-readable chuẩn. Không thêm route trong handler trước contract.
 - HTTP Req/Res là **type sinh từ OpenAPI** (`contracts/openapi/generated.gen.go` qua oapi-codegen strict server). Không viết tay Req/Res HTTP trong `application/dto` — contract là nguồn chuẩn, sửa contract rồi generate.
+- URL có major version `/api/v1`; mutation quan trọng yêu cầu `Idempotency-Key`.
+- Cursor pagination là mặc định; offset chỉ dùng cho bảng quản trị.
+- Protobuf chỉ dùng cho read-only cross-service query. Generated code phải
+  commit; CI regenerate và yêu cầu Git diff sạch.
 - `application/dto` giữ các shape không sinh từ OpenAPI: contract payload liên module, event payload, read-model/analytics, alias pagination.
 - Enum/constant không đặt trong `dto`; để ở `domain/constants`.
 - File nhóm theo feature (không tách `_req.go`/`_res.go`, không file một-struct).
@@ -303,4 +313,5 @@ func registerMessages() {
 - Không hardcode câu client-facing trong handler/use case; luôn dùng key.
 - Không đặt nội dung client-facing trong log message; log message giữ tiếng Anh.
 - Thêm key mới phải thêm đủ `vi` và `en` trong cùng thay đổi; key thiếu bản dịch làm `Catalog.Validate()` fail khi boot/test.
-- Feature đổi hành vi message/header phải cập nhật `specs/<feature>/frontend-guide.md`.
+- Feature đổi hành vi message/header phải cập nhật
+  `specs/<owner>-<NNN>-<slug>/frontend-guide.md`.
