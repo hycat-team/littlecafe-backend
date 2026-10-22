@@ -84,3 +84,6 @@ node_modules/
 *.rej
 
 # Project-specific additions below this line
+
+# Machine-local Spec Kit identity. Never commit a developer handle.
+.specify/owner.json

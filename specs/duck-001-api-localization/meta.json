@@ -1,0 +1,11 @@
+{
+  "owner": "duck",
+  "number": 1,
+  "slug": "api-localization",
+  "branch": "feat/api-localization",
+  "kind": "feat",
+  "status": "closed",
+  "services": ["shared"],
+  "description": "API message localization",
+  "opened_at": "2026-10-17"
+}

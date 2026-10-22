@@ -26,6 +26,18 @@ The artifact chain you can expect: `spec.md`, `research.md`, `plan.md`,
 Confirm each one exists before relying on it. If something is missing, report
 that back to the orchestrator rather than inferring its contents.
 
+## Feature Binding (team)
+
+Before the first write, run
+`pwsh scripts/speckit/team-feature.ps1 resolve -Json` and use the returned
+`FEATURE_DIR`, `FEATURE_SPEC`, `IMPL_PLAN`, `TASKS`, `OWNER` and `BRANCH`. If it
+fails, STOP and report the error verbatim. Never infer the feature from the
+newest directory under `specs/`, and never edit `.specify/feature.json`.
+
+Never edit `.agents/skills/**`, `.specify/**`, `scripts/speckit/**`, `shared/`,
+`contracts/`, migration files, or another feature's `specs/**` directory unless
+the delegated task explicitly says so. Report the need instead.
+
 ## Mandatory rules
 
 1. **Comply with `.specify/memory/constitution.md`** — the constitution outranks

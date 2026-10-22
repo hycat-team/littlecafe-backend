@@ -1,7 +1,7 @@
 ---
 name: speckit-orchestrate
 description: "Orchestrate end-to-end Spec Kit delivery for a feature — analyze and fix artifacts until no CRITICAL or HIGH findings remain, implement each phase via subagents, gate and commit once per phase, then converge until nothing is unbuilt. Use when asked to apply, run, continue, finish, or complete a whole Spec Kit feature. Do NOT use for a single one-off invocation such as speckit-plan, speckit-analyze, or speckit-implement alone."
-compatibility: "Requires a Spec Kit project (.specify/), AGENTS.md, docs/development/agent-workflow.md, and a littlecafe-docs checkout for approved requirements."
+compatibility: "Requires a Spec Kit project (.specify/), AGENTS.md, docs/development/spec-kit-workflow.md, and a littlecafe-docs checkout for approved requirements."
 metadata:
   author: "hycat"
   workflow: "spec-kit"
@@ -24,12 +24,14 @@ decide, record it, and keep going. See §9.
 
 ## §0 Load context before acting
 
-Re-read these every run. Never embed them here — a copy inside this skill would
+`AGENTS.md` is normally already in context; do not re-read it every run. Read
+the rest once per run. Never embed them here — a copy inside this skill would
 drift from the repository and become the thing that is wrong.
 
-1. `AGENTS.md` (project root)
+1. `AGENTS.md` (already in context; re-read only if it changed)
 2. `.specify/memory/constitution.md`
-3. `docs/development/agent-workflow.md`
+3. `docs/development/spec-kit-workflow.md`, `docs/development/git-workflow.md`,
+   and `docs/development/gates.md`
 4. `docs/README.md` and the development/contract documents it links to
 5. The approved requirement/workflow/ADR references named by the feature in the
    `littlecafe-docs` checkout (sibling `../littlecafe-docs` unless the user names
@@ -41,15 +43,23 @@ Read them once per run, not once per subagent call. Pass paths, not copies.
 
 ## §1 Resolve the feature
 
-1. A feature number or path from the user is authoritative.
-2. Otherwise resolve the active feature with
-   `pwsh .specify/scripts/powershell/check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks`
-   (add `-RequireSpec` when the analyze step must see `spec.md`); never select the
-   newest directory by convention. `.specify/feature.json` is machine-local state
-   rewritten by that script — do not edit it by hand.
-3. If neither yields a directory containing `spec.md`, `plan.md` and
-   `tasks.md`, STOP and say which `speckit-*` skill must run first. Do not
-   generate the missing artifacts yourself.
+A feature is the branch `feat/<slug>` plus the directory
+`specs/<owner>-<NNN>-<slug>`. There is no repository-wide counter.
+
+1. Run
+   `pwsh scripts/speckit/team-feature.ps1 resolve -Json` from the repo root and
+   take `FEATURE_DIR`, `FEATURE_SPEC`, `IMPL_PLAN`, `TASKS`, `OWNER`,
+   `LOCAL_OWNER`, `NUMBER`, `SLUG` and `BRANCH` from it.
+2. If the user names a feature, it must match the bound branch and directory.
+   One checkout handles one feature at a time; STOP if they differ.
+3. If resolution fails (wrong branch, unbound checkout, `main`), STOP and report
+   the error verbatim. The developer fixes it with `git switch feat/<slug>` or
+   `pwsh scripts/speckit/team-feature.ps1 bind`.
+4. Never select the newest directory under `specs/`, never trust
+   `.specify/feature.json` on its own, and never edit it by hand.
+5. If the resolved directory lacks `spec.md`, `plan.md` or `tasks.md`, say which
+   `speckit-*` skill must run first. Do not generate the missing artifacts
+   yourself.
 
 ## §2 Split of responsibility
 
@@ -62,7 +72,10 @@ Read them once per run, not once per subagent call. Pass paths, not copies.
 | writing and changing code | worker subagent |
 
 Delegate to the `speckit-worker` subagent and require it to load
-`.agents/skills/speckit-worker/SKILL.md`. If a named worker is unavailable,
+`.agents/skills/speckit-worker/SKILL.md`. Workers must not edit
+`.agents/skills/**`, `.specify/**`, `scripts/speckit/**`, `shared/`,
+`contracts/`, migration files, or another feature's `specs/**` directory. If a
+named worker is unavailable,
 fall back to a general subagent, pass the same canonical skill path, and repeat
 that it must not run git, ask the user directly, spawn subagents, or run the
 full close-out gate. Never let a subagent run git or the full close-out gate.
@@ -73,12 +86,13 @@ Heavy targets cost minutes. Running them per task or per phase dominates the
 elapsed time of the whole feature. Budget them.
 
 **Never per task. At most once per phase:** run the scoped phase gate defined by
-`AGENTS.md` for only the packages and contracts touched.
+`docs/development/gates.md` for only the packages and contracts touched.
 
 **Once for the entire feature, in §7:**
 
-- Run the full close-out gate defined by `AGENTS.md` (`make check`). It is not a
-  per-phase gate; it already includes the generate-drift check and the race suite.
+- Run the full close-out gate defined by `docs/development/gates.md`
+  (`make check`). It is not a per-phase gate; it already includes the
+  generate-drift check and the race suite.
 
 **Only when the input actually changed:**
 
@@ -121,9 +135,10 @@ defect and leaves the artifact wrong for the next reader.
 
 ## §6 Gate per phase
 
-Run the cheap scoped gate from `AGENTS.md` once at the end of each phase. Select
-the commands from the actual changed scope; do not duplicate the gate table in
-this skill.
+Run the cheap scoped gate from `docs/development/gates.md` once at the end of
+each phase. Select the commands from the actual changed scope; do not duplicate
+the gate table in this skill. When the phase changes `specs/**`, `meta.json`, or
+team tooling, also run `make team-check`.
 
 A red gate is a hard stop. Report the failure verbatim. Do not loosen the gate,
 skip a test, or work around it to reach a commit.
@@ -166,7 +181,8 @@ artifacts are frozen.
    A surface already handed off follows `READY_FOR_FRONTEND` → `CHANGED` while
    it is revised, then `CHANGED` → `READY_FOR_FRONTEND` after implementation,
    evidence and counted sync complete; frontend acknowledgement is not required.
-5. Run the full close-out gate from `AGENTS.md` **once, at close-out only**.
+5. Run the full close-out gate from `docs/development/gates.md` **once, at
+   close-out only**.
    A required gate that cannot run or is not green is a hard stop, not a skipped
    check. Only optional or non-applicable checks may be reported as skipped.
 6. Treat convergence/close-out as a phase. If it changes feature artifacts,
@@ -205,7 +221,12 @@ Invoking this skill grants standing authorization for these phase commits.
 Before work, capture `git status --short` and verify `HEAD` exists. Without a
 `HEAD`, disable auto-commit for the run because no safe baseline exists.
 
-- Commit only after that phase's §6 gate is green.
+- Commit only after that phase's §6 gate is green, and only while on
+  `feat/<slug>`. Never commit to `main`, `master`, `develop` or another shared
+  branch.
+- Never commit `.specify/owner.json` (machine-local identity) or
+  `.specify/feature.json` (machine-local bind), and never stage another
+  feature's `specs/**` directory.
 - Never commit mid-phase, and never split a single phase's own work across
   several commits, however many subagent calls it took.
 - EXCEPTION — fixups. If a later phase reveals a defect in an earlier phase's

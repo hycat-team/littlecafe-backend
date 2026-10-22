@@ -2,6 +2,7 @@
 
 description: "Task list template for feature implementation"
 ---
+
 # Tasks: [FEATURE NAME]
 
 **Input**: Design documents from `/specs/[###-feature-name]/`
@@ -11,11 +12,13 @@ description: "Task list template for feature implementation"
 **Tests**: The examples below include test tasks. Tests are OPTIONAL - only include them if explicitly requested in the feature specification.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
+
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Can run in parallel (different files, no dependencies)
 - **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
 - Include exact file paths in descriptions
+
 ## Path Conventions
 
 - **Single project**: `src/`, `tests/` at repository root
@@ -26,7 +29,8 @@ description: "Task list template for feature implementation"
 <!--
   ============================================================================
   IMPORTANT: The tasks below are SAMPLE TASKS for illustration purposes only.
-  The __SPECKIT_COMMAND_TASKS__ command MUST replace these with actual tasks based on:
+
+  The $speckit-tasks command MUST replace these with actual tasks based on:
   - User stories from spec.md (with their priorities P1, P2, P3...)
   - Feature requirements from plan.md
   - Entities from data-model.md
@@ -36,9 +40,11 @@ description: "Task list template for feature implementation"
   - Implemented independently
   - Tested independently
   - Delivered as an MVP increment
+
   DO NOT keep these sample tasks in the generated tasks.md file.
   ============================================================================
 -->
+
 ## Phase 1: Setup (Shared Infrastructure)
 
 **Purpose**: Project initialization and basic structure
@@ -48,6 +54,7 @@ description: "Task list template for feature implementation"
 - [ ] T003 [P] Configure linting and formatting tools
 
 ---
+
 ## Phase 2: Foundational (Blocking Prerequisites)
 
 **Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented
@@ -55,6 +62,7 @@ description: "Task list template for feature implementation"
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
 Examples of foundational tasks (adjust based on your project):
+
 - [ ] T004 Setup database schema and migrations framework
 - [ ] T005 [P] Implement authentication/authorization framework
 - [ ] T006 [P] Setup API routing and middleware structure
@@ -65,6 +73,7 @@ Examples of foundational tasks (adjust based on your project):
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
 ---
+
 ## Phase 3: User Story 1 - [Title] (Priority: P1) 🎯 MVP
 
 **Goal**: [Brief description of what this story delivers]
@@ -77,6 +86,7 @@ Examples of foundational tasks (adjust based on your project):
 
 - [ ] T010 [P] [US1] Contract test for [endpoint] in tests/contract/test_[name].py
 - [ ] T011 [P] [US1] Integration test for [user journey] in tests/integration/test_[name].py
+
 ### Implementation for User Story 1
 
 - [ ] T012 [P] [US1] Create [Entity1] model in src/models/[entity1].py
@@ -85,9 +95,11 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] T015 [US1] Implement [endpoint/feature] in src/[location]/[file].py
 - [ ] T016 [US1] Add validation and error handling
 - [ ] T017 [US1] Add logging for user story 1 operations
+
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
 ---
+
 ## Phase 4: User Story 2 - [Title] (Priority: P2)
 
 **Goal**: [Brief description of what this story delivers]
@@ -98,6 +110,7 @@ Examples of foundational tasks (adjust based on your project):
 
 - [ ] T018 [P] [US2] Contract test for [endpoint] in tests/contract/test_[name].py
 - [ ] T019 [P] [US2] Integration test for [user journey] in tests/integration/test_[name].py
+
 ### Implementation for User Story 2
 
 - [ ] T020 [P] [US2] Create [Entity] model in src/models/[entity].py
@@ -108,6 +121,7 @@ Examples of foundational tasks (adjust based on your project):
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
 
 ---
+
 ## Phase 5: User Story 3 - [Title] (Priority: P3)
 
 **Goal**: [Brief description of what this story delivers]
@@ -118,6 +132,7 @@ Examples of foundational tasks (adjust based on your project):
 
 - [ ] T024 [P] [US3] Contract test for [endpoint] in tests/contract/test_[name].py
 - [ ] T025 [P] [US3] Integration test for [user journey] in tests/integration/test_[name].py
+
 ### Implementation for User Story 3
 
 - [ ] T026 [P] [US3] Create [Entity] model in src/models/[entity].py
@@ -131,6 +146,7 @@ Examples of foundational tasks (adjust based on your project):
 [Add more user story phases as needed, following the same pattern]
 
 ---
+
 ## Phase N: Polish & Cross-Cutting Concerns
 
 **Purpose**: Improvements that affect multiple user stories
@@ -142,32 +158,10 @@ Examples of foundational tasks (adjust based on your project):
 - [ ] TXXX Security hardening
 - [ ] TXXX Run quickstart.md validation
 
-### Frontend handoff decision *(required)*
-
-Giữ đúng nhánh phù hợp và xóa nhánh còn lại khi sinh `tasks.md`:
-
-- [ ] TXXX **Không đổi client surface**: xác nhận feature không thêm, sửa hoặc
-      xóa HTTP endpoint, event payload hay DTO client-facing; không tạo
-      `frontend-guide.md`.
-- [ ] TXXX **Có đổi client surface**: tạo hoặc cập nhật
-      `specs/<feature>/frontend-guide.md` từ
-      `.specify/templates/frontend-guide-template.md`; ghi delta before → after,
-      contract canonical, auth, error, idempotency, pagination, realtime,
-      compatibility và test evidence.
-- [ ] TXXX **Đồng bộ frontend guide ở close-out**: đối chiếu contract/source,
-      điền số route, field, enum và status/error đã kiểm; chỉ đặt
-      `READY_FOR_FRONTEND` khi mọi evidence và sync checkbox hoàn tất.
-
-### Phát hiện ngoài phạm vi *(required when applicable)*
-
-- [ ] TXXX Chuyển finding thật sự ngoài feature vào
-      `specs/<feature>/deferred.md` theo deferred template, ghi vấn đề, ranh giới,
-      điều kiện gỡ và task đã tick bị ảnh hưởng. Không chuyển in-scope work sang
-      deferred và không để finding ngoài scope thành task chưa tick của feature.
-
 ---
 
 ## Dependencies & Execution Order
+
 ### Phase Dependencies
 
 - **Setup (Phase 1)**: No dependencies - can start immediately
@@ -176,11 +170,13 @@ Giữ đúng nhánh phù hợp và xóa nhánh còn lại khi sinh `tasks.md`:
   - User stories can then proceed in parallel (if staffed)
   - Or sequentially in priority order (P1 → P2 → P3)
 - **Polish (Final Phase)**: Depends on all desired user stories being complete
+
 ### User Story Dependencies
 
 - **User Story 1 (P1)**: Can start after Foundational (Phase 2) - No dependencies on other stories
 - **User Story 2 (P2)**: Can start after Foundational (Phase 2) - May integrate with US1 but should be independently testable
 - **User Story 3 (P3)**: Can start after Foundational (Phase 2) - May integrate with US1/US2 but should be independently testable
+
 ### Within Each User Story
 
 - Tests (if included) MUST be written and FAIL before implementation
@@ -188,6 +184,7 @@ Giữ đúng nhánh phù hợp và xóa nhánh còn lại khi sinh `tasks.md`:
 - Services before endpoints
 - Core implementation before integration
 - Story complete before moving to next priority
+
 ### Parallel Opportunities
 
 - All Setup tasks marked [P] can run in parallel
@@ -198,6 +195,7 @@ Giữ đúng nhánh phù hợp và xóa nhánh còn lại khi sinh `tasks.md`:
 - Different user stories can be worked on in parallel by different team members
 
 ---
+
 ## Parallel Example: User Story 1
 
 ```bash
@@ -213,6 +211,7 @@ Task: "Create [Entity2] model in src/models/[entity2].py"
 ---
 
 ## Implementation Strategy
+
 ### MVP First (User Story 1 Only)
 
 1. Complete Phase 1: Setup
@@ -220,6 +219,7 @@ Task: "Create [Entity2] model in src/models/[entity2].py"
 3. Complete Phase 3: User Story 1
 4. **STOP and VALIDATE**: Test User Story 1 independently
 5. Deploy/demo if ready
+
 ### Incremental Delivery
 
 1. Complete Setup + Foundational → Foundation ready
@@ -227,6 +227,7 @@ Task: "Create [Entity2] model in src/models/[entity2].py"
 3. Add User Story 2 → Test independently → Deploy/Demo
 4. Add User Story 3 → Test independently → Deploy/Demo
 5. Each story adds value without breaking previous stories
+
 ### Parallel Team Strategy
 
 With multiple developers:
@@ -239,13 +240,13 @@ With multiple developers:
 3. Stories complete and integrate independently
 
 ---
+
 ## Notes
 
 - [P] tasks = different files, no dependencies
 - [Story] label maps task to specific user story for traceability
 - Each user story should be independently completable and testable
 - Verify tests fail before implementing
-- Khi chạy `$speckit-orchestrate`, commit đúng một lần sau mỗi phase đã qua gate;
-  worker và command chạy độc lập không tự commit
+- Commit after each task or logical group
 - Stop at any checkpoint to validate story independently
 - Avoid: vague tasks, same file conflicts, cross-story dependencies that break independence
