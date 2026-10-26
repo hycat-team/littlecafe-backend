@@ -79,6 +79,23 @@ jobs:
                     services/*/go.sum
             - run: make test TEST_FLAGS=-short
 
+    coverage:
+        name: Coverage gate
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v5
+            - uses: actions/setup-go@v6
+              with:
+                  go-version: ${{ env.GO_VERSION }}
+                  cache: true
+                  cache-dependency-path: |
+                    go.work.sum
+                    shared/go.sum
+                    contracts/go.sum
+                    services/*/go.sum
+            - name: Enforce business statement coverage
+              run: make coverage-check TEST_FLAGS=-short
+
     test-race:
         name: Race detector
         runs-on: ubuntu-latest
@@ -111,7 +128,7 @@ jobs:
                     services/*/go.sum
             - uses: actions/setup-node@v5
               with:
-                  node-version: "22"
+                  node-version: "24"
             - name: Install Buf
               shell: bash
               run: |
@@ -129,7 +146,7 @@ jobs:
 
     image-build:
         name: Validate image ${{ matrix.service }}
-        needs: [static, vet, test, contracts]
+        needs: [static, vet, test, contracts, coverage]
         runs-on: ubuntu-latest
         strategy:
             fail-fast: false

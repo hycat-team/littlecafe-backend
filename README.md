@@ -57,6 +57,8 @@ Copy-Item .env.example .env
 docker compose -f deployments/docker-compose.yml --profile infra up -d
 make generate
 make test
+make test-cover
+make coverage-check
 make build-all
 ```
 
