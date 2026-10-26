@@ -2,6 +2,7 @@ package presentation
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 
 	"github.com/hycat-team/littlecafe-backend/shared/application/sse"
@@ -59,8 +60,17 @@ func (r *SSERelay) consume(ctx context.Context) {
 			if streamId == "" {
 				continue
 			}
+			var event sse.Event
+			if err := json.Unmarshal([]byte(msg.Payload), &event); err != nil {
+				sse.IncRealtimeRelayFailed()
+				r.log.Warn("realtime relay decode failed",
+					zap.String("stream_id", streamId),
+					zap.Error(err),
+				)
+				continue
+			}
 			sse.IncRealtimeRelayTotal()
-			r.manager.Publish(streamId, []byte(msg.Payload))
+			r.manager.Publish(streamId, event)
 		}
 	}
 }

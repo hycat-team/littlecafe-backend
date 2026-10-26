@@ -1,6 +1,9 @@
 package middleware
 
 import (
+	"math"
+	"strconv"
+
 	"github.com/hycat-team/littlecafe-backend/shared/application/constants/apperror"
 	shared_caching "github.com/hycat-team/littlecafe-backend/shared/application/interface/caching"
 	"github.com/hycat-team/littlecafe-backend/shared/config"
@@ -42,12 +45,26 @@ func NewRateLimitMiddleware(cfg *config.Config, limiter shared_caching.ITokenBuc
 // Handle enforces the general API rule.
 func (m *RateLimitMiddleware) Handle() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		allowed, err := m.limiter.Allow(c.Request.Context(), m.keyPrefix+c.ClientIP(), m.burst, m.refillPerSec)
+		state, err := m.limiter.Allow(c.Request.Context(), m.keyPrefix+c.ClientIP(), m.burst, m.refillPerSec)
 		if err != nil {
+			// Fail open to preserve availability; Nginx limit_req remains the
+			// outer flood shield.
 			c.Next()
 			return
 		}
-		if !allowed {
+
+		c.Header("X-RateLimit-Limit", strconv.Itoa(m.burst))
+		c.Header("X-RateLimit-Remaining", strconv.Itoa(state.Remaining))
+		if !state.Reset.IsZero() {
+			c.Header("X-RateLimit-Reset", strconv.FormatInt(state.Reset.Unix(), 10))
+		}
+
+		if !state.Allowed {
+			retryAfter := int64(math.Ceil(state.RetryAfter.Seconds()))
+			if retryAfter < 1 {
+				retryAfter = 1
+			}
+			c.Header("Retry-After", strconv.FormatInt(retryAfter, 10))
 			c.Error(apperror.NewTooManyRequest(i18n.ErrorRateLimitExceeded))
 			c.Abort()
 			return

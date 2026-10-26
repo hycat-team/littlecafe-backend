@@ -24,6 +24,10 @@
     "error.invalid_uuid": "Định dạng mã nhận diện (UUID) không hợp lệ.",
     "error.realtime.unsupported": "Trình duyệt hoặc máy chủ không hỗ trợ kết nối thời gian thực.",
     "error.jwt.missing_public_key": "Thiếu khóa công khai để xác thực phiên làm việc.",
+    "error.idempotency.key_required": "Yêu cầu này bắt buộc phải có Idempotency-Key.",
+    "error.idempotency.in_flight": "Yêu cầu có cùng Idempotency-Key đang được xử lý. Vui lòng thử lại sau.",
+    "error.idempotency.payload_mismatch": "Idempotency-Key đã được dùng với nội dung yêu cầu khác.",
+    "error.idempotency.unavailable": "Không thể kiểm tra Idempotency-Key lúc này. Vui lòng thử lại sau.",
 
     "error.validation.invalid_format.title": "Dữ liệu không đúng định dạng",
     "error.validation.invalid_format.detail": "Giá trị số quá lớn hoặc kiểu dữ liệu không hợp lệ"

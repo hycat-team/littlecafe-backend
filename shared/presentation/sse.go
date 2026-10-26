@@ -3,12 +3,14 @@ package presentation
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"sync/atomic"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/hycat-team/littlecafe-backend/shared/application/constants/apperror"
+	"github.com/hycat-team/littlecafe-backend/shared/application/sse"
 	"github.com/hycat-team/littlecafe-backend/shared/pkg/i18n"
 )
 
@@ -62,4 +64,35 @@ func InitSSE(c *gin.Context) (http.Flusher, error) {
 func ExtendSSEWriteDeadline(c *gin.Context) {
 	rc := http.NewResponseController(c.Writer)
 	_ = rc.SetWriteDeadline(time.Now().Add(currentChunkDeadline()))
+}
+
+// LastEventID returns the resume cursor sent by the SSE client.
+func LastEventID(c *gin.Context) string {
+	return c.GetHeader("Last-Event-ID")
+}
+
+// WriteSSE writes one event using the SSE wire format and flushes it. Event.Data
+// must contain JSON; embedded newlines are emitted as multiple data lines.
+func WriteSSE(c *gin.Context, flusher http.Flusher, event sse.Event) error {
+	if event.ID != "" {
+		if _, err := fmt.Fprintf(c.Writer, "id: %s\n", event.ID); err != nil {
+			return err
+		}
+	}
+	if event.Name != "" {
+		if _, err := fmt.Fprintf(c.Writer, "event: %s\n", event.Name); err != nil {
+			return err
+		}
+	}
+	for _, line := range strings.Split(string(event.Data), "\n") {
+		if _, err := fmt.Fprintf(c.Writer, "data: %s\n", line); err != nil {
+			return err
+		}
+	}
+	if _, err := fmt.Fprint(c.Writer, "\n"); err != nil {
+		return err
+	}
+	flusher.Flush()
+	ExtendSSEWriteDeadline(c)
+	return nil
 }

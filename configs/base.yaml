@@ -46,6 +46,9 @@ rate_limit:
     tokens_per_period: 60
     replenishment_seconds: 60
 
+idempotency:
+    ttl_hours: 24
+
 rabbitmq:
     host: ${RABBITMQ_HOST:-localhost}
     port: 5672

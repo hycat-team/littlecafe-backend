@@ -7,3 +7,6 @@ rules:
     # No public license URL has been approved for this private repository.
     info-license: off
     info-license-strict: off
+    # API authoring rules. They apply as soon as the first path is added.
+    operation-operationId: error
+    operation-operationId-unique: error

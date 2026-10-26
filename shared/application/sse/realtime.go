@@ -7,7 +7,7 @@ import "context"
 // Implementations MUST treat delivery as best-effort: transport failures are
 // logged and swallowed, never propagated to the caller.
 type IRealtimePublisher interface {
-	Publish(ctx context.Context, streamId string, data []byte) error
+	Publish(ctx context.Context, streamId string, event Event) error
 }
 
 // IRealtimeRelay subscribes to the shared realtime channel and forwards

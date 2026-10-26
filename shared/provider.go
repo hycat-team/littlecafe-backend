@@ -26,6 +26,7 @@ var ProviderSet = wire.NewSet(
 	infra_caching.NewRedisRateLimiter,
 	infra_caching.NewRedisTokenBucketLimiter,
 	infra_caching.NewRedisCooldownService,
+	infra_caching.NewRedisIdempotencyStore,
 	messaging.NewOutboxRepository,
 	messaging.NewRabbitMQClient,
 	messaging.NewOutboxGaugeProbe,

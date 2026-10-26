@@ -9,19 +9,20 @@ import (
 // sections live in that service's config package and are merged from the
 // service overlay (configs/<service>.yaml).
 type Config struct {
-	App        App          `mapstructure:"app"`
-	Server     Server       `mapstructure:"server"`
-	Database   Database     `mapstructure:"database"`
-	Jwt        Jwt          `mapstructure:"jwt"`
-	Logger     Logger       `mapstructure:"logger"`
-	Startup    Startup      `mapstructure:"startup"`
-	Redis      Redis        `mapstructure:"redis"`
-	RateLimit  RateLimit    `mapstructure:"rate_limit"`
-	RabbitMQ   RabbitMQ     `mapstructure:"rabbitmq"`
-	Outbox     OutboxConfig `mapstructure:"outbox"`
-	Cloudinary Cloudinary   `mapstructure:"cloudinary"`
-	Admin      AdminConfig  `mapstructure:"admin"`
-	I18n       I18n         `mapstructure:"i18n"`
+	App         App          `mapstructure:"app"`
+	Server      Server       `mapstructure:"server"`
+	Database    Database     `mapstructure:"database"`
+	Jwt         Jwt          `mapstructure:"jwt"`
+	Logger      Logger       `mapstructure:"logger"`
+	Startup     Startup      `mapstructure:"startup"`
+	Redis       Redis        `mapstructure:"redis"`
+	RateLimit   RateLimit    `mapstructure:"rate_limit"`
+	Idempotency Idempotency  `mapstructure:"idempotency"`
+	RabbitMQ    RabbitMQ     `mapstructure:"rabbitmq"`
+	Outbox      OutboxConfig `mapstructure:"outbox"`
+	Cloudinary  Cloudinary   `mapstructure:"cloudinary"`
+	Admin       AdminConfig  `mapstructure:"admin"`
+	I18n        I18n         `mapstructure:"i18n"`
 }
 
 // Redis holds cache/rate-limit connection settings.
@@ -38,6 +39,11 @@ type RateLimit struct {
 	TokenLimit           int `mapstructure:"token_limit"`
 	TokensPerPeriod      int `mapstructure:"tokens_per_period"`
 	ReplenishmentSeconds int `mapstructure:"replenishment_seconds"`
+}
+
+// Idempotency configures the Redis idempotency store.
+type Idempotency struct {
+	TTLHours int `mapstructure:"ttl_hours"`
 }
 
 // RabbitMQ holds broker connection settings.

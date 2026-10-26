@@ -14,23 +14,100 @@ const (
 	Vi AcceptLanguage = "vi"
 )
 
+// AdminPage defines model for AdminPage.
+type AdminPage struct {
+	// Items Page items. Empty pages return [] and never null.
+	Items      []interface{} `json:"items"`
+	Limit      int           `json:"limit"`
+	Page       int           `json:"page"`
+	TotalItems int64         `json:"totalItems"`
+}
+
+// CursorPage defines model for CursorPage.
+type CursorPage struct {
+	// HasMore Whether another page exists.
+	HasMore bool `json:"hasMore"`
+
+	// Items Page items. Empty pages return [] and never null.
+	Items []interface{} `json:"items"`
+
+	// NextCursor Opaque base64url cursor for the next page. Omitted when hasMore is false.
+	NextCursor *string `json:"nextCursor,omitempty"`
+}
+
 // ProblemDetails defines model for ProblemDetails.
 type ProblemDetails struct {
-	Code   *string `json:"code,omitempty"`
-	Detail *string `json:"detail,omitempty"`
-	Errors *[]struct {
-		Field   string `json:"field"`
-		Message string `json:"message"`
-	} `json:"errors,omitempty"`
+	// Code Business error code registered in littlecafe-docs/api/error-codes.md. Omitted for generic errors.
+	Code *string `json:"code,omitempty"`
+
+	// Detail Client-facing error detail.
+	Detail *string                `json:"detail,omitempty"`
+	Errors *[]ValidationErrorItem `json:"errors,omitempty"`
+
+	// Instance Request path where the error occurred.
 	Instance *string `json:"instance,omitempty"`
 	Status   int     `json:"status"`
-	Title    string  `json:"title"`
-	TraceId  *string `json:"traceId,omitempty"`
-	Type     string  `json:"type"`
+
+	// Title Short, client-facing error title.
+	Title string `json:"title"`
+
+	// TraceId Value of the X-Trace-ID response header.
+	TraceId *string `json:"traceId,omitempty"`
+
+	// Type Problem type URI. LittleCafe uses `about:blank`.
+	Type string `json:"type"`
+}
+
+// SuccessResponse defines model for SuccessResponse.
+type SuccessResponse struct {
+	// Data Response payload. Concrete operations narrow this schema with allOf. May be null when the operation has no data.
+	Data interface{} `json:"data"`
+
+	// Message Client-facing success message localized for the request locale.
+	Message string `json:"message"`
+}
+
+// ValidationErrorItem defines model for ValidationErrorItem.
+type ValidationErrorItem struct {
+	// Field JSON path of the invalid field, for example `items[0].quantity` or `guardian.email`.
+	Field string `json:"field"`
+
+	// Message Client-facing message localized for the request locale.
+	Message string `json:"message"`
 }
 
 // AcceptLanguage defines model for AcceptLanguage.
 type AcceptLanguage string
+
+// IdempotencyKey defines model for IdempotencyKey.
+type IdempotencyKey = string
+
+// LastEventId defines model for LastEventId.
+type LastEventId = string
+
+// BadRequest defines model for BadRequest.
+type BadRequest = ProblemDetails
+
+// Conflict defines model for Conflict.
+type Conflict = ProblemDetails
+
+// Forbidden defines model for Forbidden.
+type Forbidden = ProblemDetails
+
+// InternalError defines model for InternalError.
+type InternalError = ProblemDetails
+
+// NotFound defines model for NotFound.
+type NotFound = ProblemDetails
+
+// ServiceUnavailable defines model for ServiceUnavailable.
+type ServiceUnavailable = ProblemDetails
+
+// TooManyRequests defines model for TooManyRequests.
+type TooManyRequests = ProblemDetails
+
+// Unauthorized defines model for Unauthorized.
+type Unauthorized = ProblemDetails
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -61,6 +138,32 @@ func RegisterHandlers(router gin.IRouter, si ServerInterface) {
 func RegisterHandlersWithOptions(router gin.IRouter, si ServerInterface, options GinServerOptions) {
 
 }
+
+type BadRequestApplicationProblemPlusJSONResponse ProblemDetails
+
+type ConflictApplicationProblemPlusJSONResponse ProblemDetails
+
+type ForbiddenApplicationProblemPlusJSONResponse ProblemDetails
+
+type InternalErrorApplicationProblemPlusJSONResponse ProblemDetails
+
+type NotFoundApplicationProblemPlusJSONResponse ProblemDetails
+
+type ServiceUnavailableApplicationProblemPlusJSONResponse ProblemDetails
+
+type TooManyRequestsResponseHeaders struct {
+	RateLimitLimit     int
+	RateLimitRemaining int
+	RateLimitReset     int
+	RetryAfter         int
+}
+type TooManyRequestsApplicationProblemPlusJSONResponse struct {
+	Body ProblemDetails
+
+	Headers TooManyRequestsResponseHeaders
+}
+
+type UnauthorizedApplicationProblemPlusJSONResponse ProblemDetails
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {

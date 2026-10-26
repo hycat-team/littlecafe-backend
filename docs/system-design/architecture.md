@@ -135,13 +135,16 @@ handler đọc header này để điền `traceId` trong Problem Details.
   `x-littlecafe-locale` và `ErrorInfo.Metadata` (`messageKey`, `locale`); field
   errors dự trữ ở `google.rpc.BadRequest.FieldViolations` (details additive).
 - **User identity**: khi hành động thay người dùng, JWT đi qua metadata
-  `x-littlecafe-jwt` (`contracts/grpcx/metadata.go`).
+  `x-littlecafe-jwt` (`contracts/grpcx/metadata.go`). HTTP ưu tiên Bearer, fallback
+  cookie `access_token`; refresh token dùng cookie `refresh_token`.
+- **Idempotency**: Redis store dùng chung, scope user+method+path, TTL 24h;
+  middleware fail closed (`503`) khi Redis lỗi.
 
 ## 8. Contract map
 
 | Loại | Vị trí | Trạng thái |
 |---|---|---|
-| HTTP | `contracts/openapi/components.yaml` + `generated.gen.go` (oapi-codegen strict server) | ProblemDetails + khung `/api/v1`; chưa có endpoint nghiệp vụ |
+| HTTP | `contracts/openapi/components.yaml` + `generated.gen.go` (oapi-codegen strict server) | ProblemDetails, SuccessResponse, CursorPage, AdminPage, IdempotencyKey, securitySchemes; khung `/api/v1`; chưa có endpoint nghiệp vụ |
 | Event | `contracts/asyncapi/asyncapi.yaml` | EventEnvelope + server; `channels`/`operations` rỗng |
 | gRPC | `contracts/proto/` | chỉ có README; chưa có proto file |
 | Helper gRPC | `contracts/grpcx/` | có |
@@ -158,7 +161,9 @@ Quy tắc:
 
 Gate và CI command: [`../development/gates.md`](../development/gates.md) và
 `.github/workflows/ci.yml`. Boundary/import check chạy trong job `vet` bằng
-`deployments/scripts/check-boundaries.sh`.
+`deployments/scripts/check-boundaries.sh`. Contract lint chạy `make contract-lint`
+(buf + Redocly + AsyncAPI + error-code registry) và job `contracts` kiểm tra
+generated drift.
 
 ## 10. Health và discovery
 

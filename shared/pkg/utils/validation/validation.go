@@ -1,9 +1,12 @@
 package validation
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -66,6 +69,24 @@ func humanizeFieldName(name string) string {
 }
 
 func fieldJSONName(fe validator.FieldError) string {
+	// Namespace uses the tag names registered in init (client-facing JSON
+	// names) and keeps the parent/index path, e.g. "request.items[0].quantity".
+	// Strip the root struct name so clients receive a path relative to the body.
+	if namespace := strings.TrimSpace(fe.Namespace()); namespace != "" {
+		if idx := strings.Index(namespace, "."); idx != -1 {
+			namespace = namespace[idx+1:]
+		}
+		segments := strings.Split(namespace, ".")
+		for i, segment := range segments {
+			if idx := strings.Index(segment, "|"); idx != -1 {
+				segments[i] = segment[:idx]
+			}
+		}
+		if path := strings.Join(segments, "."); path != "" {
+			return path
+		}
+	}
+
 	field := strings.TrimSpace(fe.Field())
 	if field != "" {
 		if idx := strings.Index(field, "|"); idx != -1 {
@@ -160,6 +181,10 @@ func validationMessage(ctx context.Context, fe validator.FieldError, fieldName, 
 // TranslateValidationError maps validator and binding errors to the shared
 // problem shape. Messages are rendered for the locale carried by ctx.
 func TranslateValidationError(ctx context.Context, err error) *apperror.Error {
+	return translateValidationError(ctx, err, nil)
+}
+
+func translateValidationError(ctx context.Context, err error, raw []byte) *apperror.Error {
 	var ve validator.ValidationErrors
 	if errors.As(err, &ve) {
 		items := make([]apperror.ValidationErrorItem, 0, len(ve))
@@ -189,9 +214,15 @@ func TranslateValidationError(ctx context.Context, err error) *apperror.Error {
 			i18n.ErrorValidationInvalidFormatTitle,
 			i18n.ErrorValidationInvalidFormatDetail,
 		)
-		if unmarshalTypeErr.Field != "" {
+		field := lowerCamelCase(unmarshalTypeErr.Field)
+		if len(raw) > 0 {
+			if path, ok := jsonPathAtOffset(raw, unmarshalTypeErr.Offset); ok {
+				field = path
+			}
+		}
+		if field != "" {
 			appErr.Errors = []apperror.ValidationErrorItem{{
-				Field:   lowerCamelCase(unmarshalTypeErr.Field),
+				Field:   field,
 				Message: appErr.Message,
 			}}
 		}
@@ -220,11 +251,70 @@ func TranslateValidationError(ctx context.Context, err error) *apperror.Error {
 }
 
 func BindJSON(c *gin.Context, obj any) error {
-	if err := c.ShouldBindJSON(obj); err != nil {
+	raw, err := c.GetRawData()
+	if err != nil {
 		return TranslateValidationError(c.Request.Context(), err)
+	}
+	c.Request.Body = io.NopCloser(bytes.NewReader(raw))
+	if err := c.ShouldBindJSON(obj); err != nil {
+		return translateValidationError(c.Request.Context(), err, raw)
 	}
 	normalizeNFC(reflect.ValueOf(obj))
 	return nil
+}
+
+// jsonPathAtOffset resolves the JSON path of the value ending at target. The
+// standard json.UnmarshalTypeError only reports "items.quantity" for arrays, so
+// the raw body is scanned to recover array indexes for errors[].field.
+func jsonPathAtOffset(raw []byte, target int64) (string, bool) {
+	if target <= 0 {
+		return "", false
+	}
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	return scanJSONPath(dec, target, "")
+}
+
+func scanJSONPath(dec *json.Decoder, target int64, path string) (string, bool) {
+	token, err := dec.Token()
+	if err != nil {
+		return "", false
+	}
+
+	if delim, ok := token.(json.Delim); ok {
+		switch delim {
+		case '{':
+			for dec.More() {
+				keyToken, err := dec.Token()
+				if err != nil {
+					return "", false
+				}
+				key, _ := keyToken.(string)
+				childPath := key
+				if path != "" {
+					childPath = path + "." + key
+				}
+				if found, ok := scanJSONPath(dec, target, childPath); ok {
+					return found, true
+				}
+			}
+			_, _ = dec.Token()
+		case '[':
+			for index := 0; dec.More(); index++ {
+				childPath := fmt.Sprintf("%s[%d]", path, index)
+				if found, ok := scanJSONPath(dec, target, childPath); ok {
+					return found, true
+				}
+			}
+			_, _ = dec.Token()
+		}
+		return "", false
+	}
+
+	if int64(dec.InputOffset()) >= target {
+		return path, true
+	}
+	return "", false
 }
 
 func BindQuery(c *gin.Context, obj any) error {

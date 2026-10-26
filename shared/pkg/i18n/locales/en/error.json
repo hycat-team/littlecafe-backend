@@ -24,6 +24,10 @@
     "error.invalid_uuid": "The identifier (UUID) format is invalid.",
     "error.realtime.unsupported": "The browser or server does not support realtime connections.",
     "error.jwt.missing_public_key": "The public key required to verify the session is missing.",
+    "error.idempotency.key_required": "This request requires an Idempotency-Key.",
+    "error.idempotency.in_flight": "A request with the same Idempotency-Key is still being processed. Please try again later.",
+    "error.idempotency.payload_mismatch": "This Idempotency-Key was already used with a different request payload.",
+    "error.idempotency.unavailable": "The Idempotency-Key could not be checked right now. Please try again later.",
 
     "error.validation.invalid_format.title": "Invalid data format",
     "error.validation.invalid_format.detail": "The numeric value is too large or the data type is invalid"
