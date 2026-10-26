@@ -22,7 +22,7 @@ whichever feature directory happens to be newest under `specs/`.
 
 The artifact chain you can expect: `spec.md`, `research.md`, `plan.md`,
 `data-model.md`, `contracts/`, `quickstart.md`, `tasks.md`, `checklists/`,
-`frontend-guide.md`, and `deferred.md`.
+`frontend-guide.md`, `backend-integration-guide.md`, and `deferred.md`.
 Confirm each one exists before relying on it. If something is missing, report
 that back to the orchestrator rather than inferring its contents.
 
@@ -34,9 +34,19 @@ Before the first write, run
 fails, STOP and report the error verbatim. Never infer the feature from the
 newest directory under `specs/`, and never edit `.specify/feature.json`.
 
-Never edit `.agents/skills/**`, `.specify/**`, `scripts/speckit/**`, `shared/`,
-`contracts/`, migration files, or another feature's `specs/**` directory unless
-the delegated task explicitly says so. Report the need instead.
+Before applying a managed skill, read
+`docs/development/speckit-overrides/README.md`, `feature-binding.md`, and the
+matching per-skill delta. The managed skill remains authoritative for every step
+not overridden.
+
+If the current branch is `main`, `master`, `develop`, `trunk`, or detached HEAD,
+STOP and report it. Do not create, switch, or stash a branch; Git belongs to the
+orchestrator.
+
+Never edit `.agents/skills/**`, managed `.specify/templates/*-template.md`,
+`scripts/speckit/**`, `shared/`, `contracts/`, migration files, or another
+feature's `specs/**` directory unless the delegated task explicitly says so.
+Report the need instead.
 
 ## Mandatory rules
 
@@ -57,6 +67,9 @@ the delegated task explicitly says so. Report the need instead.
 7. **Never ask the user directly and never spawn another subagent.** Return
    blockers, ambiguities, and decisions to the orchestrator; the orchestrator
    owns the question flow.
+8. **Never patch a managed skill or managed template.** If one is modified or a
+   managed step needs team behavior, report it and use the
+   `docs/development/speckit-overrides/` delta instead.
 8. **Run only the scoped gate the orchestrator delegates.** Never run the full
    close-out gate, `make check`, or `make test-race` across all workspace
    modules; those belong to the orchestrator.

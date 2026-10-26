@@ -1,5 +1,22 @@
 <!--
 Sync Impact Report:
+- Version change: 1.3.0 → 1.4.0 (MINOR — adds one core principle and one
+  governance section; existing principles are unchanged).
+  Reasoning: agents must verify the branch before any file mutation, and team
+  skill customizations must live outside managed Spec Kit skill/template files.
+- Added principles:
+  - IX. Branch Discipline
+- Added sections:
+  - Team Skill Overrides
+- Modified principles: none.
+- Added repo-owned template: `.specify/templates/backend-integration-guide-template.md`
+  for gRPC/event/service-to-service handoff.
+- Templates requiring updates: none; managed templates remain upstream.
+- Follow-up TODOs: none.
+-->
+
+<!--
+Sync Impact Report:
 - Version change: 1.1.0 → 1.2.0 (MINOR — format restructure plus additive,
   compatible rules; no principle is redefined and no previously valid artefact
   becomes invalid).
@@ -133,6 +150,16 @@ accessibility, AI provider/model/vector store/retrieval policy, and any business
 policy marked Undecided in the docs are open. Scaffolding, sample code, and
 available dependencies are not decisions. Agents MUST NOT decide these.
 
+### IX. Branch Discipline
+Before any file mutation, an agent MUST verify the current Git branch. `main`,
+`master`, `develop`, `trunk`, and detached HEAD are protected. On a protected
+branch the agent MUST NOT write, generate, migrate, format, install, or commit;
+it MUST stop, ask the developer, and wait for approval. Read-only work (reading,
+searching, reviewing, answering) is allowed. Agents MUST NOT create, switch, or
+stash branches without explicit permission. Feature, fix, and chore branches
+start from `develop`; hotfix branches start from `main`. If the current branch
+does not belong to the task, the agent MUST ask before writing.
+
 ## Technology Stack & Constraints
 
 - **Language & workspace**: Go 1.26 multi-module workspace (`go.work`) with nine
@@ -187,6 +214,27 @@ available dependencies are not decisions. Agents MUST NOT decide these.
 - **Bank data**: no reusable bank profile is stored; each withdrawal keeps only
   an AES-GCM encrypted snapshot bound to the withdrawal ID.
 
+## Team Skill Overrides
+
+Spec Kit managed skills under `.agents/skills/**` and managed templates under
+`.specify/templates/*-template.md` MUST remain at their upstream content. Agents
+MUST NOT hand-edit them.
+
+Team-specific behavior MUST live in `docs/development/speckit-overrides/` as
+delta-only additions or replacements. Before running any managed `speckit-*`
+skill, an agent MUST read `docs/development/speckit-overrides/README.md`,
+`feature-binding.md`, and the matching per-skill delta. The managed skill remains
+authoritative for every step not overridden.
+
+`speckit-orchestrate` and `speckit-worker` are repo-owned custom skills and may
+differ from upstream. Template additions use
+`.specify/templates/overrides/`; repo-owned new templates use
+`.specify/templates/`.
+
+This directory is a repository policy overlay, not an official Spec Kit
+command/skill override. Spec Kit officially supports template overrides and
+preset-based command/skill overrides.
+
 ## Governance
 
 - Principle changes require a superseding ADR, updated traceability, and a
@@ -199,6 +247,16 @@ available dependencies are not decisions. Agents MUST NOT decide these.
   only be set to `READY_FOR_FRONTEND` after the contract is settled,
   implementation and test evidence are complete, and routes/fields/enums/status
   were compared with counted results. A feature with no client-surface change
+  MUST record that conclusion in `tasks.md` instead of creating a guide.
+- **Backend integration guide**: a feature that changes a gRPC method/message,
+  event contract/topology, or another service-to-service surface MUST ship
+  `specs/<feature>/backend-integration-guide.md`. The guide uses one of `DRAFT`,
+  `IN_PROGRESS`, `READY_FOR_BACKEND`, `CHANGED`, `DEPRECATED`; references
+  canonical proto/AsyncAPI contracts instead of copying schemas; states before →
+  after; and may only be set to `READY_FOR_BACKEND` after the contract is
+  settled, implementation and test evidence are complete, and RPCs, messages,
+  fields, enum values, errors, events, routing keys, and queues were compared
+  with counted results. A feature with no backend-integration-surface change
   MUST record that conclusion in `tasks.md` instead of creating a guide.
 - **Deferred work**: findings that are genuinely outside the feature MUST be
   recorded in `specs/<feature>/deferred.md` with the problem, why it is out of
@@ -226,4 +284,4 @@ available dependencies are not decisions. Agents MUST NOT decide these.
   follows the same rule: `configs/base.yaml` holds shared sections and
   `configs/<service>.yaml` holds sections owned by one service.
 
-**Version**: 1.3.0 | **Ratified**: 2026-10-17 | **Last Amended**: 2026-10-17
+**Version**: 1.4.0 | **Ratified**: 2026-10-17 | **Last Amended**: 2026-10-26

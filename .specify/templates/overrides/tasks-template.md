@@ -159,6 +159,24 @@ Keep the applicable branch and delete the other when generating `tasks.md`:
       status/error counts; set `READY_FOR_FRONTEND` only when all evidence and
       sync checkboxes are complete.
 
+### Backend integration handoff decision *(required)*
+
+Keep the applicable branch and delete the other when generating `tasks.md`:
+
+- [ ] TXXX **No backend-integration-surface change**: confirm the feature does
+      not add, change or remove a gRPC method/message, event contract/topology,
+      or other service-to-service surface; do not create
+      `backend-integration-guide.md`.
+- [ ] TXXX **Backend-integration-surface change**: create or update
+      `specs/<owner>-<NNN>-<slug>/backend-integration-guide.md` from
+      `.specify/templates/backend-integration-guide-template.md`; record the
+      before → after delta, canonical proto/AsyncAPI contracts, consumers and
+      transport, gRPC/event behavior, compatibility and test evidence.
+- [ ] TXXX **Sync the backend integration guide at close-out**: compare it with
+      the canonical proto/AsyncAPI/event contracts and fill in the checked RPC,
+      message, field, enum value, error and event counts; set
+      `READY_FOR_BACKEND` only when all evidence and sync checkboxes are complete.
+
 ### Out-of-scope findings *(required when applicable)*
 
 - [ ] TXXX Move a genuinely out-of-feature finding to
