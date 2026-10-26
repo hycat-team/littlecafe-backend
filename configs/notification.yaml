@@ -2,10 +2,10 @@
 # Add only sections owned by this service.
 
 email:
-  enabled: ${EMAIL_ENABLED:-true}
-  provider: brevo
-  api_key: ${BREVO_API_KEY:-}
-  endpoint: https://api.brevo.com/v3/smtp/email
-  sender_name: LittleCafe
-  sender_email: no-reply@littlecafe.kids
-  reply_to: ""
+    enabled: ${EMAIL_ENABLED:-true}
+    provider: brevo
+    api_key: ${BREVO_API_KEY:-}
+    endpoint: https://api.brevo.com/v3/smtp/email
+    sender_name: LittleCafe
+    sender_email: no-reply@littlecafe.kids
+    reply_to: ""

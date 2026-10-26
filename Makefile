@@ -5,6 +5,8 @@ SERVICES := identity order activity wallet ai notification reporting
 WIRE_VERSION := v0.7.0
 BUF_VERSION := v1.57.2
 OAPI_CODEGEN_VERSION := v2.4.1
+REDOCLY_VERSION := 1.34.5
+ASYNCAPI_VERSION := 4.1.0
 GO_BUILD_FLAGS := -trimpath -ldflags="-s -w"
 BIN_DIR := bin
 PROTO_FILES := $(wildcard contracts/proto/*.proto contracts/proto/*/*.proto contracts/proto/*/*/*.proto contracts/proto/*/*/*/*.proto)
@@ -25,14 +27,16 @@ TEST_FLAGS ?=
 
 ifeq ($(OS),Windows_NT)
 GO_BIN_EXT := .exe
+PWSH ?= powershell
 MKDIR_BIN_CMD := if not exist "$(subst /,\,$(BIN_DIR))" mkdir "$(subst /,\,$(BIN_DIR))"
 CLEAN_BIN_CMD := if exist "$(subst /,\,$(BIN_DIR))" rmdir /S /Q "$(subst /,\,$(BIN_DIR))"
-FMT_CHECK_CMD := powershell -Command "$$files = gofmt -l .; if ($$files) { Write-Error ($$files -join [Environment]::NewLine); exit 1 }"
+FMT_CHECK_CMD := powershell -Command '$$files = gofmt -l .; if ($$files) { Write-Error ($$files -join [Environment]::NewLine); exit 1 }'
 TEST_CMD := go test $(TEST_FLAGS) ./...
 RACE_TEST_CMD := go test -race $(TEST_FLAGS) ./...
 RUN_BIN = ..\..\$(subst /,\,$(BIN_DIR))\$(SVC)$(GO_BIN_EXT)
 else
 GO_BIN_EXT :=
+PWSH ?= pwsh
 MKDIR_BIN_CMD := mkdir -p "$(BIN_DIR)"
 CLEAN_BIN_CMD := rm -rf "$(BIN_DIR)"
 FMT_CHECK_CMD := test -z "$$(gofmt -l .)"
@@ -48,7 +52,7 @@ name := $(or $(name),$(NAME))
 SVC_REQ = $(if $(filter $(SVC),$(SERVICES)),,$(error This target requires svc=<$(SERVICES)> — e.g. make $@ svc=identity))
 unexport SVC_REQ
 
-.PHONY: help install-tools install-goose wire wire-all buf-gen buf-lint openapi-gen contract-lint generate generate-check fmt fmt-check tidy tidy-check vet test test-race lint check build build-all run dev clean migrate-status migrate-up migrate-down migrate-create migrate-version docker-infra-up docker-dev-up docker-dev-stop docker-dev-down docker-prod-up docker-prod-stop docker-prod-down nginx-reload-local
+.PHONY: help install-tools install-goose wire wire-all buf-gen buf-lint openapi-gen openapi-lint asyncapi-lint openapi-check error-codes-check contract-lint generate generate-check fmt fmt-check tidy tidy-check vet test test-race lint check team-check team-list team-test build build-all run dev clean migrate-status migrate-up migrate-down migrate-create migrate-version docker-infra-up docker-dev-up docker-dev-stop docker-dev-down docker-prod-up docker-prod-stop docker-prod-down nginx-reload-local
 
 help:
 	@echo "========================================================================"
@@ -57,7 +61,9 @@ help:
 	@echo "  make dev        : generate code and build all services"
 	@echo "  make run svc=   : run one service locally ($(SERVICES))"
 	@echo "  make test       : run all workspace tests"
-	@echo "  make check      : full quality gate (fmt, tidy, vet, race tests, build)"
+	@echo "  make check      : full quality gate (fmt, tidy, vet, race tests, build, specs)"
+	@echo "  make team-check : validate the specs/<owner>-<NNN>-<slug> layout (strict)"
+	@echo "  make team-list  : print the feature table from meta.json files"
 	@echo "  make docker-dev-up : start local infrastructure + services"
 	@echo "Per-service targets take svc=<$(SERVICES)>, e.g. make build svc=identity"
 	@echo "========================================================================"
@@ -105,8 +111,23 @@ openapi-gen:
 	@cd contracts/openapi && go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@$(OAPI_CODEGEN_VERSION) --config oapi-codegen.yaml components.yaml
 	@echo OpenAPI generation finished.
 
-contract-lint: buf-lint
-	@echo OpenAPI and AsyncAPI files are validated in CI with pinned linters.
+openapi-lint:
+	@echo Linting OpenAPI contracts...
+	@npx --yes @redocly/cli@$(REDOCLY_VERSION) lint contracts/openapi/components.yaml
+
+asyncapi-lint:
+	@echo Validating AsyncAPI contracts...
+	@npx --yes @asyncapi/cli@$(ASYNCAPI_VERSION) validate contracts/asyncapi/asyncapi.yaml
+
+openapi-check: openapi-gen
+	@git diff --exit-code -- contracts/openapi
+	@echo Generated OpenAPI sources are up to date.
+
+error-codes-check:
+	@sh deployments/scripts/check-error-codes.sh
+
+contract-lint: buf-lint openapi-lint asyncapi-lint error-codes-check
+	@echo Contract lint finished.
 
 
 generate: wire-all openapi-gen
@@ -193,9 +214,19 @@ test-race:
 	@cd services/reporting && $(RACE_TEST_CMD)
 	@echo Go race tests finished.
 
+team-check:
+	@echo Checking Spec Kit feature layout...
+	@$(PWSH) -NoProfile -File scripts/speckit/team-feature.ps1 check -Strict
+
+team-list:
+	@$(PWSH) -NoProfile -File scripts/speckit/team-feature.ps1 list
+
+team-test:
+	@$(PWSH) -NoProfile -File scripts/speckit/tests/team-feature.tests.ps1
+
 lint: fmt-check vet
 
-check: fmt-check tidy-check generate-check vet test-race contract-lint build-all
+check: fmt-check tidy-check generate-check vet test-race contract-lint build-all team-check
 
 build:
 	$(SVC_REQ)

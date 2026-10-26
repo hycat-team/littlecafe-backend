@@ -1,249 +1,249 @@
 name: CD Staging - VPS
 
 on:
-  workflow_dispatch:
-    inputs:
-      services:
-        description: "Services to deploy (comma-separated, or all)"
-        required: true
-        default: all
-        type: string
-  push:
-    branches:
-      - develop
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
+    workflow_dispatch:
+        inputs:
+            services:
+                description: "Services to deploy (comma-separated, or all)"
+                required: true
+                default: all
+                type: string
+    push:
+        branches:
+            - develop
+        paths-ignore:
+            - "docs/**"
+            - "**/*.md"
 
 permissions:
-  contents: read
-  packages: write
+    contents: read
+    packages: write
 
 concurrency:
-  group: littlecafe-vps-staging
-  cancel-in-progress: false
+    group: littlecafe-vps-staging
+    cancel-in-progress: false
 
 env:
-  IMAGE_OWNER: ${{ github.repository_owner }}
-  IMAGE_PREFIX: ghcr.io/hycat-team/littlecafe-backend
+    IMAGE_OWNER: ${{ github.repository_owner }}
+    IMAGE_PREFIX: ghcr.io/hycat-team/littlecafe-backend
 
 jobs:
-  plan:
-    name: Resolve deployment plan
-    runs-on: ubuntu-latest
-    outputs:
-      matrix: ${{ steps.plan.outputs.matrix }}
-    steps:
-      - name: Resolve and validate services
-        id: plan
-        shell: bash
-        env:
-          REQUESTED_SERVICES: ${{ inputs.services }}
-        run: |
-          set -euo pipefail
-          if [[ -z "${REQUESTED_SERVICES}" || "${REQUESTED_SERVICES}" == "all" ]]; then
-            services=(identity order activity wallet ai notification reporting)
-          else
-            IFS=',' read -ra services <<< "${REQUESTED_SERVICES// /}"
-          fi
+    plan:
+        name: Resolve deployment plan
+        runs-on: ubuntu-latest
+        outputs:
+            matrix: ${{ steps.plan.outputs.matrix }}
+        steps:
+            - name: Resolve and validate services
+              id: plan
+              shell: bash
+              env:
+                  REQUESTED_SERVICES: ${{ inputs.services }}
+              run: |
+                set -euo pipefail
+                if [[ -z "${REQUESTED_SERVICES}" || "${REQUESTED_SERVICES}" == "all" ]]; then
+                  services=(identity order activity wallet ai notification reporting)
+                else
+                  IFS=',' read -ra services <<< "${REQUESTED_SERVICES// /}"
+                fi
 
-          allowed=(identity order activity wallet ai notification reporting)
-          for service in "${services[@]}"; do
-            if [[ ! " ${allowed[*]} " == *" ${service} "* ]]; then
-              echo "Unsupported service: ${service}" >&2
-              exit 1
-            fi
-          done
+                allowed=(identity order activity wallet ai notification reporting)
+                for service in "${services[@]}"; do
+                  if [[ ! " ${allowed[*]} " == *" ${service} "* ]]; then
+                    echo "Unsupported service: ${service}" >&2
+                    exit 1
+                  fi
+                done
 
-          printf 'matrix=%s\n' "$(printf '%s\n' "${services[@]}" | jq -R -s -c 'split("\n") | map(select(length > 0))')" >> "${GITHUB_OUTPUT}"
+                printf 'matrix=%s\n' "$(printf '%s\n' "${services[@]}" | jq -R -s -c 'split("\n") | map(select(length > 0))')" >> "${GITHUB_OUTPUT}"
 
-  build-push:
-    name: Build and push ${{ matrix.service }}
-    needs: plan
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        service: ${{ fromJSON(needs.plan.outputs.matrix) }}
-    steps:
-      - uses: actions/checkout@v5
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push immutable staging image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: services/${{ matrix.service }}/Dockerfile
-          platforms: linux/amd64
-          push: true
-          tags: |
-            ${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:staging-${{ github.sha }}
-            ${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:staging-latest
-          cache-from: type=registry,ref=${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:staging-buildcache
-          cache-to: type=registry,ref=${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:staging-buildcache,mode=max
+    build-push:
+        name: Build and push ${{ matrix.service }}
+        needs: plan
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                service: ${{ fromJSON(needs.plan.outputs.matrix) }}
+        steps:
+            - uses: actions/checkout@v5
+            - uses: docker/setup-buildx-action@v4
+            - uses: docker/login-action@v4
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+            - name: Build and push immutable staging image
+              uses: docker/build-push-action@v7
+              with:
+                  context: .
+                  file: services/${{ matrix.service }}/Dockerfile
+                  platforms: linux/amd64
+                  push: true
+                  tags: |
+                    ${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:staging-${{ github.sha }}
+                    ${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:staging-latest
+                  cache-from: type=registry,ref=${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:staging-buildcache
+                  cache-to: type=registry,ref=${{ env.IMAGE_PREFIX }}-${{ matrix.service }}:staging-buildcache,mode=max
 
-  deploy:
-    name: Deploy selected staging services
-    needs: [plan, build-push]
-    runs-on: ubuntu-latest
-    environment: staging
-    steps:
-      - uses: actions/checkout@v5
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Prepare SSH
-        shell: bash
-        run: |
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts
-      - name: Upload deployment files
-        shell: bash
-        run: |
-          tar -czf /tmp/littlecafe-staging-deploy.tar.gz \
-            deployments/docker-compose.staging.yml \
-            deployments/nginx/staging.conf \
-            deployments/scripts/init-db.sh \
-            deployments/scripts/issue-certs.sh \
-            deployments/scripts/renew-certs.sh
-          scp -P "${{ secrets.DEPLOY_PORT }}" /tmp/littlecafe-staging-deploy.tar.gz \
-            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/littlecafe-staging-deploy.tar.gz"
-      - name: Install deployment files
-        shell: bash
-        run: |
-          ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-            "set -e; mkdir -p /opt/littlecafe-staging; \
-             tar -xzf /tmp/littlecafe-staging-deploy.tar.gz -C /opt/littlecafe-staging; \
-             rm -f /tmp/littlecafe-staging-deploy.tar.gz"
-      - name: Login VPS to private GHCR
-        shell: bash
-        run: |
-          printf '%s' "${{ secrets.GHCR_READ_TOKEN }}" | \
-            ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-            "docker login ghcr.io -u '${{ secrets.GHCR_USERNAME }}' --password-stdin"
-      - name: Bootstrap staging database
-        shell: bash
-        run: |
-          ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-            "set -e
-             cd /opt/littlecafe-staging
-             touch .env.staging.deploy
-             for S in IDENTITY ORDER ACTIVITY WALLET AI NOTIFICATION REPORTING; do
-               if ! grep -q \"^\${S}_IMAGE=\" .env.staging.deploy; then
-                 lower=\$(printf %s \"\${S}\" | tr '[:upper:]' '[:lower:]')
-                 printf '%s_IMAGE=ghcr.io/hycat-team/littlecafe-backend-%s:staging-latest\\n' \"\${S}\" \"\${lower}\" >> .env.staging.deploy
-               fi
-             done
-             chmod 600 .env.staging.deploy
-             docker compose --env-file .env.staging --env-file .env.staging.deploy -f deployments/docker-compose.staging.yml --profile init run --rm db-init"
-      - name: Deploy pinned staging images and migrations
-        shell: bash
-        env:
-          SERVICES_JSON: ${{ needs.plan.outputs.matrix }}
-          IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-        run: |
-          set -euo pipefail
-          for service in $(printf '%s' "${SERVICES_JSON}" | jq -r '.[]'); do
-            upper=$(printf '%s' "${service}" | tr '[:lower:]' '[:upper:]')
-            image="${IMAGE_PREFIX}-${service}"
-            digest=$(docker buildx imagetools inspect "${image}:staging-${GITHUB_SHA}" --format '{{.Manifest.Digest}}')
-            ref="${image}@${digest}"
+    deploy:
+        name: Deploy selected staging services
+        needs: [plan, build-push]
+        runs-on: ubuntu-latest
+        environment: staging
+        steps:
+            - uses: actions/checkout@v5
+            - uses: docker/setup-buildx-action@v4
+            - uses: docker/login-action@v4
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+            - name: Prepare SSH
+              shell: bash
+              run: |
+                install -m 700 -d ~/.ssh
+                printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+                chmod 600 ~/.ssh/id_ed25519
+                printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+                chmod 600 ~/.ssh/known_hosts
+            - name: Upload deployment files
+              shell: bash
+              run: |
+                tar -czf /tmp/littlecafe-staging-deploy.tar.gz \
+                  deployments/docker-compose.staging.yml \
+                  deployments/nginx/staging.conf \
+                  deployments/scripts/init-db.sh \
+                  deployments/scripts/issue-certs.sh \
+                  deployments/scripts/renew-certs.sh
+                scp -P "${{ secrets.DEPLOY_PORT }}" /tmp/littlecafe-staging-deploy.tar.gz \
+                  "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/littlecafe-staging-deploy.tar.gz"
+            - name: Install deployment files
+              shell: bash
+              run: |
+                ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+                  "set -e; mkdir -p /opt/littlecafe-staging; \
+                   tar -xzf /tmp/littlecafe-staging-deploy.tar.gz -C /opt/littlecafe-staging; \
+                   rm -f /tmp/littlecafe-staging-deploy.tar.gz"
+            - name: Login VPS to private GHCR
+              shell: bash
+              run: |
+                printf '%s' "${{ secrets.GHCR_READ_TOKEN }}" | \
+                  ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+                  "docker login ghcr.io -u '${{ secrets.GHCR_USERNAME }}' --password-stdin"
+            - name: Bootstrap staging database
+              shell: bash
+              run: |
+                ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+                  "set -e
+                   cd /opt/littlecafe-staging
+                   touch .env.staging.deploy
+                   for S in IDENTITY ORDER ACTIVITY WALLET AI NOTIFICATION REPORTING; do
+                     if ! grep -q \"^\${S}_IMAGE=\" .env.staging.deploy; then
+                       lower=\$(printf %s \"\${S}\" | tr '[:upper:]' '[:lower:]')
+                       printf '%s_IMAGE=ghcr.io/hycat-team/littlecafe-backend-%s:staging-latest\\n' \"\${S}\" \"\${lower}\" >> .env.staging.deploy
+                     fi
+                   done
+                   chmod 600 .env.staging.deploy
+                   docker compose --env-file .env.staging --env-file .env.staging.deploy -f deployments/docker-compose.staging.yml --profile init run --rm db-init"
+            - name: Deploy pinned staging images and migrations
+              shell: bash
+              env:
+                  SERVICES_JSON: ${{ needs.plan.outputs.matrix }}
+                  IMAGE_PREFIX: ${{ env.IMAGE_PREFIX }}
+                  DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+                  DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+                  DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+              run: |
+                set -euo pipefail
+                for service in $(printf '%s' "${SERVICES_JSON}" | jq -r '.[]'); do
+                  upper=$(printf '%s' "${service}" | tr '[:lower:]' '[:upper:]')
+                  image="${IMAGE_PREFIX}-${service}"
+                  digest=$(docker buildx imagetools inspect "${image}:staging-${GITHUB_SHA}" --format '{{.Manifest.Digest}}')
+                  ref="${image}@${digest}"
 
-            ssh -p "${DEPLOY_PORT}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
-              "set -e
-               cd /opt/littlecafe-staging
-               touch .env.staging.deploy
-               grep -v '^${upper}_IMAGE=' .env.staging.deploy > .env.staging.deploy.next || true
-               printf '%s_IMAGE=%s\\n' '${upper}' '${ref}' >> .env.staging.deploy.next
-               mv .env.staging.deploy.next .env.staging.deploy
-               chmod 600 .env.staging.deploy
-               docker compose --env-file .env.staging --env-file .env.staging.deploy -f deployments/docker-compose.staging.yml config >/dev/null
-               docker compose --env-file .env.staging --env-file .env.staging.deploy -f deployments/docker-compose.staging.yml pull '${service}'
-               docker compose --env-file .env.staging --env-file .env.staging.deploy -f deployments/docker-compose.staging.yml --profile migrate run --rm migrate-${service}
-               docker compose --env-file .env.staging --env-file .env.staging.deploy -f deployments/docker-compose.staging.yml up -d '${service}'
-               docker compose --env-file .env.staging --env-file .env.staging.deploy -f deployments/docker-compose.staging.yml ps '${service}'"
-          done
-      - name: Recreate Nginx after staging rollout
-        shell: bash
-        run: |
-          ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-            "cd /opt/littlecafe-staging && \
-             docker compose --env-file .env.staging --env-file .env.staging.deploy \
-             -f deployments/docker-compose.staging.yml up -d --force-recreate nginx"
+                  ssh -p "${DEPLOY_PORT}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+                    "set -e
+                     cd /opt/littlecafe-staging
+                     touch .env.staging.deploy
+                     grep -v '^${upper}_IMAGE=' .env.staging.deploy > .env.staging.deploy.next || true
+                     printf '%s_IMAGE=%s\\n' '${upper}' '${ref}' >> .env.staging.deploy.next
+                     mv .env.staging.deploy.next .env.staging.deploy
+                     chmod 600 .env.staging.deploy
+                     docker compose --env-file .env.staging --env-file .env.staging.deploy -f deployments/docker-compose.staging.yml config >/dev/null
+                     docker compose --env-file .env.staging --env-file .env.staging.deploy -f deployments/docker-compose.staging.yml pull '${service}'
+                     docker compose --env-file .env.staging --env-file .env.staging.deploy -f deployments/docker-compose.staging.yml --profile migrate run --rm migrate-${service}
+                     docker compose --env-file .env.staging --env-file .env.staging.deploy -f deployments/docker-compose.staging.yml up -d '${service}'
+                     docker compose --env-file .env.staging --env-file .env.staging.deploy -f deployments/docker-compose.staging.yml ps '${service}'"
+                done
+            - name: Recreate Nginx after staging rollout
+              shell: bash
+              run: |
+                ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+                  "cd /opt/littlecafe-staging && \
+                   docker compose --env-file .env.staging --env-file .env.staging.deploy \
+                   -f deployments/docker-compose.staging.yml up -d --force-recreate nginx"
 
-  smoke-services:
-    name: Smoke staging container ${{ matrix.service }}
-    needs: deploy
-    runs-on: ubuntu-latest
-    environment: staging
-    strategy:
-      fail-fast: false
-      matrix:
-        service: [identity, order, activity, wallet, ai, notification, reporting]
-    steps:
-      - name: Prepare SSH
-        shell: bash
-        run: |
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts
-      - name: Wait for service healthcheck
-        shell: bash
-        run: |
-          for attempt in $(seq 1 12); do
-            status=$(ssh -p "${{ secrets.DEPLOY_PORT }}" \
-              "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-              "cd /opt/littlecafe-staging && id=\$(docker compose --env-file .env.staging --env-file .env.staging.deploy -f deployments/docker-compose.staging.yml ps -q ${{ matrix.service }}); \
-               test -n \"\$id\"; \
-               docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' \"\$id\"" || true)
-            if [[ "${status}" == "healthy" || "${status}" == "running" ]]; then
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "Smoke test failed for ${{ matrix.service }}"
-          exit 1
+    smoke-services:
+        name: Smoke staging container ${{ matrix.service }}
+        needs: deploy
+        runs-on: ubuntu-latest
+        environment: staging
+        strategy:
+            fail-fast: false
+            matrix:
+                service: [identity, order, activity, wallet, ai, notification, reporting]
+        steps:
+            - name: Prepare SSH
+              shell: bash
+              run: |
+                install -m 700 -d ~/.ssh
+                printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+                chmod 600 ~/.ssh/id_ed25519
+                printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+                chmod 600 ~/.ssh/known_hosts
+            - name: Wait for service healthcheck
+              shell: bash
+              run: |
+                for attempt in $(seq 1 12); do
+                  status=$(ssh -p "${{ secrets.DEPLOY_PORT }}" \
+                    "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+                    "cd /opt/littlecafe-staging && id=\$(docker compose --env-file .env.staging --env-file .env.staging.deploy -f deployments/docker-compose.staging.yml ps -q ${{ matrix.service }}); \
+                     test -n \"\$id\"; \
+                     docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' \"\$id\"" || true)
+                  if [[ "${status}" == "healthy" || "${status}" == "running" ]]; then
+                    exit 0
+                  fi
+                  sleep 5
+                done
+                echo "Smoke test failed for ${{ matrix.service }}"
+                exit 1
 
-  smoke-public:
-    name: Smoke staging API from VPS
-    needs: deploy
-    runs-on: ubuntu-latest
-    environment: staging
-    steps:
-      - name: Prepare SSH
-        shell: bash
-        run: |
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts
-      - name: Check health endpoint through the staging nginx
-        shell: bash
-        run: |
-          for attempt in $(seq 1 12); do
-            if ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-              "curl --fail --silent --show-error --max-time 15 \
-               --resolve staging-api.littlecafe.kids:8443:127.0.0.1 \
-               https://staging-api.littlecafe.kids:8443/api/v1/health" >/dev/null; then
-              exit 0
-            fi
-            sleep 5
-          done
-          echo "Staging health check through nginx failed"
-          exit 1
+    smoke-public:
+        name: Smoke staging API from VPS
+        needs: deploy
+        runs-on: ubuntu-latest
+        environment: staging
+        steps:
+            - name: Prepare SSH
+              shell: bash
+              run: |
+                install -m 700 -d ~/.ssh
+                printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+                chmod 600 ~/.ssh/id_ed25519
+                printf '%s\n' "${{ secrets.DEPLOY_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+                chmod 600 ~/.ssh/known_hosts
+            - name: Check health endpoint through the staging nginx
+              shell: bash
+              run: |
+                for attempt in $(seq 1 12); do
+                  if ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+                    "curl --fail --silent --show-error --max-time 15 \
+                     --resolve staging-api.littlecafe.kids:8443:127.0.0.1 \
+                     https://staging-api.littlecafe.kids:8443/api/v1/health" >/dev/null; then
+                    exit 0
+                  fi
+                  sleep 5
+                done
+                echo "Staging health check through nginx failed"
+                exit 1

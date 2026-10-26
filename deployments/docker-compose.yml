@@ -1,209 +1,209 @@
 name: littlecafe-backend-dev
 
 x-service-common: &service-common
-  build:
-    context: ..
-  restart: unless-stopped
-  profiles: ["full"]
-  env_file: ../.env
-  environment: &service-env
-    CONFIG_BASE: configs/base.yaml
-    DB_HOST: postgres
-    DB_MIGRATE_ON_START: "true"
-    REDIS_HOST: redis
-    RABBITMQ_HOST: rabbitmq
-    TZ: Asia/Ho_Chi_Minh
-  depends_on:
-    postgres: {condition: service_healthy}
-    redis: {condition: service_healthy}
-    rabbitmq: {condition: service_healthy}
+    build:
+        context: ..
+    restart: unless-stopped
+    profiles: ["full"]
+    env_file: ../.env
+    environment: &service-env
+        CONFIG_BASE: configs/base.yaml
+        DB_HOST: postgres
+        DB_MIGRATE_ON_START: "true"
+        REDIS_HOST: redis
+        RABBITMQ_HOST: rabbitmq
+        TZ: Asia/Ho_Chi_Minh
+    depends_on:
+        postgres: {condition: service_healthy}
+        redis: {condition: service_healthy}
+        rabbitmq: {condition: service_healthy}
 
 services:
-  postgres:
-    image: pgvector/pgvector:pg17
-    profiles: ["infra", "full"]
-    restart: unless-stopped
-    env_file: ../.env
-    environment:
-      POSTGRES_USER: ${POSTGRES_ADMIN_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD}
-      POSTGRES_DB: postgres
-      TZ: Asia/Ho_Chi_Minh
-    ports: ["5432:5432"]
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-      - ../database/init:/docker-entrypoint-initdb.d:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_ADMIN_USER} -d postgres"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
+    postgres:
+        image: pgvector/pgvector:pg17
+        profiles: ["infra", "full"]
+        restart: unless-stopped
+        env_file: ../.env
+        environment:
+            POSTGRES_USER: ${POSTGRES_ADMIN_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD}
+            POSTGRES_DB: postgres
+            TZ: Asia/Ho_Chi_Minh
+        ports: ["5432:5432"]
+        volumes:
+            - postgres-data:/var/lib/postgresql/data
+            - ../database/init:/docker-entrypoint-initdb.d:ro
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_ADMIN_USER} -d postgres"]
+            interval: 5s
+            timeout: 3s
+            retries: 20
 
-  redis:
-    image: redis:7-alpine
-    profiles: ["infra", "full"]
-    restart: unless-stopped
-    env_file: ../.env
-    environment:
-      TZ: Asia/Ho_Chi_Minh
-    ports: ["6379:6379"]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
+    redis:
+        image: redis:7-alpine
+        profiles: ["infra", "full"]
+        restart: unless-stopped
+        env_file: ../.env
+        environment:
+            TZ: Asia/Ho_Chi_Minh
+        ports: ["6379:6379"]
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 5s
+            timeout: 3s
+            retries: 20
 
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    profiles: ["infra", "full"]
-    restart: unless-stopped
-    env_file: ../.env
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
-      TZ: Asia/Ho_Chi_Minh
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 20
+    rabbitmq:
+        image: rabbitmq:3-management-alpine
+        profiles: ["infra", "full"]
+        restart: unless-stopped
+        env_file: ../.env
+        environment:
+            RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+            RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+            TZ: Asia/Ho_Chi_Minh
+        ports:
+            - "5672:5672"
+            - "15672:15672"
+        healthcheck:
+            test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+            interval: 10s
+            timeout: 5s
+            retries: 20
 
-  identity:
-    <<: *service-common
-    build:
-      context: ..
-      dockerfile: services/identity/Dockerfile
-    environment:
-      <<: *service-env
-      DB_USER: littlecafe_identity
-      DB_PASSWORD: ${IDENTITY_DB_PASSWORD}
-      DB_NAME: littlecafe_identity
-    ports:
-      - "8101:8080"
-      - "9101:9090"
-    volumes:
-      - ${CERTS_DIR}:/run/littlecafe/certs:ro
+    identity:
+        <<: *service-common
+        build:
+            context: ..
+            dockerfile: services/identity/Dockerfile
+        environment:
+            <<: *service-env
+            DB_USER: littlecafe_identity
+            DB_PASSWORD: ${IDENTITY_DB_PASSWORD}
+            DB_NAME: littlecafe_identity
+        ports:
+            - "8101:8080"
+            - "9101:9090"
+        volumes:
+            - ${CERTS_DIR}:/run/littlecafe/certs:ro
 
-  order:
-    <<: *service-common
-    build:
-      context: ..
-      dockerfile: services/order/Dockerfile
-    environment:
-      <<: *service-env
-      DB_USER: littlecafe_order
-      DB_PASSWORD: ${ORDER_DB_PASSWORD}
-      DB_NAME: littlecafe_order
-    ports:
-      - "8102:8080"
-      - "9102:9090"
-    volumes:
-      - ${CERTS_DIR}:/run/littlecafe/certs:ro
+    order:
+        <<: *service-common
+        build:
+            context: ..
+            dockerfile: services/order/Dockerfile
+        environment:
+            <<: *service-env
+            DB_USER: littlecafe_order
+            DB_PASSWORD: ${ORDER_DB_PASSWORD}
+            DB_NAME: littlecafe_order
+        ports:
+            - "8102:8080"
+            - "9102:9090"
+        volumes:
+            - ${CERTS_DIR}:/run/littlecafe/certs:ro
 
-  activity:
-    <<: *service-common
-    build:
-      context: ..
-      dockerfile: services/activity/Dockerfile
-    environment:
-      <<: *service-env
-      DB_USER: littlecafe_activity
-      DB_PASSWORD: ${ACTIVITY_DB_PASSWORD}
-      DB_NAME: littlecafe_activity
-    ports:
-      - "8103:8080"
-      - "9103:9090"
-    volumes:
-      - ${CERTS_DIR}:/run/littlecafe/certs:ro
+    activity:
+        <<: *service-common
+        build:
+            context: ..
+            dockerfile: services/activity/Dockerfile
+        environment:
+            <<: *service-env
+            DB_USER: littlecafe_activity
+            DB_PASSWORD: ${ACTIVITY_DB_PASSWORD}
+            DB_NAME: littlecafe_activity
+        ports:
+            - "8103:8080"
+            - "9103:9090"
+        volumes:
+            - ${CERTS_DIR}:/run/littlecafe/certs:ro
 
-  wallet:
-    <<: *service-common
-    build:
-      context: ..
-      dockerfile: services/wallet/Dockerfile
-    environment:
-      <<: *service-env
-      DB_USER: littlecafe_wallet
-      DB_PASSWORD: ${WALLET_DB_PASSWORD}
-      DB_NAME: littlecafe_wallet
-    ports:
-      - "8104:8080"
-      - "9104:9090"
-    volumes:
-      - ${CERTS_DIR}:/run/littlecafe/certs:ro
+    wallet:
+        <<: *service-common
+        build:
+            context: ..
+            dockerfile: services/wallet/Dockerfile
+        environment:
+            <<: *service-env
+            DB_USER: littlecafe_wallet
+            DB_PASSWORD: ${WALLET_DB_PASSWORD}
+            DB_NAME: littlecafe_wallet
+        ports:
+            - "8104:8080"
+            - "9104:9090"
+        volumes:
+            - ${CERTS_DIR}:/run/littlecafe/certs:ro
 
-  ai:
-    <<: *service-common
-    build:
-      context: ..
-      dockerfile: services/ai/Dockerfile
-    environment:
-      <<: *service-env
-      DB_USER: littlecafe_ai
-      DB_PASSWORD: ${AI_DB_PASSWORD}
-      DB_NAME: littlecafe_ai
-    ports:
-      - "8105:8080"
+    ai:
+        <<: *service-common
+        build:
+            context: ..
+            dockerfile: services/ai/Dockerfile
+        environment:
+            <<: *service-env
+            DB_USER: littlecafe_ai
+            DB_PASSWORD: ${AI_DB_PASSWORD}
+            DB_NAME: littlecafe_ai
+        ports:
+            - "8105:8080"
 
-  notification:
-    <<: *service-common
-    build:
-      context: ..
-      dockerfile: services/notification/Dockerfile
-    environment:
-      <<: *service-env
-      DB_USER: littlecafe_notification
-      DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD}
-      DB_NAME: littlecafe_notification
-    ports:
-      - "8106:8080"
+    notification:
+        <<: *service-common
+        build:
+            context: ..
+            dockerfile: services/notification/Dockerfile
+        environment:
+            <<: *service-env
+            DB_USER: littlecafe_notification
+            DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD}
+            DB_NAME: littlecafe_notification
+        ports:
+            - "8106:8080"
 
-  reporting:
-    <<: *service-common
-    build:
-      context: ..
-      dockerfile: services/reporting/Dockerfile
-    environment:
-      <<: *service-env
-      DB_USER: littlecafe_reporting
-      DB_PASSWORD: ${REPORTING_DB_PASSWORD}
-      DB_NAME: littlecafe_reporting
-    ports:
-      - "8107:8080"
+    reporting:
+        <<: *service-common
+        build:
+            context: ..
+            dockerfile: services/reporting/Dockerfile
+        environment:
+            <<: *service-env
+            DB_USER: littlecafe_reporting
+            DB_PASSWORD: ${REPORTING_DB_PASSWORD}
+            DB_NAME: littlecafe_reporting
+        ports:
+            - "8107:8080"
 
-  nginx:
-    image: nginx:alpine
-    profiles: ["full"]
-    restart: unless-stopped
-    ports: ["8080:80"]
-    volumes:
-      - ./nginx/local.conf:/etc/nginx/templates/default.conf.template:ro
-    depends_on:
-      - identity
-      - order
-      - activity
-      - wallet
-      - ai
-      - notification
-      - reporting
+    nginx:
+        image: nginx:alpine
+        profiles: ["full"]
+        restart: unless-stopped
+        ports: ["8080:80"]
+        volumes:
+            - ./nginx/local.conf:/etc/nginx/templates/default.conf.template:ro
+        depends_on:
+            - identity
+            - order
+            - activity
+            - wallet
+            - ai
+            - notification
+            - reporting
 
-  otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.138.0
-    profiles: ["observability"]
-    command: ["--config=/etc/otelcol/config.yaml"]
-    volumes:
-      - ./observability/otel-collector.yaml:/etc/otelcol/config.yaml:ro
-    ports: ["4317:4317", "4318:4318"]
+    otel-collector:
+        image: otel/opentelemetry-collector-contrib:0.138.0
+        profiles: ["observability"]
+        command: ["--config=/etc/otelcol/config.yaml"]
+        volumes:
+            - ./observability/otel-collector.yaml:/etc/otelcol/config.yaml:ro
+        ports: ["4317:4317", "4318:4318"]
 
-  prometheus:
-    image: prom/prometheus:v3.7.1
-    profiles: ["observability"]
-    volumes:
-      - ./observability/prometheus.yaml:/etc/prometheus/prometheus.yml:ro
-    ports: ["9090:9090"]
+    prometheus:
+        image: prom/prometheus:v3.7.1
+        profiles: ["observability"]
+        volumes:
+            - ./observability/prometheus.yaml:/etc/prometheus/prometheus.yml:ro
+        ports: ["9090:9090"]
 
 volumes:
-  postgres-data:
+    postgres-data:

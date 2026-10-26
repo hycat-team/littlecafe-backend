@@ -1,9 +1,12 @@
 extends:
-  - recommended
+    - recommended
 
 rules:
-  # The bootstrap is a shared component registry with no fabricated paths.
-  no-unused-components: off
-  # No public license URL has been approved for this private repository.
-  info-license: off
-  info-license-strict: off
+    # The bootstrap is a shared component registry with no fabricated paths.
+    no-unused-components: off
+    # No public license URL has been approved for this private repository.
+    info-license: off
+    info-license-strict: off
+    # API authoring rules. They apply as soon as the first path is added.
+    operation-operationId: error
+    operation-operationId-unique: error

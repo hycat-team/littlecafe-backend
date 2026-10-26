@@ -1,7 +1,7 @@
 # Frontend Integration Guide — <feature>
 
 > Chỉ tạo guide này khi feature thay đổi HTTP endpoint, event payload hoặc DTO
-> client-facing. Lưu tại `specs/<feature>/frontend-guide.md`, tham chiếu contract
+> client-facing. Lưu tại `specs/<owner>-<NNN>-<slug>/frontend-guide.md`, tham chiếu contract
 > canonical và giữ nội dung có thể đối chiếu, đếm được.
 
 ## 1. Summary

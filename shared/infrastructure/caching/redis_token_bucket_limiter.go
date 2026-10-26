@@ -3,6 +3,7 @@ package caching
 import (
 	"context"
 	"fmt"
+	"time"
 
 	shared_caching "github.com/hycat-team/littlecafe-backend/shared/application/interface/caching"
 
@@ -41,31 +42,73 @@ var tokenBucketScript = redis.NewScript(`
 
 	local tau = (burst - 1) * emission
 	local allow_at = tat - tau
+	local allowed = 0
+	local remaining = 0
+	local reset_at = 0
+	local retry_after = 0
+
 	if now < allow_at then
-		return 0
+		reset_at = math.ceil(allow_at)
+		retry_after = math.ceil(allow_at - now)
+	else
+		allowed = 1
+		local new_tat = math.max(now, tat) + emission
+		local ttl = math.ceil(tau + emission)
+		if ttl < 1 then
+			ttl = 1
+		end
+		redis.call('SET', key, tostring(new_tat), 'EX', ttl)
+
+		remaining = math.floor((now + tau - new_tat) / emission) + 1
+		if remaining < 0 then
+			remaining = 0
+		end
+		reset_at = math.ceil(math.max(now, new_tat - tau))
 	end
 
-	local new_tat = math.max(now, tat) + emission
-	local ttl = math.ceil(tau + emission)
-	if ttl < 1 then
-		ttl = 1
-	end
-	redis.call('SET', key, tostring(new_tat), 'EX', ttl)
-	return 1
+	return {allowed, remaining, reset_at, retry_after}
 `)
 
-func (l *RedisTokenBucketLimiter) Allow(ctx context.Context, key string, burst int, refillPerSecond float64) (bool, error) {
+func (l *RedisTokenBucketLimiter) Allow(ctx context.Context, key string, burst int, refillPerSecond float64) (shared_caching.TokenBucketState, error) {
 	if burst < 1 {
-		return false, fmt.Errorf("token bucket: burst must be positive (got %d)", burst)
+		return shared_caching.TokenBucketState{}, fmt.Errorf("token bucket: burst must be positive (got %d)", burst)
 	}
 	if refillPerSecond <= 0 {
-		return false, fmt.Errorf("token bucket: refill rate must be positive (got %v)", refillPerSecond)
+		return shared_caching.TokenBucketState{}, fmt.Errorf("token bucket: refill rate must be positive (got %v)", refillPerSecond)
 	}
 
 	emission := 1 / refillPerSecond
-	res, err := tokenBucketScript.Run(ctx, l.client, []string{key}, emission, burst).Int()
+	raw, err := tokenBucketScript.Run(ctx, l.client, []string{key}, emission, burst).Slice()
 	if err != nil {
-		return false, err
+		return shared_caching.TokenBucketState{}, err
 	}
-	return res == 1, nil
+	if len(raw) < 4 {
+		return shared_caching.TokenBucketState{}, fmt.Errorf("token bucket: unexpected script result length %d", len(raw))
+	}
+
+	resetSeconds := luaInt64(raw[2])
+	retrySeconds := luaInt64(raw[3])
+	return shared_caching.TokenBucketState{
+		Allowed:    luaInt64(raw[0]) == 1,
+		Remaining:  int(luaInt64(raw[1])),
+		Reset:      time.Unix(resetSeconds, 0),
+		RetryAfter: time.Duration(retrySeconds) * time.Second,
+	}, nil
+}
+
+func luaInt64(value any) int64 {
+	switch n := value.(type) {
+	case int64:
+		return n
+	case int:
+		return int64(n)
+	case float64:
+		return int64(n)
+	case string:
+		var parsed int64
+		_, _ = fmt.Sscan(n, &parsed)
+		return parsed
+	default:
+		return 0
+	}
 }

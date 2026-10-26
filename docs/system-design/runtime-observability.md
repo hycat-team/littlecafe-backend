@@ -62,7 +62,7 @@ Chạy khi PR/push `main` (bỏ qua `docs/**` và `*.md`):
 
 - Runbook triển khai/rollback: `docs/operations/deployment.md`.
 - Certificate/mTLS: `docs/operations/certificates.md`.
-- Setup local: `docs/development/local-setup.md`.
+- Setup local: `docs/development/environments.md` §4.
 - Không dùng `docker compose down -v` trên production (xoá volume database); backup phải phủ cả 7 database trước thay đổi hạ tầng lớn.
 
 ## 8. Chưa triển khai

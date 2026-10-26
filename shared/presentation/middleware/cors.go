@@ -8,9 +8,9 @@ import (
 )
 
 const (
-	corsAllowHeaders  = "Authorization, Content-Type, Accept, Accept-Language, Idempotency-Key, X-Trace-ID"
+	corsAllowHeaders  = "Authorization, Content-Type, Accept, Accept-Language, Idempotency-Key, X-Trace-ID, Last-Event-ID"
 	corsAllowMethods  = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-	corsExposeHeaders = "Content-Language, X-Trace-ID"
+	corsExposeHeaders = "Content-Language, X-Trace-ID, RateLimit-Limit, RateLimit-Remaining, RateLimit-Reset, Retry-After, Deprecation, Sunset, Location"
 )
 
 func normalizeOrigin(o string) string {

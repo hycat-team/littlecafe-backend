@@ -5,12 +5,14 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"io/fs"
+	"path"
 	"sort"
 	"strings"
 	"sync"
 )
 
-//go:embed locales/*.json
+//go:embed locales
 var localeFS embed.FS
 
 // Catalog holds every client-facing message per locale. Bundles are embedded at
@@ -28,7 +30,7 @@ func NewCatalog(defaultLocale Locale) (*Catalog, error) {
 		messages:      make(map[Locale]map[string]string, len(SupportedLocales)),
 	}
 	for _, loc := range SupportedLocales {
-		msgs, err := loadBundle(loc)
+		msgs, err := loadLocale(loc)
 		if err != nil {
 			return nil, err
 		}
@@ -155,15 +157,50 @@ func (c *Catalog) lookup(loc Locale, key string) (string, bool) {
 	return "", false
 }
 
-func loadBundle(loc Locale) (map[string]string, error) {
-	path := fmt.Sprintf("locales/%s.json", loc)
-	raw, err := localeFS.ReadFile(path)
+func loadLocale(loc Locale) (map[string]string, error) {
+	return loadLocaleFS(localeFS, loc)
+}
+
+// loadLocaleFS merges every bundle in locales/<locale>/ and rejects duplicate
+// keys, so a key can only be owned by one namespace file.
+func loadLocaleFS(fsys fs.FS, loc Locale) (map[string]string, error) {
+	loc = Normalize(loc)
+	pattern := path.Join("locales", string(loc), "*.json")
+	paths, err := fs.Glob(fsys, pattern)
 	if err != nil {
-		return nil, fmt.Errorf("read bundle %s: %w", path, err)
+		return nil, fmt.Errorf("glob bundles %s: %w", pattern, err)
+	}
+	if len(paths) == 0 {
+		return nil, fmt.Errorf("no message bundles for locale %s", loc)
+	}
+	sort.Strings(paths)
+
+	messages := make(map[string]string)
+	sources := make(map[string]string)
+	for _, file := range paths {
+		bundle, err := loadBundleFS(fsys, file)
+		if err != nil {
+			return nil, err
+		}
+		for key, value := range bundle {
+			if previous, ok := sources[key]; ok {
+				return nil, fmt.Errorf("duplicate message key %q in %s and %s", key, previous, file)
+			}
+			sources[key] = file
+			messages[key] = value
+		}
+	}
+	return messages, nil
+}
+
+func loadBundleFS(fsys fs.FS, name string) (map[string]string, error) {
+	raw, err := fs.ReadFile(fsys, name)
+	if err != nil {
+		return nil, fmt.Errorf("read bundle %s: %w", name, err)
 	}
 	messages := make(map[string]string)
 	if err := json.Unmarshal(raw, &messages); err != nil {
-		return nil, fmt.Errorf("decode bundle %s: %w", path, err)
+		return nil, fmt.Errorf("decode bundle %s: %w", name, err)
 	}
 	return messages, nil
 }

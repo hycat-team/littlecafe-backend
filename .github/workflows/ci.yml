@@ -1,177 +1,173 @@
 name: CI
 
 on:
-  pull_request:
-    branches: [main, develop]
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
-  push:
-    branches: [main, develop]
-    paths-ignore:
-      - "docs/**"
-      - "**/*.md"
+    pull_request:
+        branches: [main, develop]
+        paths-ignore:
+            - "docs/**"
+            - "**/*.md"
+    push:
+        branches: [main, develop]
+        paths-ignore:
+            - "docs/**"
+            - "**/*.md"
 
 permissions:
-  contents: read
+    contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+    group: ci-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
 
 env:
-  GO_VERSION: "1.26.x"
+    GO_VERSION: "1.26.x"
 
 jobs:
-  static:
-    name: Static checks
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-          cache-dependency-path: |
-            go.work.sum
-            shared/go.sum
-            contracts/go.sum
-            services/*/go.sum
-      - name: Check formatting
-        run: make fmt-check
-      - name: Check module tidy state
-        run: make tidy-check
-      - name: Check generated sources
-        run: make generate
-      - name: Verify generated sources are committed
-        run: git diff --exit-code
+    static:
+        name: Static checks
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v5
+            - uses: actions/setup-go@v6
+              with:
+                  go-version: ${{ env.GO_VERSION }}
+                  cache: true
+                  cache-dependency-path: |
+                    go.work.sum
+                    shared/go.sum
+                    contracts/go.sum
+                    services/*/go.sum
+            - name: Check formatting
+              run: make fmt-check
+            - name: Check module tidy state
+              run: make tidy-check
+            - name: Check generated sources
+              run: make generate
+            - name: Verify generated sources are committed
+              run: git diff --exit-code
 
-  vet:
-    name: Go vet and dependency boundaries
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-          cache-dependency-path: |
-            go.work.sum
-            shared/go.sum
-            contracts/go.sum
-            services/*/go.sum
-      - run: make vet
-      - run: sh deployments/scripts/check-boundaries.sh
+    vet:
+        name: Go vet and dependency boundaries
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v5
+            - uses: actions/setup-go@v6
+              with:
+                  go-version: ${{ env.GO_VERSION }}
+                  cache: true
+                  cache-dependency-path: |
+                    go.work.sum
+                    shared/go.sum
+                    contracts/go.sum
+                    services/*/go.sum
+            - run: make vet
+            - run: sh deployments/scripts/check-boundaries.sh
 
-  test:
-    name: Unit and integration tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-          cache-dependency-path: |
-            go.work.sum
-            shared/go.sum
-            contracts/go.sum
-            services/*/go.sum
-      - run: make test TEST_FLAGS=-short
+    test:
+        name: Unit and integration tests
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v5
+            - uses: actions/setup-go@v6
+              with:
+                  go-version: ${{ env.GO_VERSION }}
+                  cache: true
+                  cache-dependency-path: |
+                    go.work.sum
+                    shared/go.sum
+                    contracts/go.sum
+                    services/*/go.sum
+            - run: make test TEST_FLAGS=-short
 
-  test-race:
-    name: Race detector
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-          cache-dependency-path: |
-            go.work.sum
-            shared/go.sum
-            contracts/go.sum
-            services/*/go.sum
-      - run: make test-race TEST_FLAGS=-short
+    test-race:
+        name: Race detector
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v5
+            - uses: actions/setup-go@v6
+              with:
+                  go-version: ${{ env.GO_VERSION }}
+                  cache: true
+                  cache-dependency-path: |
+                    go.work.sum
+                    shared/go.sum
+                    contracts/go.sum
+                    services/*/go.sum
+            - run: make test-race TEST_FLAGS=-short
 
-  contracts:
-    name: Contract lint and drift
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache: true
-          cache-dependency-path: |
-            go.work.sum
-            shared/go.sum
-            contracts/go.sum
-            services/*/go.sum
-      - uses: actions/setup-node@v5
-        with:
-          node-version: "22"
-      - name: Install Buf
-        shell: bash
-        run: |
-          sudo curl -sSL "https://github.com/bufbuild/buf/releases/download/v1.57.2/buf-Linux-x86_64" -o /usr/local/bin/buf
-          sudo chmod +x /usr/local/bin/buf
-          buf --version
-      - name: Lint protobuf contracts
-        run: make buf-lint
-      - name: Verify generated protobuf stubs
-        run: make buf-gen && git diff --exit-code -- contracts/
-      - name: Generate OpenAPI contracts
-        run: make openapi-gen
-      - name: Lint OpenAPI
-        run: npx --yes @redocly/cli@1.34.5 lint contracts/openapi/components.yaml
-      - name: Validate AsyncAPI
-        run: npx --yes @asyncapi/cli@4.1.0 validate contracts/asyncapi/asyncapi.yaml
-      - name: Verify generated contracts are committed
-        run: git diff --exit-code -- contracts/
+    contracts:
+        name: Contract lint and drift
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v5
+            - uses: actions/setup-go@v6
+              with:
+                  go-version: ${{ env.GO_VERSION }}
+                  cache: true
+                  cache-dependency-path: |
+                    go.work.sum
+                    shared/go.sum
+                    contracts/go.sum
+                    services/*/go.sum
+            - uses: actions/setup-node@v5
+              with:
+                  node-version: "22"
+            - name: Install Buf
+              shell: bash
+              run: |
+                sudo curl -sSL "https://github.com/bufbuild/buf/releases/download/v1.57.2/buf-Linux-x86_64" -o /usr/local/bin/buf
+                sudo chmod +x /usr/local/bin/buf
+                buf --version
+            - name: Lint contracts and error-code registry
+              run: make contract-lint
+            - name: Verify generated protobuf stubs
+              run: make buf-gen && git diff --exit-code -- contracts/
+            - name: Generate OpenAPI contracts
+              run: make openapi-gen
+            - name: Verify generated contracts are committed
+              run: git diff --exit-code -- contracts/
 
-  image-build:
-    name: Validate image ${{ matrix.service }}
-    needs: [static, vet, test, contracts]
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        service: [identity, order, activity, wallet, ai, notification, reporting]
-    steps:
-      - uses: actions/checkout@v5
-      - uses: docker/setup-buildx-action@v4
-      - name: Build image without pushing
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: services/${{ matrix.service }}/Dockerfile
-          platforms: linux/amd64
-          push: false
-          tags: littlecafe/${{ matrix.service }}:${{ github.sha }}
-          cache-from: type=gha,scope=${{ matrix.service }}
-          cache-to: type=gha,scope=${{ matrix.service }},mode=max
+    image-build:
+        name: Validate image ${{ matrix.service }}
+        needs: [static, vet, test, contracts]
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                service: [identity, order, activity, wallet, ai, notification, reporting]
+        steps:
+            - uses: actions/checkout@v5
+            - uses: docker/setup-buildx-action@v4
+            - name: Build image without pushing
+              uses: docker/build-push-action@v7
+              with:
+                  context: .
+                  file: services/${{ matrix.service }}/Dockerfile
+                  platforms: linux/amd64
+                  push: false
+                  tags: littlecafe/${{ matrix.service }}:${{ github.sha }}
+                  cache-from: type=gha,scope=${{ matrix.service }}
+                  cache-to: type=gha,scope=${{ matrix.service }},mode=max
 
-  compose:
-    name: Validate Compose files
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - name: Prepare example environments
-        shell: bash
-        run: |
-          cp .env.example .env
-          cp .env.production.example .env.production
-          cp .env.staging.example .env.staging
-          for service in identity order activity wallet ai notification reporting; do
-            upper=$(printf '%s' "${service}" | tr '[:lower:]' '[:upper:]')
-            printf '%s_IMAGE=ghcr.io/hycat-team/littlecafe-backend-%s:ci\n' "${upper}" "${service}" >> .env.deploy
-            printf '%s_IMAGE=ghcr.io/hycat-team/littlecafe-backend-%s:staging-ci\n' "${upper}" "${service}" >> .env.staging.deploy
-          done
-      - name: Validate local Compose
-        run: docker compose -f deployments/docker-compose.yml --env-file .env --profile full config --quiet
-      - name: Validate production Compose
-        run: docker compose -f deployments/docker-compose.prod.yml --env-file .env.production --env-file .env.deploy config --quiet
-      - name: Validate staging Compose
-        run: docker compose -f deployments/docker-compose.staging.yml --env-file .env.staging --env-file .env.staging.deploy config --quiet
+    compose:
+        name: Validate Compose files
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v5
+            - name: Prepare example environments
+              shell: bash
+              run: |
+                cp .env.example .env
+                cp .env.production.example .env.production
+                cp .env.staging.example .env.staging
+                for service in identity order activity wallet ai notification reporting; do
+                  upper=$(printf '%s' "${service}" | tr '[:lower:]' '[:upper:]')
+                  printf '%s_IMAGE=ghcr.io/hycat-team/littlecafe-backend-%s:ci\n' "${upper}" "${service}" >> .env.deploy
+                  printf '%s_IMAGE=ghcr.io/hycat-team/littlecafe-backend-%s:staging-ci\n' "${upper}" "${service}" >> .env.staging.deploy
+                done
+            - name: Validate local Compose
+              run: docker compose -f deployments/docker-compose.yml --env-file .env --profile full config --quiet
+            - name: Validate production Compose
+              run: docker compose -f deployments/docker-compose.prod.yml --env-file .env.production --env-file .env.deploy config --quiet
+            - name: Validate staging Compose
+              run: docker compose -f deployments/docker-compose.staging.yml --env-file .env.staging --env-file .env.staging.deploy config --quiet

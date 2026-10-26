@@ -1,8 +1,8 @@
 package: openapi
 generate:
-  models: true
-  gin-server: true
-  strict-server: true
+    models: true
+    gin-server: true
+    strict-server: true
 output: generated.gen.go
 output-options:
-  skip-prune: true
+    skip-prune: true

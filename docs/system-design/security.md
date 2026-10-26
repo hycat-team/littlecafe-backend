@@ -53,8 +53,10 @@ Tài liệu này mô tả các cơ chế bảo mật đang có trong code và c�
 
 - Lỗi trả `application/problem+json` theo RFC 9457 kèm `code` (khi có), `traceId`, `errors` — xem `design-pattern.md` §1.
 - `traceId` lấy từ `X-Trace-ID` do Nginx sinh (`$request_id`). Gọi trực tiếp service không qua Nginx thì header trống và `traceId` rỗng.
-- Mutation quan trọng yêu cầu `Idempotency-Key` (xem `littlecafe-docs/api/conventions.md`).
-- Rate limit: shield theo IP dùng Redis token bucket (`RateLimitMiddleware`), quota nghiệp vụ và login/OTP dùng Redis fixed-window (`IRateLimiter`); cả hai fail-open khi Redis lỗi, Nginx `limit_req` là shield ở biên.
+- Access token ưu tiên `Authorization: Bearer`; fallback cookie `access_token`. Refresh token dùng cookie `refresh_token`; cả hai `HttpOnly`, `Secure`, `SameSite=Lax`.
+- CORS allowlist theo `FRONTEND_ORIGINS`, `Access-Control-Allow-Credentials: true`; production không dùng wildcard. Expose `Content-Language`, `X-Trace-ID`, `RateLimit-*`, `Retry-After`, `Deprecation`, `Sunset`, `Location`.
+- Mutation quan trọng yêu cầu `Idempotency-Key` (xem `littlecafe-docs/api/conventions.md` và `design-pattern.md` §17). Thiếu key → `400`; đang xử lý/payload khác → `409`; Redis lỗi → `503` fail closed.
+- Rate limit: shield theo IP dùng Redis token bucket (`RateLimitMiddleware`), quota nghiệp vụ và login/OTP dùng Redis fixed-window (`IRateLimiter`); cả hai fail-open khi Redis lỗi, Nginx `limit_req` là shield ở biên. Response trả `X-RateLimit-Limit/Remaining/Reset`; `429` trả `Retry-After` (giây).
 
 ## 6. Chưa triển khai
 

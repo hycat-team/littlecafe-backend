@@ -65,6 +65,12 @@ func validateConfig(cfg *Config) error {
 	if cfg.RateLimit.ReplenishmentSeconds <= 0 {
 		return fmt.Errorf("rate_limit.replenishment_seconds must be positive (got %d)", cfg.RateLimit.ReplenishmentSeconds)
 	}
+	if cfg.Idempotency.TTLHours == 0 {
+		cfg.Idempotency.TTLHours = 24
+	}
+	if cfg.Idempotency.TTLHours < 0 {
+		return fmt.Errorf("idempotency.ttl_hours must be positive (got %d)", cfg.Idempotency.TTLHours)
+	}
 	if err := validateI18n(cfg); err != nil {
 		return err
 	}

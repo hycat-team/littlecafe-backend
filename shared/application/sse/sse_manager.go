@@ -1,17 +1,26 @@
 package sse
 
 import (
+	"encoding/json"
 	"sync"
 	"time"
 
 	"github.com/hycat-team/littlecafe-backend/shared/config"
 )
 
+// Event is one Server-Sent Event. ID is opaque to clients and is used for
+// Last-Event-ID resume; Name maps to the SSE "event:" field; Data is JSON.
+type Event struct {
+	ID   string          `json:"id"`
+	Name string          `json:"event"`
+	Data json.RawMessage `json:"data"`
+}
+
 // ISSEManager defines the interface for the Server-Sent Events manager.
 type ISSEManager interface {
-	Subscribe(streamId string) chan []byte
-	Unsubscribe(streamId string, ch chan []byte)
-	Publish(streamId string, data []byte)
+	Subscribe(streamId, lastEventID string) chan Event
+	Unsubscribe(streamId string, ch chan Event)
+	Publish(streamId string, event Event)
 }
 
 // subscriberBufferSize is the per-subscriber channel capacity for live events.
@@ -20,7 +29,7 @@ const subscriberBufferSize = 10
 // streamBuffer keeps the most recent events of one stream so a client that
 // reconnects can replay them.
 type streamBuffer struct {
-	events  [][]byte
+	events  []Event
 	expires time.Time
 }
 
@@ -28,7 +37,7 @@ type streamBuffer struct {
 // plus a per-stream replay buffer.
 type SSEManager struct {
 	mu       sync.RWMutex
-	channels map[string][]chan []byte // streamId -> subscriber channels
+	channels map[string][]chan Event  // streamId -> subscriber channels
 	buffers  map[string]*streamBuffer // streamId -> replay buffer
 	maxSize  int
 	ttl      time.Duration
@@ -49,7 +58,7 @@ func NewSSEManager(cfg *config.Config) *SSEManager {
 		}
 	}
 	return &SSEManager{
-		channels: make(map[string][]chan []byte),
+		channels: make(map[string][]chan Event),
 		buffers:  make(map[string]*streamBuffer),
 		maxSize:  maxSize,
 		ttl:      time.Duration(ttlSeconds) * time.Second,
@@ -57,15 +66,16 @@ func NewSSEManager(cfg *config.Config) *SSEManager {
 	}
 }
 
-// Subscribe registers a new subscriber channel for a streamId and immediately
-// replays the buffered events (FIFO) so late reconnects do not miss updates.
-func (m *SSEManager) Subscribe(streamId string) chan []byte {
+// Subscribe registers a new subscriber channel for a streamId and replays the
+// buffered events. When lastEventID is set, only events after it are replayed;
+// if the ID is no longer buffered, the whole buffer is replayed.
+func (m *SSEManager) Subscribe(streamId, lastEventID string) chan Event {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	ch := make(chan []byte, m.subscriberCap())
+	ch := make(chan Event, m.subscriberCap())
 	if buf := m.activeBufferLocked(streamId); buf != nil {
-		for _, ev := range buf.events {
+		for _, ev := range replayAfter(buf.events, lastEventID) {
 			select {
 			case ch <- ev:
 			default:
@@ -79,7 +89,7 @@ func (m *SSEManager) Subscribe(streamId string) chan []byte {
 
 // Unsubscribe closes and removes a subscriber channel for a streamId. The replay
 // buffer is intentionally kept so a later reconnect can still replay.
-func (m *SSEManager) Unsubscribe(streamId string, ch chan []byte) {
+func (m *SSEManager) Unsubscribe(streamId string, ch chan Event) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -104,7 +114,7 @@ func (m *SSEManager) Unsubscribe(streamId string, ch chan []byte) {
 
 // Publish buffers data for replay and broadcasts it to all active subscriber
 // channels for a streamId.
-func (m *SSEManager) Publish(streamId string, data []byte) {
+func (m *SSEManager) Publish(streamId string, event Event) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -113,7 +123,7 @@ func (m *SSEManager) Publish(streamId string, data []byte) {
 		buf = &streamBuffer{}
 		m.buffers[streamId] = buf
 	}
-	buf.events = append(buf.events, data)
+	buf.events = append(buf.events, event)
 	if m.maxSize > 0 && len(buf.events) > m.maxSize {
 		buf.events = buf.events[len(buf.events)-m.maxSize:]
 	}
@@ -125,11 +135,25 @@ func (m *SSEManager) Publish(streamId string, data []byte) {
 	}
 	for _, ch := range channels {
 		select {
-		case ch <- data:
+		case ch <- event:
 		default:
 			// Avoid blocking if the receiver is slow or disconnected.
 		}
 	}
+}
+
+// replayAfter returns the suffix after lastEventID. An empty or unknown ID
+// replays the whole buffer (the documented fallback when the buffer expired).
+func replayAfter(events []Event, lastEventID string) []Event {
+	if lastEventID == "" {
+		return events
+	}
+	for i, event := range events {
+		if event.ID == lastEventID {
+			return events[i+1:]
+		}
+	}
+	return events
 }
 
 // activeBufferLocked returns the live buffer for streamId, lazily evicting it when

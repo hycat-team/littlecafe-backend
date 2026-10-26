@@ -2,7 +2,7 @@
 
 ## 1. Summary
 
-- Feature/spec: `specs/001-api-localization/`
+- Feature/spec: `specs/duck-001-api-localization/`
 - Requirement/workflow: cross-cutting decision DEC-006 / ADR-001 (littlecafe-docs)
 - Handoff status: READY_FOR_FRONTEND
 - Canonical contracts: `contracts/openapi/components.yaml` (AcceptLanguage, ContentLanguage), `contracts/asyncapi/asyncapi.yaml` (EventEnvelope.locale)

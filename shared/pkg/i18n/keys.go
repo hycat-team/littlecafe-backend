@@ -32,6 +32,10 @@ const (
 	ErrorInvalidUUID         = "error.invalid_uuid"
 	ErrorRealtimeUnsupported = "error.realtime.unsupported"
 	ErrorJWTMissingPublicKey = "error.jwt.missing_public_key"
+	ErrorIdempotencyRequired = "error.idempotency.key_required"
+	ErrorIdempotencyInFlight = "error.idempotency.in_flight"
+	ErrorIdempotencyMismatch = "error.idempotency.payload_mismatch"
+	ErrorIdempotencyUnavail  = "error.idempotency.unavailable"
 
 	// Validation envelope.
 	ErrorValidationInvalidFormatTitle  = "error.validation.invalid_format.title"

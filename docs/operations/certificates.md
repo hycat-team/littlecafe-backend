@@ -68,5 +68,5 @@ mTLS chỉ áp dụng cho giao tiếp **gRPC**. Hiện chỉ 4 service chạy gR
   mount read-only tại `/etc/nginx/tls`. Cert cấp/gia hạn độc lập bằng
   `deployments/scripts/issue-certs.sh` và `deployments/scripts/renew-certs.sh`
   (lego, DNS-01 Vercel), không phụ thuộc stack khác; xem
-  [deployment-staging.md](deployment-staging.md).
+  [deployment.md](deployment.md) §5 và §7.
 

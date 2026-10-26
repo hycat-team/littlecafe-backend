@@ -2,6 +2,7 @@ package messaging
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/hycat-team/littlecafe-backend/shared/application/sse"
 	"github.com/hycat-team/littlecafe-backend/shared/pkg/logger"
@@ -25,15 +26,23 @@ func NewRedisRealtimePublisher(client *redis.Client, log logger.Interface) *Redi
 	return &RedisRealtimePublisher{client: client, log: log}
 }
 
-// Publish sends the event bytes to the stream's channel. It always returns nil
-// to keep the caller's business flow uninterrupted; transport errors are
-// logged.
-func (p *RedisRealtimePublisher) Publish(ctx context.Context, streamId string, data []byte) error {
+// Publish sends the event to the stream's channel. It always returns nil to keep
+// the caller's business flow uninterrupted; transport errors are logged.
+func (p *RedisRealtimePublisher) Publish(ctx context.Context, streamId string, event sse.Event) error {
 	if p.client == nil {
 		return nil
 	}
+	payload, err := json.Marshal(event)
+	if err != nil {
+		sse.IncRealtimePublishFailed()
+		p.log.Warn("realtime event marshal failed",
+			zap.String("stream_id", streamId),
+			zap.Error(err),
+		)
+		return nil
+	}
 	sse.IncRealtimePublishTotal()
-	if err := p.client.Publish(ctx, sse.RealtimeChannel(streamId), data).Err(); err != nil {
+	if err := p.client.Publish(ctx, sse.RealtimeChannel(streamId), payload).Err(); err != nil {
 		sse.IncRealtimePublishFailed()
 		p.log.Warn("realtime publish failed",
 			zap.String("stream_id", streamId),

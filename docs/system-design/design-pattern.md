@@ -2,6 +2,10 @@
 
 Tài liệu này mô tả các pattern đang có trong `shared` và cách dùng chúng. Khi code mâu thuẫn với tài liệu này, source là bằng chứng triển khai — báo lại để cập nhật tài liệu, không tự chọn một bên.
 
+> Đọc section liên quan khi implement; không cần đọc toàn bộ file. Ranh giới
+> service, contract map và gRPC transport: [`architecture.md`](architecture.md)
+> §7–8.
+
 ## 1. Error Pattern (RFC 9457)
 
 ### 1.1 Shape canonical
@@ -18,6 +22,14 @@ Mọi lỗi HTTP trả về `Content-Type: application/problem+json` theo RFC 94
 | `code` | string | không | error code nghiệp vụ, xem §1.7 |
 | `traceId` | string | không | lấy từ header `X-Trace-ID` do Nginx sinh |
 | `errors` | array `{field, message}` | không | lỗi validation theo field |
+
+Quy ước bổ sung:
+
+- `type` luôn mặc định `about:blank`; `code` chỉ dùng cho lỗi nghiệp vụ đã đăng ký.
+- `instance` là request path; `traceId` lấy từ `X-Trace-ID`.
+- `errors[].field` dùng JSON path: `items[0].quantity`, `guardian.email`.
+- Validation trả `400`; lỗi hạ tầng/generic (validation, auth, rate limit, internal)
+  không gán `code`.
 
 Hai field debug nằm **ngoài contract**, chỉ xuất hiện khi `SERVER_ENV` không phải production (`config.IsProductionEnv`): `debugMessage` (raw error) và `stackTrace` (đã lọc frame nội bộ). Production không bao giờ trả hai field này.
 
@@ -68,15 +80,19 @@ Router phải bật `gin.Engine.ContextWithFallback = true` để `i18n.FromCont
 ### 1.7 Error code registry
 
 - Format: `<PREFIX>_<NNNN>`, `PREFIX` ∈ `IDENTITY_`, `ORDER_`, `ACTIVITY_`, `WALLET_`, `AI_`, `NOTIFICATION_`, `REPORTING_`; `NNNN` là số tuần tự 4 chữ số cấp theo service, bắt đầu `0001`.
-- Code chỉ được thêm cùng OpenAPI operation sở hữu + owner rõ ràng, đăng ký tại `littlecafe-docs/api/error-codes.md` trước khi dùng. Không tái sử dụng/đánh số lại code đã phát hành.
+- Code chỉ được thêm cùng OpenAPI operation sở hữu + owner rõ ràng, đăng ký tại `littlecafe-docs/api/error-codes.md` trước khi dùng. Owner service cập nhật registry + OpenAPI trong cùng PR; reviewer kiểm tra registry khớp operation. Không tái sử dụng/đánh số lại code đã phát hành.
 - Lỗi hạ tầng/generic (validation, xác thực, rate limit, internal) **không** gán code.
+- CI/local check `make error-codes-check` đối chiếu code trong OpenAPI với registry khi repo docs được checkout; nếu thiếu repo docs, script báo rõ là bỏ qua, không im lặng coi như pass.
 - Chưa có code nào được cấp; `code` để trống là hợp lệ với contract hiện tại.
 
 ## 2. Handler và response
 
 - Handler trả lỗi theo chữ ký `func(c *gin.Context) error`, bọc bằng `presentation.WrapHandler`.
 - Response thành công dùng `APIResponse{message, data}` qua `presentation.Success` / `Created` / `Accepted`; dùng `LocalizedSuccess` / `LocalizedCreated` / `LocalizedAccepted` (hoặc `presentation.Message`) với message key để resolve theo locale.
+- `message` và `data` luôn có trong envelope (trừ `204`); `data` có thể `null`. Dùng `presentation.NoContent` cho delete, `CreatedWithLocation`/`AcceptedWithLocation` (và bản `Localized*`) khi cần header `Location`.
+- Filter/sort và cursor pagination theo §12; `nextCursor` bỏ khi `hasMore=false`.
 - HTTP contract-first: route khai báo trong `contracts/openapi/components.yaml` và generate strict server interface bằng `oapi-codegen` (`make openapi-gen`); không tự thêm route trong handler trước contract.
+- Mutation quan trọng dùng `IdempotencyMiddleware` sau auth; xem §17.
 - **Auth middleware (forward-convention; code do feature Identity implement)**: `Handle()` bắt buộc JWT hợp lệ (401 nếu thiếu/sai), `OptionalHandle()` parse nếu có nhưng không fail khi thiếu. Cả hai set `CtxUserId`/`CtxRoleSlug`/`CtxAccessToken` (`shared/pkg/utils/contextutils`). Phân quyền là middleware riêng `RolesAuthorize(roleslug.ADMIN, roleslug.USER)`; RBAC không thay thế ownership hay Guardian-Child.
 - Message success/error khai báo constant **message key** ở đầu file handler (xem §10.3 và §16).
 
@@ -140,14 +156,17 @@ Hai cơ chế Redis, chọn theo ngữ nghĩa (không gộp "cho nhất quán"):
 - **Shield theo IP (token bucket / GCRA)** — `middleware.RateLimitMiddleware` + `caching.RedisTokenBucketLimiter` (`ITokenBucketLimiter`): throttling mượt, key theo `c.ClientIP()`; `token_limit` = burst, `tokens_per_period`/`replenishment_seconds` = tốc độ refill. Atomic Lua + Redis `TIME` nên chính xác giữa các instance. Fail-open khi Redis lỗi; Nginx `limit_req` vẫn là shield thô ở biên.
 - **Quota nghiệp vụ (fixed window)** — `caching.RedisRateLimiter` (`IRateLimiter.Allow(key, limit, windowSeconds)`): "N lần / chu kỳ" chính xác cho một subject, dùng ở use case và cho login/OTP (`LoginRateLimitMiddleware` của Identity).
 - Vượt hạn mức trả `429` qua `apperror.NewTooManyRequest` với message key (`error.rate_limit.exceeded`, `error.login.rate_limit_exceeded`).
+- `RateLimitMiddleware` set `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset` (Unix epoch seconds); khi `429` set thêm `Retry-After` (số giây). Limiter trả `TokenBucketState` thay vì chỉ `bool` để header chính xác theo key.
 - Config `rate_limit.*` được validate khi boot (`token_limit`, `tokens_per_period`, `replenishment_seconds` phải > 0).
 - `ClientIP()` phải resolve đúng client thật sau proxy/LB (Gin trusted proxy); nếu không mọi user chung một bucket.
 
 ## 7. SSE và realtime
 
 - `presentation.InitSSE` set header `text/event-stream`, `no-cache`, `keep-alive` và gia hạn write deadline (`DefaultSSEChunkDeadline = 90s`).
-- `SSERelay` subscribe Redis Pub/Sub (`sse.RealtimeChannelPattern`) và fan-out vào `ISSEManager` cục bộ (replay buffer + heartbeat theo config). Relay best-effort: lỗi Redis chỉ log + tăng metric, không làm fail request.
-- Redis không authoritative; REST fallback là nguồn trạng thái chuẩn.
+- Event dùng `sse.Event{ID, Name, Data}`: `ID` opaque UUIDv7 do publisher sinh, `Name` là tên event theo catalog của feature, `Data` là JSON. `presentation.WriteSSE` ghi `id:`, `event:`, `data:` và flush.
+- Client resume bằng `Last-Event-ID`; `SSEManager.Subscribe(streamId, lastEventID)` replay các event sau ID. ID không còn trong buffer → replay toàn bộ buffer, không trả lỗi. Buffer mặc định 100 event / 300 giây; heartbeat 15 giây.
+- `SSERelay` subscribe Redis Pub/Sub (`sse.RealtimeChannelPattern`), decode envelope `sse.Event` và fan-out vào `ISSEManager` cục bộ. Relay best-effort: lỗi Redis/decode chỉ log + tăng metric, không làm fail request.
+- Redis không authoritative; mọi endpoint SSE phải có REST fallback trả cùng nguồn trạng thái chuẩn.
 
 ## 8. Logging và config
 
@@ -209,6 +228,8 @@ Cursor là mặc định cho client-facing; offset chỉ cho bảng admin.
 - `shared/application/dto/pagination.go`: `CursorPage[T]{Items, NextCursor, HasMore}`, `EncodeCursor`/`DecodeCursor` (base64 URL, opaque); `AdminPage[T]{Items, Page, Limit, TotalItems}`.
 - Repository admin helper: `repositories.ApplyAdminPagination(db, page, limit)` (offset; mặc định page=1, limit=20).
 - Recipe cursor khi implement feature: filter có `Cursor` + `Limit`; query `ORDER BY <sort_key> DESC, id DESC` với `WHERE (<sort_key>, id) < (?, ?)` từ cursor đã decode; lấy `limit+1` để suy ra `HasMore`; trả `NextCursor` từ phần tử cuối; handler bind `limit`/`cursor`; cursor không trả `totalItems`.
+- Query chuẩn: `limit` mặc định 20, tối đa 100; `cursor` opaque. Response: `data={items,nextCursor,hasMore}`; `nextCursor` bỏ khi `hasMore=false`.
+- Filter theo tên field; multi-value lặp param (`status=A&status=B`). Sort `sort=-createdAt,name` (`-` là giảm dần); cursor sort phải có tie-breaker `id DESC`.
 - Không dùng offset cho client-facing (random access, chậm ở trang sâu).
 
 ## 13. Module structure, mapper & helper
@@ -228,7 +249,18 @@ Quy ước:
 
 ## 14. DTO convention (contract-first)
 
+- OpenAPI, AsyncAPI/JSON Schema và protobuf trong `contracts/` là nguồn
+  machine-readable chuẩn. Không thêm route trong handler trước contract.
 - HTTP Req/Res là **type sinh từ OpenAPI** (`contracts/openapi/generated.gen.go` qua oapi-codegen strict server). Không viết tay Req/Res HTTP trong `application/dto` — contract là nguồn chuẩn, sửa contract rồi generate.
+- URL có major version `/api/v1`; mutation quan trọng yêu cầu `Idempotency-Key`.
+- OpenAPI 3.0.3: base schema `SuccessResponse`, `CursorPage`, `AdminPage`,
+  `ProblemDetails`; resource dùng `allOf` để narrow `data`/`items`.
+- Naming: `operationId` dạng `listOrders`/`getOrder`/`createOrder`; schema
+  `OrderResponse`, `OrderPage`, `CreateOrderRequest`, `UpdateOrderRequest`; tag
+  theo resource.
+- Cursor pagination là mặc định; offset chỉ dùng cho bảng quản trị.
+- Protobuf chỉ dùng cho read-only cross-service query. Generated code phải
+  commit; CI regenerate và yêu cầu Git diff sạch.
 - `application/dto` giữ các shape không sinh từ OpenAPI: contract payload liên module, event payload, read-model/analytics, alias pagination.
 - Enum/constant không đặt trong `dto`; để ở `domain/constants`.
 - File nhóm theo feature (không tách `_req.go`/`_res.go`, không file một-struct).
@@ -268,7 +300,7 @@ Phạm vi: mọi nội dung **trả ra client** — response HTTP (Problem Detai
 
 ### 16.2 Catalog và message key
 
-- Catalog: `shared/pkg/i18n`, bundle JSON embed (`locales/vi.json`, `locales/en.json`); `Validate()` kiểm tra key-set khớp giữa các locale.
+- Catalog: `shared/pkg/i18n`, bundle JSON embed theo namespace `locales/<locale>/<domain>.json` (`error`, `validation`, `field`, `success`); loader merge tất cả file của locale, từ chối key trùng giữa các file; `Validate()` kiểm tra key-set khớp giữa các locale.
 - Key đặt tên theo namespace: `error.title.*`, `error.*`, `validation.*`, `field.*`, `success.*`, `notification.*`.
 - Key dùng chung khai báo trong `shared/pkg/i18n/keys.go`; message riêng của service đăng ký lúc boot:
 
@@ -303,4 +335,21 @@ func registerMessages() {
 - Không hardcode câu client-facing trong handler/use case; luôn dùng key.
 - Không đặt nội dung client-facing trong log message; log message giữ tiếng Anh.
 - Thêm key mới phải thêm đủ `vi` và `en` trong cùng thay đổi; key thiếu bản dịch làm `Catalog.Validate()` fail khi boot/test.
-- Feature đổi hành vi message/header phải cập nhật `specs/<feature>/frontend-guide.md`.
+- Feature đổi hành vi message/header phải cập nhật
+  `specs/<owner>-<NNN>-<slug>/frontend-guide.md`.
+
+## 17. Idempotency
+
+- Middleware: `shared/presentation/middleware.IdempotencyMiddleware`, đăng ký
+  sau auth để scope gồm user id.
+- Store: `shared/application/interface/idempotency.Store` +
+  `shared/infrastructure/caching.RedisIdempotencyStore`.
+- Key: header `Idempotency-Key`, opaque 16–128 ký tự. Scope
+  `userId + method + path + key`; Redis key prefix `idempotency:`.
+- TTL: `idempotency.ttl_hours` (mặc định 24).
+- Thiếu key ở operation bắt buộc → `400`; key đang xử lý → `409`; payload hash
+  khác → `409`; Redis lỗi → `503` fail closed.
+- Response được lưu gồm status, body, `Content-Type`; replay nguyên response.
+  `5xx` không được cache và key được abort để client retry.
+- Operation bắt buộc key: order, booking, hold, payment, top-up, refund,
+  withdrawal, capacity mutation. OpenAPI dùng parameter `IdempotencyKey`.

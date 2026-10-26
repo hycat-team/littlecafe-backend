@@ -1,0 +1,17 @@
+{
+    "field.email": "email",
+    "field.username": "tên đăng nhập",
+    "field.password": "mật khẩu",
+    "field.confirmPassword": "xác nhận mật khẩu",
+    "field.fullName": "họ và tên",
+    "field.phoneNumber": "số điện thoại",
+    "field.otp": "mã OTP",
+    "field.code": "mã",
+    "field.name": "tên",
+    "field.title": "tiêu đề",
+    "field.description": "mô tả",
+    "field.amount": "số tiền",
+    "field.quantity": "số lượng",
+    "field.status": "trạng thái",
+    "field.note": "ghi chú"
+}

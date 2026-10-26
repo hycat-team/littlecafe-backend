@@ -39,3 +39,60 @@ func TestLocalizedSuccessResolvesRequestLocale(t *testing.T) {
 		t.Fatalf("message = %q", body.Message)
 	}
 }
+
+func TestSuccessAlwaysIncludesMessageAndData(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	router.GET("/", func(c *gin.Context) {
+		Success(c, "", nil)
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if got, want := rec.Body.String(), `{"message":"","data":null}`; got != want {
+		t.Fatalf("body = %q, want %q", got, want)
+	}
+}
+
+func TestCreatedWithLocationSetsHeader(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	router.POST("/", func(c *gin.Context) {
+		CreatedWithLocation(c, "/api/v1/order/orders/1", "created", gin.H{"id": "1"})
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201", rec.Code)
+	}
+	if got := rec.Header().Get("Location"); got != "/api/v1/order/orders/1" {
+		t.Fatalf("location = %q", got)
+	}
+}
+
+func TestNoContentHasNoBody(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	router := gin.New()
+	router.DELETE("/", func(c *gin.Context) {
+		NoContent(c)
+	})
+
+	req := httptest.NewRequest(http.MethodDelete, "/", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want 204", rec.Code)
+	}
+	if rec.Body.Len() != 0 {
+		t.Fatalf("body = %q, want empty", rec.Body.String())
+	}
+}

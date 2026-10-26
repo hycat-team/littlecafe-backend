@@ -105,8 +105,8 @@ func TestCORSPreflightAllowed(t *testing.T) {
 	if !strings.Contains(w.Header().Get("Access-Control-Allow-Headers"), "Idempotency-Key") {
 		t.Fatalf("allow headers = %q", w.Header().Get("Access-Control-Allow-Headers"))
 	}
-	if !strings.Contains(w.Header().Get("Access-Control-Expose-Headers"), "X-Trace-ID") {
-		t.Fatalf("expose headers = %q", w.Header().Get("Access-Control-Expose-Headers"))
+	if expose := w.Header().Get("Access-Control-Expose-Headers"); !strings.Contains(expose, "X-Trace-ID") || !strings.Contains(expose, "RateLimit-Remaining") {
+		t.Fatalf("expose headers = %q", expose)
 	}
 }
 
