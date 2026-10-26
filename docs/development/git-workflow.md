@@ -3,6 +3,37 @@
 Nguồn chuẩn cho branch model, PR và release của LittleCafe Backend. Quy tắc agent
 với Git nằm trong [`spec-kit-workflow.md`](spec-kit-workflow.md) §9.
 
+## 0. Branch preflight trước khi sửa
+
+Trước mọi thao tác làm thay đổi repo - write/edit file, codegen, format,
+migration, config/env/deploy, cài dependency, `git add`/commit - agent MUST kiểm
+tra branch hiện tại:
+
+```bash
+git branch --show-current
+```
+
+- **Protected**: `main`, `master`, `develop`, `trunk`, detached HEAD.
+- Trên protected branch:
+  - Không sửa file.
+  - Hỏi developer bằng `question` tool.
+  - Chỉ tạo/switch branch sau khi được duyệt.
+- **Read-only** được phép trên mọi branch: đọc, search, review, trả lời câu hỏi.
+- Không tự tạo/switch/stash branch.
+- Nếu branch hiện tại không phải branch của task (kể cả đang ở feature branch
+  khác), hỏi trước khi sửa.
+- Nếu working tree dirty, hỏi:
+  1. Tạo branch từ HEAD hiện tại để giữ thay đổi
+  2. Stash → switch `develop` → tạo branch → pop
+  3. Dừng
+- Nếu developer chủ động yêu cầu làm trên `main`/`develop`, agent phải cảnh báo
+  và yêu cầu xác nhận rõ ràng; mặc định vẫn đề xuất tách branch.
+
+Base branch:
+
+- `feat/<slug>`, `fix/<slug>`, `chore/<slug>`: từ `develop`.
+- `hotfix/<slug>`: từ `main`.
+
 ## 1. Vai trò các nhánh
 
 | Branch | Vai trò | Quy tắc |
@@ -10,13 +41,14 @@ với Git nằm trong [`spec-kit-workflow.md`](spec-kit-workflow.md) §9.
 | `main` | Production/release | Protected; không commit trực tiếp; chỉ nhận `develop`/`hotfix/*`; tag `v*` |
 | `develop` | Integration/staging | Protected; không commit trực tiếp; push trigger CD staging |
 | `feat/<slug>` | Feature | Tạo từ `develop`; PR về `develop`; 1 owner |
-| `chore/*` | Hạ tầng/skills/docs | PR về `develop` |
+| `fix/<slug>` | Bug fix trên develop | Tạo từ `develop`; PR về `develop` |
+| `chore/*` | Hạ tầng/skills/docs | Tạo từ `develop`; PR về `develop` |
 | `hotfix/<slug>` | Sửa gấp production | Tạo từ `main`; PR về `main`; tag; back-merge `develop` |
 
 ## 2. Flow
 
 ```text
-feat/<slug> --PR--> develop --push--> CI + CD staging --> UAT
+feat/<slug>|fix/<slug>|chore/* --PR--> develop --push--> CI + CD staging --> UAT
 develop --PR/FF--> main --tag v*--> CD production
 hotfix/<slug> --PR--> main --tag--> CD production
 main --back-merge--> develop

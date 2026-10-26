@@ -14,6 +14,8 @@ hành.
 | Deploy / rollback | [deployment](operations/deployment.md), [certificates](operations/certificates.md) |
 | Kiến trúc / boundaries | [architecture](system-design/architecture.md) |
 | Error / handler / DTO / i18n | [design-pattern](system-design/design-pattern.md) |
+| Spec Kit skill overrides | [speckit-overrides](development/speckit-overrides/README.md) |
+| Backend integration handoff | [backend-integration-guide-template](../.specify/templates/backend-integration-guide-template.md) |
 | Event / outbox / DLQ | [event-driven-design](system-design/event-driven-design.md) |
 | Database / migration | [data-and-migrations](system-design/data-and-migrations.md) |
 | Security | [security](system-design/security.md) |

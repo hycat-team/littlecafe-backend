@@ -9,6 +9,17 @@
   `speckit-*` for one step. Canonical: `.agents/skills/<name>/SKILL.md`; do not
   duplicate them under `.opencode/skills`. `.opencode/agents/*.md` is only a
   permission adapter.
+- **Branch preflight (mandatory)**: before any file mutation - write/edit,
+  codegen, format, migration, config/env/deploy change, dependency install, or
+  Git staging - check the current branch. `main`, `master`, `develop`, `trunk`,
+  and detached HEAD are protected: STOP, ask the developer, and wait for
+  approval. Read-only work is allowed. Never create, switch, or stash a branch
+  without permission.
+- **Spec Kit overlays**: managed `.agents/skills/**` and managed
+  `.specify/templates/*-template.md` MUST remain upstream. Before any managed
+  `speckit-*` skill, read `docs/development/speckit-overrides/README.md`,
+  `feature-binding.md`, and the matching delta. Only `speckit-orchestrate` and
+  `speckit-worker` are repo-owned custom skills.
 - Before Spec Kit: read `docs/development/spec-kit-workflow.md` and
   `docs/development/gates.md`. Before branch/PR/release work, read
   `docs/development/git-workflow.md`.
@@ -46,11 +57,23 @@
 - **Frontend handoff**: update `specs/<owner>-<NNN>-<slug>/frontend-guide.md` on
   client-surface changes; set `READY_FOR_FRONTEND` only when contract, code,
   tests, and counted sync are complete.
+- **Backend integration handoff**: update
+  `specs/<owner>-<NNN>-<slug>/backend-integration-guide.md` on gRPC/event or
+  other service-to-service surface changes; set `READY_FOR_BACKEND` only when
+  contract, code, tests, and counted sync are complete. Record a no-change
+  conclusion in `tasks.md` when the surface is unchanged.
 - **Secrets**: never commit; `.env.*` local/VPS mode 600.
-- **Git**: no commit/push/tag/branch/reset/release unless requested.
-  `$speckit-orchestrate` gets one commit per gated phase + verified `fixup!`;
-  workers never. Commit only on `feat/<slug>`; never commit
+- **Git**: no commit/push/tag/branch/reset/release unless requested; never
+  write on protected branches (see Startup). `$speckit-orchestrate` gets one
+  commit per gated phase + verified `fixup!`; workers never. Commit only on the
+  task branch (`feat/<slug>`, `fix/<slug>`, `chore/<slug>`, or
+  `hotfix/<slug>`); never commit
   `.specify/owner.json`, `.specify/feature.json`, or another feature's `specs/**`.
+- **Managed skills/templates**: never hand-edit managed `.agents/skills/**`
+  (`speckit-orchestrate` and `speckit-worker` are repo-owned exceptions) or
+  managed `.specify/templates/*-template.md`. Team deltas live in
+  `docs/development/speckit-overrides/`; template additions use
+  `.specify/templates/overrides/` (or a repo-owned template).
 - **Language**: i18n via `shared/pkg/i18n`; identifiers/logs English; specs and
   reports Vietnamese; `.env*` comments English.
 - **Paths**: relative only.
@@ -68,7 +91,7 @@
 
 | Task | Read first |
 | --- | --- |
-| Spec Kit feature | `docs/development/spec-kit-workflow.md`, matching skill |
+| Spec Kit feature | `docs/development/spec-kit-workflow.md`, `docs/development/speckit-overrides/README.md`, matching skill |
 | Git / PR / release | `docs/development/git-workflow.md` |
 | Architecture / boundaries | `docs/system-design/architecture.md` |
 | API / events / gRPC | `contracts/`, `docs/system-design/design-pattern.md`, `docs/system-design/event-driven-design.md` |
@@ -76,11 +99,21 @@
 | Config / env / deploy | `docs/development/environments.md`, `docs/operations/deployment.md` |
 | Security / runtime / AI | `docs/system-design/security.md`, `docs/system-design/runtime-observability.md`, `docs/system-design/ai-service.md` |
 | Frontend handoff | `docs/development/spec-kit-workflow.md`, `.specify/templates/frontend-guide-template.md` |
+| Backend integration handoff | `docs/development/spec-kit-workflow.md`, `.specify/templates/backend-integration-guide-template.md` |
 
 ## 6. Behavior
 
 - Use the `question` tool for developer decisions, with consequences and
   "(Recommended)"; prose only for open-ended questions.
+- **Branch question** before any mutation on a protected branch. Offer concrete
+  choices, for example:
+  1. Create `feat/<slug>` from `develop` (Recommended for a feature)
+  2. Create `fix/<slug>` from `develop` (bug fix)
+  3. Create `chore/<slug>` from `develop` (docs/config/CI/tooling)
+  4. Create `hotfix/<slug>` from `main` (production incident)
+  5. Stop; stay read-only
+  If the working tree is dirty, add the choices: create from current HEAD,
+  stash → switch `develop` → create → pop, or stop.
 - Propose and take the next step; stop only at documented stop conditions.
 - Write tests with the change; run codegen; prefer Makefile targets.
 - Do not create entities, routes, RPCs, events, fixtures, or sample data to

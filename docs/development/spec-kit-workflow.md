@@ -90,7 +90,7 @@ cũng gọi `team-check`.
 
 ## 5. Luồng làm việc
 
-1. Đồng bộ: `git fetch origin && git switch main && git pull`.
+1. Đồng bộ: `git fetch origin && git switch develop && git pull --ff-only`.
 2. Tạo nhánh: `git switch -c feat/<slug>`.
 3. Developer giữ chỗ slug: `git push -u origin feat/<slug>` (nhánh rỗng cũng được).
 4. Chạy `$speckit-specify`; nếu chưa có owner handle, agent hỏi rồi ghi hộ.
@@ -100,6 +100,27 @@ cũng gọi `team-check`.
 7. Trước PR: `make team-check`, cập nhật `status`, chạy `make check`.
 8. PR 1 reviewer; sau merge, merge `main` vào nhánh trước khi tạo migration mới.
 
+### 5.1 Managed skills và team overrides
+
+- `.agents/skills/**` và `.specify/templates/*-template.md` là file managed của
+  Spec Kit; MUST giữ nguyên bản gốc, không sửa tay.
+- Team-specific behavior nằm trong
+  [`speckit-overrides/`](speckit-overrides/README.md) dưới dạng delta:
+  - `feature-binding.md` cho mọi skill;
+  - `specify.md`, `implement.md`, `converge.md`, `tasks.md`, `handoff.md` khi
+    skill tương ứng cần.
+- Trước khi chạy managed `speckit-*`, agent MUST đọc
+  `speckit-overrides/README.md` + `feature-binding.md` + delta tương ứng.
+- Managed skill vẫn là nguồn chính cho mọi bước không bị override.
+- `speckit-orchestrate` và `speckit-worker` là custom skills repo-owned, được
+  phép khác upstream.
+- Template custom dùng `.specify/templates/overrides/`; template mới repo-owned
+  dùng `.specify/templates/`.
+
+Đây là policy overlay của repo, không phải cơ chế command/skill override chính
+thức của Spec Kit. Spec Kit chính thức hỗ trợ template overrides và preset-based
+command/skill overrides.
+
 ## 6. Các phase
 
 | Phase | Skill | Output / điều kiện dừng |
@@ -108,7 +129,7 @@ cũng gọi `team-check`.
 | 1 | `speckit-specify` | `spec.md`: user story độc lập, yêu cầu, success criteria |
 | 2 | `speckit-clarify` | Làm rõ tối đa 5 điểm mơ hồ, cập nhật lại `spec.md` |
 | 3 | `speckit-plan` | `plan.md`: Constitution Check, data model, contract/schema, research |
-| 4 | `speckit-tasks` | `tasks.md`: task theo user story, `[P]`, đường dẫn file, frontend handoff |
+| 4 | `speckit-tasks` | `tasks.md`: task theo user story, `[P]`, đường dẫn file, frontend/backend handoff |
 | 5 | `speckit-analyze` | Read-only; CRITICAL/HIGH phải sửa ở artifact trước khi code |
 | 6 | `speckit-implement` | Code theo phase, tick `[x]`, gate scoped |
 | 7 | `speckit-converge` | Đối chiếu codebase với spec/plan/tasks, append task còn thiếu |
@@ -121,15 +142,18 @@ giữ phase, output và điều kiện dừng.
 - `spec.md` lấy nguồn từ requirement/workflow/ADR đã duyệt trong
   `littlecafe-docs`; không tự chốt quyết định mà nguồn đang mở.
 - `plan.md` cập nhật contract machine-readable trước implementation.
-- `tasks.md` phải nói rõ frontend handoff: có `frontend-guide.md` hay kết luận
-  không đổi client surface; việc ngoài feature ghi `deferred.md`.
+- `tasks.md` phải nói rõ hai handoff:
+  - frontend: có `frontend-guide.md` hay kết luận không đổi client surface;
+  - backend: có `backend-integration-guide.md` hay kết luận không đổi
+    gRPC/event/service-to-service surface.
+- Việc ngoài feature ghi `deferred.md`.
 
 ### Phase 6–7
 
 - Chạy gate theo [`gates.md`](gates.md); không chạy `make check` giữa các phase.
 - Phase chạm `specs/**` hoặc `meta.json` thì chạy thêm `make team-check`.
-- Converge sạch: chạy `make check` một lần, sync `frontend-guide.md` nếu có
-  client surface, rồi commit close-out.
+- Converge sạch: chạy `make check` một lần, sync `frontend-guide.md` và
+  `backend-integration-guide.md` nếu surface tương ứng đổi, rồi commit close-out.
 
 ### Skill bổ trợ
 
@@ -153,7 +177,8 @@ Chỉ sửa khi `plan.md` khai báo và không feature đang mở nào khác s�
 | `Makefile`, `.github/workflows/ci.yml` | lead sở hữu; PR `chore/*` |
 | `shared/**` | chỉ thêm khi thật sự cross-cutting |
 | `docs/system-design/**` | cập nhật cùng feature nếu kiến trúc đổi |
-| `.agents/skills/**`, `.specify/**`, `scripts/speckit/**` | lead sở hữu; PR `chore/*` |
+| `.agents/skills/**`, `.specify/**`, `scripts/speckit/**` | lead sở hữu; PR `chore/*`. Managed skills/templates giữ upstream |
+| `docs/development/speckit-overrides/**` | lead sở hữu; PR `chore/*`; delta-only cho managed skills |
 
 ## 8. Migration
 
@@ -166,10 +191,18 @@ Chỉ sửa khi `plan.md` khai báo và không feature đang mở nào khác s�
 
 - Agent không tự commit/push/tag/branch/reset/rebase/amend/merge nếu chưa được
   yêu cầu; chỉ đọc git.
+- Trước mọi file mutation, kể cả task ngoài Spec Kit, áp dụng
+  [`git-workflow.md`](git-workflow.md) §0: kiểm tra branch, dừng và hỏi nếu đang
+  ở protected branch. Không tự tạo/switch/stash branch.
 - `$speckit-orchestrate` có standing authorization cho đúng một commit mỗi phase
   đã qua gate và `fixup!` đã verify; worker không có quyền này.
-- Chỉ commit trên `feat/<slug>`; không commit `main`/`develop`, `.specify/owner.json`,
+- Chỉ commit trên branch của task (`feat/<slug>`, `fix/<slug>`,
+  `chore/<slug>`, `hotfix/<slug>`); không commit `main`/`develop`,
+  `.specify/owner.json`,
   `.specify/feature.json`, hoặc `specs/**` của feature khác.
+- Managed `.agents/skills/**` và `.specify/templates/*-template.md` MUST remain
+  upstream. Không sửa tay; team delta nằm trong
+  [`speckit-overrides/`](speckit-overrides/README.md).
 - Conventional Commits, message tiếng Anh. Chỉ stage path thuộc feature.
 - Branch model và release/tag: [`git-workflow.md`](git-workflow.md).
 - Trước push: `make check`; trước PR: `make team-check`.
@@ -182,7 +215,9 @@ Chỉ sửa khi `plan.md` khai báo và không feature đang mở nào khác s�
 - [ ] Diff không có thay đổi ngoài phạm vi feature.
 - [ ] `make check` xanh.
 - [ ] PR có 1 reviewer; mô tả nêu `owner/NNN/slug`, gate, shared files,
-      migration/frontend-guide nếu có.
+      migration/frontend-guide/backend-integration-guide nếu có.
+- [ ] Không có managed skill/template bị sửa tay; delta nằm trong
+      `docs/development/speckit-overrides/`.
 
 ## 11. Nâng cấp Spec Kit
 

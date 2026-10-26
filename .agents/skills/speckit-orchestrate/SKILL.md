@@ -37,27 +37,39 @@ drift from the repository and become the thing that is wrong.
    `littlecafe-docs` checkout (sibling `../littlecafe-docs` unless the user names
    another path)
 6. The feature's `spec.md`, `plan.md`, `tasks.md`, `frontend-guide.md` (if
-   present), and `deferred.md` (if present)
+   present), `backend-integration-guide.md` (if present), and `deferred.md` (if
+   present)
+7. `docs/development/speckit-overrides/README.md`, `feature-binding.md`, and the
+   per-skill delta for every managed `speckit-*` skill you invoke
 
 Read them once per run, not once per subagent call. Pass paths, not copies.
+
+Before any write, check the current branch. If it is `main`, `master`,
+`develop`, `trunk`, or detached HEAD, STOP and ask the developer; do not edit or
+create/switch/stash a branch without permission.
 
 ## §1 Resolve the feature
 
 A feature is the branch `feat/<slug>` plus the directory
 `specs/<owner>-<NNN>-<slug>`. There is no repository-wide counter.
 
-1. Run
+1. Check `git branch --show-current` before resolving. If the branch is
+   `main`, `master`, `develop`, `trunk`, or detached HEAD, STOP and ask whether
+   to create `feat/<slug>` from `develop`. Do not create or switch a branch
+   without permission.
+2. Run
    `pwsh scripts/speckit/team-feature.ps1 resolve -Json` from the repo root and
    take `FEATURE_DIR`, `FEATURE_SPEC`, `IMPL_PLAN`, `TASKS`, `OWNER`,
    `LOCAL_OWNER`, `NUMBER`, `SLUG` and `BRANCH` from it.
-2. If the user names a feature, it must match the bound branch and directory.
+3. If the user names a feature, it must match the bound branch and directory.
    One checkout handles one feature at a time; STOP if they differ.
-3. If resolution fails (wrong branch, unbound checkout, `main`), STOP and report
-   the error verbatim. The developer fixes it with `git switch feat/<slug>` or
+4. If resolution fails (wrong branch, unbound checkout, `main`), STOP and report
+   the error verbatim. If the fix requires a branch, ask before creating or
+   switching one. The other usual fix is
    `pwsh scripts/speckit/team-feature.ps1 bind`.
-4. Never select the newest directory under `specs/`, never trust
+5. Never select the newest directory under `specs/`, never trust
    `.specify/feature.json` on its own, and never edit it by hand.
-5. If the resolved directory lacks `spec.md`, `plan.md` or `tasks.md`, say which
+6. If the resolved directory lacks `spec.md`, `plan.md` or `tasks.md`, say which
    `speckit-*` skill must run first. Do not generate the missing artifacts
    yourself.
 
@@ -218,9 +230,16 @@ true.
 **One commit per phase. Never more — with one exception.**
 
 Invoking this skill grants standing authorization for these phase commits.
-Before work, capture `git status --short` and verify `HEAD` exists. Without a
-`HEAD`, disable auto-commit for the run because no safe baseline exists.
+Before work, capture `git status --short`, verify `HEAD` exists, and check the
+current branch. Without a `HEAD`, disable auto-commit for the run because no safe
+baseline exists.
 
+- Before any file mutation, apply Constitution Principle IX: `main`, `master`,
+  `develop`, `trunk`, and detached HEAD are protected. STOP and ask; do not
+  write, create, switch, or stash a branch without permission.
+- Managed `.agents/skills/**` and `.specify/templates/*-template.md` MUST remain
+  upstream. Team additions belong in
+  `docs/development/speckit-overrides/`, not in managed files.
 - Commit only after that phase's §6 gate is green, and only while on
   `feat/<slug>`. Never commit to `main`, `master`, `develop` or another shared
   branch.
@@ -264,6 +283,11 @@ Interrupt only where a wrong guess would be expensive or irreversible.
 4. A gate is red and the fix is outside the feature's declared scope.
 5. The next action touches production: push, tag, or a migration on a live DB.
 6. An iteration cap in §4 or §7 is reached.
+7. The current branch is protected (`main`, `master`, `develop`, `trunk`, or
+   detached HEAD) and work requires a branch decision.
+8. A managed skill or managed template is modified and the fix would require
+   editing it by hand; use/report the `speckit-overrides` policy overlay
+   instead.
 
 Ask with the host agent's structured question mechanism (OpenCode: the
 `question` tool; other agents: the equivalent UI, or prose plus a stop when no

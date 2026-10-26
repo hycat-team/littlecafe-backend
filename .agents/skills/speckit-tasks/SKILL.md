@@ -16,33 +16,6 @@ $ARGUMENTS
 
 You **MUST** consider the user input before proceeding (if not empty).
 
-**Worker Git guard**: When this skill is invoked by `speckit-worker`, do not
-execute an extension hook that performs any Git mutation. Report that hook to
-the orchestrator for execution under the orchestrator's Git policy. Continue
-to execute non-Git hooks normally.
-
-## Feature Binding (team)
-
-This repository is worked on by a team, so a feature is identified by the branch
-`feat/<slug>` and the directory `specs/<owner>-<NNN>-<slug>`. There is no
-repository-wide counter.
-
-1. Run `pwsh scripts/speckit/team-feature.ps1 resolve -Json` from the repo root
-   and use the returned `FEATURE_DIR`, `FEATURE_SPEC`, `IMPL_PLAN`, `TASKS`,
-   `OWNER`, `LOCAL_OWNER`, `NUMBER`, `SLUG` and `BRANCH` for the rest of this
-   skill.
-2. If it fails, STOP and report the error verbatim. Never fall back to the newest
-   directory under `specs/`, and never edit `.specify/feature.json` by hand. The
-   usual fixes are: check out `feat/<slug>`, or run
-   `pwsh scripts/speckit/team-feature.ps1 bind`.
-3. Never work when the current branch is `main` or when the bound branch differs
-   from the current branch.
-4. If the developer names a feature different from the bound one, STOP: one
-   checkout handles one feature at a time.
-5. Do not edit `.agents/skills/**`, `.specify/**`, `scripts/speckit/**`,
-   `shared/`, `contracts/`, migration files, or another feature's `specs/**`
-   directory unless this feature's `tasks.md` explicitly assigns it.
-
 ## Pre-Execution Checks
 
 **Check for extension hooks (before tasks generation)**:
@@ -95,10 +68,6 @@ repository-wide counter.
    - If data-model.md exists: Extract entities and map to user stories
    - If contracts/ exists: Map interface contracts to user stories
    - If research.md exists: Extract decisions for setup tasks
-   - Determine from spec, plan, and contracts whether the feature adds, changes,
-     or removes an HTTP endpoint, event payload, or client-facing DTO. Do not
-     infer "no change" from silence: add an explicit task that records the
-     decision.
    - Generate tasks organized by user story (see Task Generation Rules below)
    - Generate dependency graph showing user story completion order
    - Create parallel execution examples per user story
@@ -116,16 +85,6 @@ repository-wide counter.
    - Dependencies section showing story completion order
    - Parallel execution examples per story
    - Implementation strategy section (MVP first, incremental delivery)
-   - A final frontend handoff decision:
-     - If the client surface changes, add tasks to create/update
-       `FEATURE_DIR/frontend-guide.md` from
-       `.specify/templates/frontend-guide-template.md`, maintain its lifecycle
-       status, and perform a counted source/contract sync at close-out.
-     - If it does not change, add one task to record that conclusion in
-       tasks.md and do not create frontend-guide.md.
-   - A deferred-work rule: findings outside this feature belong in
-     `FEATURE_DIR/deferred.md` using the deferred template; in-scope work must
-     remain an executable task.
 
 ## Mandatory Post-Execution Hooks
 
@@ -171,8 +130,6 @@ Output path to generated tasks.md and summary:
 - Independent test criteria for each story
 - Suggested MVP scope (typically just User Story 1)
 - Format validation: Confirm ALL tasks follow the checklist format (checkbox, ID, labels, file paths)
-- Frontend handoff decision and whether a guide is required
-- Deferred-work handling included when applicable
 
 Context for task generation: $ARGUMENTS
 
@@ -242,20 +199,6 @@ Every task MUST strictly follow this format:
    - Foundational/blocking tasks → Foundational phase (Phase 2)
    - Story-specific setup → within that story's phase
 
-5. **Frontend Handoff and Deferred Work**:
-   - Treat HTTP endpoints, event payloads, and client-facing DTOs as the client
-     surface.
-   - A changed client surface requires `frontend-guide.md`; link to canonical
-     contracts instead of duplicating schemas in prose.
-   - The final sync task must count routes, fields, enums, and HTTP/error
-     statuses checked against source/contracts. `READY_FOR_FRONTEND` is invalid
-     before implementation, test evidence, and sync are complete.
-   - A feature with no client-surface change records that conclusion in a task
-     and does not create a guide.
-   - Never generate an unchecked task for work that is genuinely outside the
-     feature. Record it in `deferred.md` with why it is out of scope, what
-     unblocks it, and any completed task whose evidence it weakens.
-
 ### Phase Structure
 
 - **Phase 1**: Setup (project initialization)
@@ -270,5 +213,3 @@ Every task MUST strictly follow this format:
 - [ ] tasks.md generated with all phases, task IDs, and file paths
 - [ ] Extension hooks dispatched or skipped according to the rules in Mandatory Post-Execution Hooks above
 - [ ] Completion reported to user with task count, story breakdown, and MVP scope
-- [ ] Frontend handoff decision is explicit and guide/sync tasks exist exactly when required
-- [ ] Out-of-scope work is routed to deferred.md rather than left as an unfinished feature task

@@ -16,33 +16,6 @@ $ARGUMENTS
 
 You **MUST** consider the user input before proceeding (if not empty).
 
-**Worker Git guard**: When this skill is invoked by `speckit-worker`, do not
-execute an extension hook that performs any Git mutation. Report that hook to
-the orchestrator for execution under the orchestrator's Git policy. Continue
-to execute non-Git hooks normally.
-
-## Feature Binding (team)
-
-This repository is worked on by a team, so a feature is identified by the branch
-`feat/<slug>` and the directory `specs/<owner>-<NNN>-<slug>`. There is no
-repository-wide counter.
-
-1. Run `pwsh scripts/speckit/team-feature.ps1 resolve -Json` from the repo root
-   and use the returned `FEATURE_DIR`, `FEATURE_SPEC`, `IMPL_PLAN`, `TASKS`,
-   `OWNER`, `LOCAL_OWNER`, `NUMBER`, `SLUG` and `BRANCH` for the rest of this
-   skill.
-2. If it fails, STOP and report the error verbatim. Never fall back to the newest
-   directory under `specs/`, and never edit `.specify/feature.json` by hand. The
-   usual fixes are: check out `feat/<slug>`, or run
-   `pwsh scripts/speckit/team-feature.ps1 bind`.
-3. Never work when the current branch is `main` or when the bound branch differs
-   from the current branch.
-4. If the developer names a feature different from the bound one, STOP: one
-   checkout handles one feature at a time.
-5. Do not edit `.agents/skills/**`, `.specify/**`, `scripts/speckit/**`,
-   `shared/`, `contracts/`, migration files, or another feature's `specs/**`
-   directory unless this feature's `tasks.md` explicitly assigns it.
-
 ## Pre-Execution Checks
 
 **Check for extension hooks (before implementation)**:
@@ -125,11 +98,6 @@ repository-wide counter.
    - **IF EXISTS**: Read research.md for technical decisions and constraints
    - **IF EXISTS**: Read .specify/memory/constitution.md for governance constraints
    - **IF EXISTS**: Read quickstart.md for integration scenarios
-   - **IF EXISTS**: Read frontend-guide.md and deferred.md
-   - Determine whether the feature changes an HTTP endpoint, event payload, or
-     client-facing DTO by reading spec/plan/contracts. If it changes the client
-     surface, frontend-guide.md is required. If it does not, tasks.md must state
-     that conclusion and no guide should be created.
 
 4. **Project Setup Verification**:
    - **REQUIRED**: Create/verify ignore files based on actual project setup:
@@ -202,38 +170,12 @@ repository-wide counter.
    - Provide clear error messages with context for debugging
    - Suggest next steps if implementation cannot proceed
    - **IMPORTANT** For completed tasks, make sure to mark the task off as [X] in the tasks file.
-   - If work discovered during implementation is truly outside the feature,
-     create or append `FEATURE_DIR/deferred.md` from
-     `.specify/templates/deferred-template.md`. Record the concrete problem,
-     why it is outside scope, what unblocks it, and any checked task whose
-     evidence it weakens. Do not move in-scope work there to obtain a clean
-     task list. If the finding invalidates acceptance evidence for a completed
-     task, reopen that task and treat the work as in-scope/blocking; defer only
-     a limitation that leaves the completion claim true.
-   - If a frontend guide is required, keep its status honest: `DRAFT` while the
-     contract is unsettled, `IN_PROGRESS` during implementation, `CHANGED` when
-     an already handed-off surface changes, and `DEPRECATED` when retiring a
-     surface. A previously ready surface transitions `READY_FOR_FRONTEND` →
-     `CHANGED` while being revised, then `CHANGED` → `READY_FOR_FRONTEND` once
-     contract, implementation, evidence, and sync are complete; frontend
-     acknowledgement is not required. Do not set `READY_FOR_FRONTEND` in this step unless contract,
-     implementation, test evidence, and the counted sync checklist are all
-     complete.
 
 9. Completion validation:
    - Verify all required tasks are completed
    - Check that implemented features match the original specification
    - Validate that tests pass and coverage meets requirements
    - Confirm the implementation follows the technical plan
-   - Confirm every unchecked item still represents unfinished in-scope work;
-     route genuine out-of-scope findings to deferred.md
-   - Reopen any completed task whose acceptance evidence was invalidated; such
-     a finding is blocking and cannot remain only in deferred.md
-   - For a changed client surface, compare frontend-guide.md with canonical
-     contracts/source and fill counts for routes, fields, enums, and
-     HTTP/error statuses. Only then may its status become READY_FOR_FRONTEND.
-   - For an unchanged client surface, confirm tasks.md records that conclusion
-     and frontend-guide.md was not created.
 
 Note: This command assumes a complete task breakdown exists in tasks.md. If tasks are incomplete or missing, suggest running `$speckit-tasks` first to regenerate the task list.
 
@@ -280,7 +222,5 @@ Report final status with summary of completed work.
 
 - [ ] All tasks in tasks.md completed and marked `[X]`
 - [ ] Implementation validated against specification, plan, and test coverage
-- [ ] Frontend handoff requirement resolved and any guide status/evidence is truthful
-- [ ] Out-of-scope findings recorded in deferred.md, with no in-scope work hidden there
 - [ ] Extension hooks dispatched or skipped according to the rules in Mandatory Post-Execution Hooks above
 - [ ] Completion reported to user with summary of completed work
