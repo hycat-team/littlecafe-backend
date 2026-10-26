@@ -6,7 +6,7 @@ WIRE_VERSION := v0.7.0
 BUF_VERSION := v1.57.2
 OAPI_CODEGEN_VERSION := v2.4.1
 REDOCLY_VERSION := 1.34.5
-ASYNCAPI_VERSION := 4.1.0
+ASYNCAPI_VERSION := 6.2.1
 GO_BUILD_FLAGS := -trimpath -ldflags="-s -w"
 BIN_DIR := bin
 PROTO_FILES := $(wildcard contracts/proto/*.proto contracts/proto/*/*.proto contracts/proto/*/*/*.proto contracts/proto/*/*/*/*.proto)

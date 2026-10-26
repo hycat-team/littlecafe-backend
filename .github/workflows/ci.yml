@@ -128,7 +128,7 @@ jobs:
                     services/*/go.sum
             - uses: actions/setup-node@v5
               with:
-                  node-version: "22"
+                  node-version: "24"
             - name: Install Buf
               shell: bash
               run: |
