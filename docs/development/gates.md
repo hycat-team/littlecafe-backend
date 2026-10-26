@@ -11,6 +11,11 @@ documents or skills.
 
 - `make check` includes `generate-check`, workspace `test-race`, and
   `team-check`; never run it inside a task or phase loop.
+- `make check` also runs `coverage-check`: business-code statement coverage
+  must stay at or above `COVER_MIN` (default `80`). The scope excludes `cmd/`,
+  `internal/di/`, `internal/bootstrap/`, `database/migrations/`, generated
+  files, `contracts/openapi/`, and `shared/infrastructure/`; adjust
+  `COVER_EXCLUDE` in the Makefile when the boundary changes.
 - Inside a phase, run scoped `go test -race` only; never run `make test-race`.
 - If a gate step does not apply, say so in the report; a silent skip reads as a
   pass.

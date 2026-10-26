@@ -24,12 +24,23 @@ SERVER_PORT ?= 8080
 CONFIG_BASE ?= $(abspath configs/base.yaml)
 CONFIG_OVERLAY ?= $(abspath configs/$(SVC).yaml)
 TEST_FLAGS ?=
+COVER_DIR ?= coverage
+COVER_PROFILE := $(COVER_DIR)/coverage.out
+COVER_BUSINESS_PROFILE := $(COVER_DIR)/coverage.business.out
+COVER_HTML := $(COVER_DIR)/coverage.html
+COVER_FLAGS ?= -covermode=atomic
+COVER_MIN ?= 80
+COVER_EXCLUDE ?= cmd/,internal/di/,internal/bootstrap/,database/migrations/,shared/infrastructure/,contracts/openapi/,shared/provider.go,_gen.go,.pb.go
+COVER_PKGS := ./shared/... ./contracts/... ./services/identity/... ./services/order/... ./services/activity/... ./services/wallet/... ./services/ai/... ./services/notification/... ./services/reporting/...
+COVER_FILTER_CMD := go run scripts/coverage/filter.go -in "$(COVER_PROFILE)" -out "$(COVER_BUSINESS_PROFILE)" -exclude "$(COVER_EXCLUDE)"
 
 ifeq ($(OS),Windows_NT)
 GO_BIN_EXT := .exe
 PWSH ?= powershell
-MKDIR_BIN_CMD := if not exist "$(subst /,\,$(BIN_DIR))" mkdir "$(subst /,\,$(BIN_DIR))"
-CLEAN_BIN_CMD := if exist "$(subst /,\,$(BIN_DIR))" rmdir /S /Q "$(subst /,\,$(BIN_DIR))"
+MKDIR_BIN_CMD := $(PWSH) -NoProfile -Command "New-Item -ItemType Directory -Force -Path '$(BIN_DIR)' | Out-Null"
+CLEAN_BIN_CMD := $(PWSH) -NoProfile -Command "Remove-Item -Recurse -Force -Path '$(BIN_DIR)' -ErrorAction SilentlyContinue"
+MKDIR_COVER_CMD := $(PWSH) -NoProfile -Command "New-Item -ItemType Directory -Force -Path '$(COVER_DIR)' | Out-Null"
+CLEAN_COVER_CMD := $(PWSH) -NoProfile -Command "Remove-Item -Recurse -Force -Path '$(COVER_DIR)' -ErrorAction SilentlyContinue"
 FMT_CHECK_CMD := powershell -Command '$$files = gofmt -l .; if ($$files) { Write-Error ($$files -join [Environment]::NewLine); exit 1 }'
 TEST_CMD := go test $(TEST_FLAGS) ./...
 RACE_TEST_CMD := go test -race $(TEST_FLAGS) ./...
@@ -39,6 +50,8 @@ GO_BIN_EXT :=
 PWSH ?= pwsh
 MKDIR_BIN_CMD := mkdir -p "$(BIN_DIR)"
 CLEAN_BIN_CMD := rm -rf "$(BIN_DIR)"
+MKDIR_COVER_CMD := mkdir -p "$(COVER_DIR)"
+CLEAN_COVER_CMD := rm -rf "$(COVER_DIR)"
 FMT_CHECK_CMD := test -z "$$(gofmt -l .)"
 TEST_CMD := go test $(TEST_FLAGS) ./...
 RACE_TEST_CMD := go test -race $(TEST_FLAGS) ./...
@@ -52,7 +65,7 @@ name := $(or $(name),$(NAME))
 SVC_REQ = $(if $(filter $(SVC),$(SERVICES)),,$(error This target requires svc=<$(SERVICES)> — e.g. make $@ svc=identity))
 unexport SVC_REQ
 
-.PHONY: help install-tools install-goose wire wire-all buf-gen buf-lint openapi-gen openapi-lint asyncapi-lint openapi-check error-codes-check contract-lint generate generate-check fmt fmt-check tidy tidy-check vet test test-race lint check team-check team-list team-test build build-all run dev clean migrate-status migrate-up migrate-down migrate-create migrate-version docker-infra-up docker-dev-up docker-dev-stop docker-dev-down docker-prod-up docker-prod-stop docker-prod-down nginx-reload-local
+.PHONY: help install-tools install-goose wire wire-all buf-gen buf-lint openapi-gen openapi-lint asyncapi-lint openapi-check error-codes-check contract-lint generate generate-check fmt fmt-check tidy tidy-check vet test test-race test-cover test-cover-html coverage-check lint check team-check team-list team-test build build-all run dev clean migrate-status migrate-up migrate-down migrate-create migrate-version docker-infra-up docker-dev-up docker-dev-stop docker-dev-down docker-prod-up docker-prod-stop docker-prod-down nginx-reload-local
 
 help:
 	@echo "========================================================================"
@@ -61,6 +74,9 @@ help:
 	@echo "  make dev        : generate code and build all services"
 	@echo "  make run svc=   : run one service locally ($(SERVICES))"
 	@echo "  make test       : run all workspace tests"
+	@echo "  make test-cover : run workspace statement coverage -> $(COVER_PROFILE)"
+	@echo "  make coverage-check : fail when business coverage is below $(COVER_MIN)%"
+	@echo "  make test-cover-html : generate HTML coverage report -> $(COVER_HTML)"
 	@echo "  make check      : full quality gate (fmt, tidy, vet, race tests, build, specs)"
 	@echo "  make team-check : validate the specs/<owner>-<NNN>-<slug> layout (strict)"
 	@echo "  make team-list  : print the feature table from meta.json files"
@@ -214,6 +230,20 @@ test-race:
 	@cd services/reporting && $(RACE_TEST_CMD)
 	@echo Go race tests finished.
 
+test-cover:
+	@echo "Running Go statement coverage (all workspace modules)..."
+	@$(MKDIR_COVER_CMD)
+	@go test $(TEST_FLAGS) $(COVER_FLAGS) -coverprofile="$(COVER_PROFILE)" $(COVER_PKGS)
+	@echo "Coverage profile: $(COVER_PROFILE)"
+	@$(COVER_FILTER_CMD)
+
+coverage-check: test-cover
+	@go run scripts/coverage/filter.go -in "$(COVER_PROFILE)" -out "$(COVER_BUSINESS_PROFILE)" -exclude "$(COVER_EXCLUDE)" -min $(COVER_MIN)
+
+test-cover-html: test-cover
+	@go tool cover -html="$(COVER_BUSINESS_PROFILE)" -o "$(COVER_HTML)"
+	@echo "Coverage report: $(COVER_HTML)"
+
 team-check:
 	@echo Checking Spec Kit feature layout...
 	@$(PWSH) -NoProfile -File scripts/speckit/team-feature.ps1 check -Strict
@@ -226,7 +256,7 @@ team-test:
 
 lint: fmt-check vet
 
-check: fmt-check tidy-check generate-check vet test-race contract-lint build-all team-check
+check: fmt-check tidy-check generate-check vet test-race contract-lint build-all team-check coverage-check
 
 build:
 	$(SVC_REQ)
@@ -255,8 +285,9 @@ run: build
 dev: generate build-all
 
 clean:
-	@echo Cleaning generated binaries...
+	@echo Cleaning generated binaries and coverage reports...
 	@$(CLEAN_BIN_CMD)
+	@$(CLEAN_COVER_CMD)
 	@echo Clean finished.
 
 migrate-status:
