@@ -95,13 +95,6 @@ jobs:
                     services/*/go.sum
             - name: Enforce business statement coverage
               run: make coverage-check TEST_FLAGS=-short
-            - name: Upload coverage report
-              if: always()
-              uses: actions/upload-artifact@v4
-              with:
-                  name: coverage
-                  path: coverage/
-                  retention-days: 14
 
     test-race:
         name: Race detector
