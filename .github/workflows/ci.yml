@@ -45,6 +45,12 @@ jobs:
               run: make generate
             - name: Verify generated sources are committed
               run: git diff --exit-code
+            - name: Validate deployment scripts
+              run: bash -n deployments/scripts/deploy-release.sh
+            - name: Lint GitHub workflows
+              run: |
+                go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+                "$(go env GOPATH)/bin/actionlint"
 
     vet:
         name: Go vet and dependency boundaries

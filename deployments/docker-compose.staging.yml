@@ -26,8 +26,6 @@ x-runtime: &runtime
         TZ: Asia/Ho_Chi_Minh
     depends_on:
         postgres: {condition: service_healthy}
-        redis: {condition: service_healthy}
-        rabbitmq: {condition: service_healthy}
     mem_limit: 96m
     stop_grace_period: 30s
     security_opt: *security
@@ -266,11 +264,6 @@ services:
         volumes:
             - ./nginx/staging.conf:/etc/nginx/templates/default.conf.template:ro
             - ${TLS_DIR:-/opt/littlecafe-tls}:/etc/nginx/tls:ro
-        depends_on:
-            - commerce
-            - experience
-            - ai
-            - platform
         security_opt: *security
         logging: *logging
 

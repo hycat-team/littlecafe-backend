@@ -90,6 +90,7 @@ jobs:
         name: Deploy selected staging services
         needs: [plan, build-push]
         runs-on: ubuntu-latest
+        timeout-minutes: 30
         environment: staging
         steps:
             - uses: actions/checkout@v5
@@ -114,6 +115,7 @@ jobs:
                   deployments/docker-compose.staging.yml \
                   deployments/nginx/staging.conf \
                   deployments/scripts/init-db.sh \
+                  deployments/scripts/deploy-release.sh \
                   deployments/scripts/issue-certs.sh \
                   deployments/scripts/renew-certs.sh
                 scp -P "${{ secrets.DEPLOY_PORT }}" /tmp/littlecafe-staging-deploy.tar.gz \
@@ -131,7 +133,7 @@ jobs:
                 printf '%s' "${{ secrets.GHCR_READ_TOKEN }}" | \
                   ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
                   "docker login ghcr.io -u '${{ secrets.GHCR_USERNAME }}' --password-stdin"
-            - name: Bootstrap staging database
+            - name: Ensure staging deploy env keys
               shell: bash
               run: |
                 ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
@@ -144,8 +146,7 @@ jobs:
                        printf '%s_IMAGE=ghcr.io/hycat-team/littlecafe-backend-%s:staging-latest\\n' \"\${S}\" \"\${lower}\" >> .env.staging.deploy
                      fi
                    done
-                   chmod 600 .env.staging.deploy
-                   docker compose --env-file .env.staging --env-file .env.staging.deploy -f deployments/docker-compose.staging.yml --profile init run --rm db-init"
+                   chmod 600 .env.staging.deploy"
             - name: Deploy pinned staging images and migrations
               shell: bash
               env:
@@ -156,33 +157,18 @@ jobs:
                   DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
               run: |
                 set -euo pipefail
+                args=()
                 for service in $(printf '%s' "${SERVICES_JSON}" | jq -r '.[]'); do
-                  upper=$(printf '%s' "${service}" | tr '[:lower:]' '[:upper:]')
                   image="${IMAGE_PREFIX}-${service}"
                   digest=$(docker buildx imagetools inspect "${image}:staging-${GITHUB_SHA}" --format '{{.Manifest.Digest}}')
                   ref="${image}@${digest}"
-
-                  ssh -p "${DEPLOY_PORT}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
-                    "set -e
-                     cd /opt/littlecafe-staging
-                     touch .env.staging.deploy
-                     grep -v '^${upper}_IMAGE=' .env.staging.deploy > .env.staging.deploy.next || true
-                     printf '%s_IMAGE=%s\\n' '${upper}' '${ref}' >> .env.staging.deploy.next
-                     mv .env.staging.deploy.next .env.staging.deploy
-                     chmod 600 .env.staging.deploy
-                     docker compose --env-file .env.staging --env-file .env.staging.deploy -f deployments/docker-compose.staging.yml config >/dev/null
-                     docker compose --env-file .env.staging --env-file .env.staging.deploy -f deployments/docker-compose.staging.yml pull '${service}'
-                     docker compose --env-file .env.staging --env-file .env.staging.deploy -f deployments/docker-compose.staging.yml --profile migrate run --rm migrate-${service}
-                     docker compose --env-file .env.staging --env-file .env.staging.deploy -f deployments/docker-compose.staging.yml up -d '${service}'
-                     docker compose --env-file .env.staging --env-file .env.staging.deploy -f deployments/docker-compose.staging.yml ps '${service}'"
+                  args+=("${service}=${ref}")
                 done
-            - name: Recreate Nginx after staging rollout
-              shell: bash
-              run: |
-                ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-                  "cd /opt/littlecafe-staging && \
-                   docker compose --env-file .env.staging --env-file .env.staging.deploy \
-                   -f deployments/docker-compose.staging.yml up -d --force-recreate nginx"
+                printf -v quoted '%q ' "${args[@]}"
+                ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=6 \
+                  -p "${DEPLOY_PORT}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+                  "cd /opt/littlecafe-staging && bash deployments/scripts/deploy-release.sh \
+                   deployments/docker-compose.staging.yml .env.staging .env.staging.deploy ${quoted}"
 
     smoke-services:
         name: Smoke staging container ${{ matrix.service }}
@@ -205,7 +191,7 @@ jobs:
             - name: Wait for service healthcheck
               shell: bash
               run: |
-                for attempt in $(seq 1 12); do
+                for _ in $(seq 1 12); do
                   status=$(ssh -p "${{ secrets.DEPLOY_PORT }}" \
                     "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
                     "cd /opt/littlecafe-staging && id=\$(docker compose --env-file .env.staging --env-file .env.staging.deploy -f deployments/docker-compose.staging.yml ps -q ${{ matrix.service }}); \
@@ -236,7 +222,7 @@ jobs:
             - name: Check health endpoint through the staging nginx
               shell: bash
               run: |
-                for attempt in $(seq 1 12); do
+                for _ in $(seq 1 12); do
                   if ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
                     "curl --fail --silent --show-error --max-time 15 \
                      --resolve staging-api.littlecafe.kids:8443:127.0.0.1 \

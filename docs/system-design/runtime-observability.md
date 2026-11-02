@@ -64,6 +64,7 @@ Chạy khi PR/push `main` (bỏ qua `docs/**` và `*.md`):
 - Certificate/mTLS: `docs/operations/certificates.md`.
 - Setup local: `docs/development/environments.md` §4.
 - Không dùng `docker compose down -v` trên production (xoá volume database); backup phải phủ cả 4 database trước thay đổi hạ tầng lớn.
+- Deploy: app service chỉ `depends_on` Postgres; Redis/RabbitMQ dùng startup retry. Nginx được recreate sau cùng bởi `deploy-release.sh`; không dựa vào `depends_on` của Compose.
 
 ## 8. Chưa triển khai
 

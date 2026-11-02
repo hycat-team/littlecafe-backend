@@ -88,6 +88,8 @@ Nguyên tắc:
 4. Chạy `make generate`, `make test`, `make build-all`.
 5. Chạy full stack bằng profile `full` sau khi certificate sẵn sàng. Port host:
    HTTP 8101–8104, gRPC 9101–9104, Nginx 8080.
+   Local compose giữ `depends_on` đầy đủ (Postgres, Redis, RabbitMQ); prod/staging
+   chỉ giữ Postgres vì Redis/RabbitMQ có startup retry.
 6. Chạy một service trên host bằng `make run svc=<service>`.
 
 Không thêm entity/endpoint mẫu. Mỗi thay đổi nghiệp vụ bắt đầu từ requirement,
