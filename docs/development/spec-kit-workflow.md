@@ -184,7 +184,10 @@ Chỉ sửa khi `plan.md` khai báo và không feature đang mở nào khác s�
 
 - Một service chỉ có một feature đang mở được tạo migration.
 - Merge `origin/main` trước `make migrate-create svc=<service> name=<name>`.
-- Không sửa migration đã áp dụng; nếu lệch, xoá migration vừa tạo và sinh lại.
+- File migration dùng timestamp `YYYYMMDDHHMMSS_<slug>.sql`; không đánh số tuần
+  tự và không dùng `-s`/`goose fix`.
+- Không sửa hoặc đổi tên migration đã áp dụng; nếu lệch, xoá migration vừa tạo và
+  sinh lại.
 - Chi tiết Goose/schema: [`../system-design/data-and-migrations.md`](../system-design/data-and-migrations.md).
 
 ## 9. Git & PR

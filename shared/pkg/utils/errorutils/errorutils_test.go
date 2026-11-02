@@ -19,8 +19,8 @@ func TestFilterStackTraceArrayDropsInternalAndNoiseFrames(t *testing.T) {
 		"\t/workspace/shared/presentation/middleware/error_handler.go:62 +0x1",
 		projectFramePrefix + "/shared/application/constants/apperror.NewBadRequest()",
 		"\t/workspace/shared/application/constants/apperror/dynamic_errors.go:10 +0x2",
-		projectFramePrefix + "/services/order/internal/modules/order/application/usecase.PlaceOrder()",
-		"\t/workspace/services/order/internal/modules/order/application/usecase/place_order.go:20 +0x3",
+		projectFramePrefix + "/services/commerce/internal/modules/order/application/usecase.PlaceOrder()",
+		"\t/workspace/services/commerce/internal/modules/order/application/usecase/place_order.go:20 +0x3",
 		"github.com/google/uuid.New()",
 		"\t/other/uuid.go:5 +0x4",
 	}, "\n")
@@ -49,10 +49,10 @@ func TestFilterStackTraceArrayDropsInternalAndNoiseFrames(t *testing.T) {
 func TestFilterStackTraceArrayDeduplicatesFrames(t *testing.T) {
 	raw := strings.Join([]string{
 		"goroutine 7 [running]:",
-		projectFramePrefix + "/services/order/internal/modules/order/application/usecase.PlaceOrder()",
-		"\t/workspace/services/order/internal/modules/order/application/usecase/place_order.go:20 +0x1",
-		projectFramePrefix + "/services/order/internal/modules/order/application/usecase.PlaceOrder()",
-		"\t/workspace/services/order/internal/modules/order/application/usecase/place_order.go:20 +0x1",
+		projectFramePrefix + "/services/commerce/internal/modules/order/application/usecase.PlaceOrder()",
+		"\t/workspace/services/commerce/internal/modules/order/application/usecase/place_order.go:20 +0x1",
+		projectFramePrefix + "/services/commerce/internal/modules/order/application/usecase.PlaceOrder()",
+		"\t/workspace/services/commerce/internal/modules/order/application/usecase/place_order.go:20 +0x1",
 	}, "\n")
 
 	frames := FilterStackTraceArray(raw)
@@ -79,8 +79,8 @@ func TestFilterStackTraceArrayFallsBackWhenNoProjectFrame(t *testing.T) {
 func TestPrimaryStackFrameReturnsFirstProjectFrame(t *testing.T) {
 	raw := strings.Join([]string{
 		"goroutine 1 [running]:",
-		projectFramePrefix + "/services/order/internal/modules/order/application/usecase.PlaceOrder()",
-		"\t/workspace/services/order/internal/modules/order/application/usecase/place_order.go:20 +0x1",
+		projectFramePrefix + "/services/commerce/internal/modules/order/application/usecase.PlaceOrder()",
+		"\t/workspace/services/commerce/internal/modules/order/application/usecase/place_order.go:20 +0x1",
 	}, "\n")
 
 	frame := PrimaryStackFrame(raw)

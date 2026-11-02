@@ -44,5 +44,5 @@ Gemini provider interface + pgvector. Hai nguồn đang mâu thuẫn.
 
 1. Chốt mâu thuẫn §3 và cập nhật constitution/ADR cho khớp.
 2. Có requirement/workflow RAG được duyệt kèm acceptance criteria.
-3. Có OpenAPI (HTTP) + AsyncAPI (event) + protobuf (read-only cross-service) contract tương ứng.
+3. Có OpenAPI (HTTP) + AsyncAPI (event) + protobuf (gRPC đồng bộ) contract tương ứng.
 4. Migration bảng vector/ingestion thuộc AI service, không đặt trong service khác.

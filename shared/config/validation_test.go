@@ -15,7 +15,7 @@ func validConfig() *Config {
 		Server: Server{Port: 8080, FrontendOrigins: []string{"http://localhost:3000"}},
 		Database: Database{
 			Host: "localhost",
-			Name: "littlecafe_identity",
+			Name: "littlecafe_commerce",
 			Port: 5432,
 		},
 		Jwt:       Jwt{Algorithm: "ES256"},

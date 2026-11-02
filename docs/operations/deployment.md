@@ -11,7 +11,7 @@ CD cho VPS:
   dispatch.
 
 Khi dispatch, input `services` nhận `all` hoặc danh sách phân tách bằng dấu phẩy,
-ví dụ `identity,order`. Mặc định nên deploy `all` vì các service có quan hệ gRPC
+ví dụ `commerce,experience`. Mặc định nên deploy `all` vì các service có quan hệ gRPC
 và Nginx phụ thuộc toàn bộ stack. Deploy lẻ chỉ dùng khi thay đổi service độc lập
 đã được xác nhận.
 
@@ -36,14 +36,23 @@ hạn độc lập bằng lego qua DNS-01 của Vercel. Chi tiết:
 tag/manual dispatch (prod) hoặc push develop (staging)
   -> plan + validate service list
   -> build/push image matrix lên GHCR
-  -> resolve digest immutable
   -> SSH upload compose/nginx/scripts files
-  -> db-init (idempotent) provision role/database/extension
-  -> update .env.deploy / .env.staging.deploy
-  -> compose pull -> migration -> up từng service
-  -> recreate nginx
+  -> resolve digest immutable cho các service được chọn
+  -> deploy-release.sh (một SSH, một writer .env.deploy):
+       - backup .env.deploy -> .env.deploy.prev
+       - ghi image digest atomic
+       - compose pull các service được chọn
+       - up -d --wait postgres redis rabbitmq
+       - db-init (idempotent)
+       - migrate-<service> chạy song song, fail-fast
+       - up -d --wait --no-deps các service
+       - recreate nginx sau cùng
   -> smoke test container health + public health
 ```
+
+`depends_on` chỉ giữ `postgres` cho service app vì Redis/RabbitMQ client đã có
+startup retry. Nginx không còn `depends_on`; CD recreate sau khi service healthy.
+Local compose vẫn giữ `depends_on` đầy đủ để dev tiện.
 
 ## 3. GitHub Environment và secrets
 
@@ -79,23 +88,23 @@ Workflow tự quản lý `.env.deploy` (prod) và `.env.staging.deploy` (staging
 File chỉ chứa image reference đã pin digest, ví dụ:
 
 ```text
-IDENTITY_IMAGE=ghcr.io/hycat-team/littlecafe-backend-identity@sha256:<digest>
+COMMERCE_IMAGE=ghcr.io/hycat-team/littlecafe-backend-commerce@sha256:<digest>
 ```
 
 Không dùng `docker compose down -v` trên production; thao tác đó xóa volumes
-database. Backup phải bao phủ cả bảy database trước thay đổi hạ tầng lớn.
+database. Backup phải bao phủ cả bốn database trước thay đổi hạ tầng lớn.
 
 ## 4. Provision database
 
-Bước đầu tiên của mỗi lần deploy chạy service `db-init` (profile `init`) với
-`deployments/scripts/init-db.sh`. Script idempotent: tạo role
+Sau khi `postgres redis rabbitmq` healthy, CD chạy service `db-init` (profile
+`init`) với `deployments/scripts/init-db.sh`. Script idempotent: tạo role
 `littlecafe_<service>`, database `littlecafe_<service>`, extension `pgcrypto`
-cho cả bảy database và `vector` cho `littlecafe_ai`. Password lấy từ
+cho cả bốn database và `vector` cho `littlecafe_ai`. Password lấy từ
 `<SERVICE>_DB_PASSWORD` trong env file tương ứng.
 
-Không tạo bảng ở bước này. Sau `db-init`, CD chạy job `migrate-<service>`
-(`--profile migrate`) trước rollout service; migration Goose của service mới
-tạo schema.
+Không tạo bảng ở bước này. Sau `db-init`, CD chạy các `migrate-<service>`
+(`--profile migrate`) **song song** trước rollout; migration Goose của từng
+service tạo schema trong database riêng.
 
 Nếu cần provision thủ công khi `db-init` lỗi:
 
@@ -120,7 +129,10 @@ Chi tiết: [`certificates.md`](certificates.md).
 ### Deploy
 
 Push tag `v*` hoặc dispatch `cd.yml`. Workflow build image tag release, pin
-digest vào `.env.deploy`, chạy `db-init`, migration rồi rollout từng service.
+digest vào `.env.deploy`, rồi gọi `deploy-release.sh` để pull, `db-init`,
+migration song song, rollout 4 service song song và recreate Nginx sau cùng.
+Nếu app health fail sau rollout, script tự động khôi phục `.env.deploy.prev` và
+rollback image cũ.
 
 ### Kiểm tra
 
@@ -137,9 +149,15 @@ tương ứng trong `.env.deploy` rồi chạy:
 
 ```bash
 cd /opt/littlecafe
+cp -a .env.deploy.prev .env.deploy
 docker compose --env-file .env.production --env-file .env.deploy \
-  -f deployments/docker-compose.prod.yml up -d identity
+  -f deployments/docker-compose.prod.yml up -d --wait --no-deps \
+  commerce experience ai platform
+docker compose --env-file .env.production --env-file .env.deploy \
+  -f deployments/docker-compose.prod.yml up -d --force-recreate --no-deps nginx
 ```
+
+Migration là forward-only; rollback chỉ đổi image, không rollback schema.
 
 Sau rollback:
 
@@ -249,7 +267,7 @@ Sửa digest trong `/opt/littlecafe-staging/.env.staging.deploy` về image cũ 
 ```bash
 cd /opt/littlecafe-staging
 docker compose --env-file .env.staging --env-file .env.staging.deploy \
-  -f deployments/docker-compose.staging.yml up -d identity
+  -f deployments/docker-compose.staging.yml up -d commerce
 ```
 
 ## 8. Runbook ngoài repo

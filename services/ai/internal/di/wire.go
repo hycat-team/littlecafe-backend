@@ -21,6 +21,8 @@ func InitializeApp(cfg *config.Config, log logger.Interface) (*bootstrap.App, er
 		sharedroot.ProviderSet,
 		newModuleRouters,
 		bootstrap.NewRouter,
+		newGRPCRegistrars,
+		bootstrap.NewGRPCServer,
 		newModuleWorkers,
 		bootstrap.NewWorkers,
 		bootstrap.NewApp,

@@ -39,12 +39,12 @@ jobs:
               run: |
                 set -euo pipefail
                 if [[ -z "${REQUESTED_SERVICES}" || "${REQUESTED_SERVICES}" == "all" ]]; then
-                  services=(identity order activity wallet ai notification reporting)
+                  services=(commerce experience ai platform)
                 else
                   IFS=',' read -ra services <<< "${REQUESTED_SERVICES// /}"
                 fi
 
-                allowed=(identity order activity wallet ai notification reporting)
+                allowed=(commerce experience ai platform)
                 for service in "${services[@]}"; do
                   if [[ ! " ${allowed[*]} " == *" ${service} "* ]]; then
                     echo "Unsupported service: ${service}" >&2
@@ -87,6 +87,7 @@ jobs:
         name: Deploy selected services
         needs: [plan, build-push]
         runs-on: ubuntu-latest
+        timeout-minutes: 30
         environment: production
         steps:
             - uses: actions/checkout@v5
@@ -111,6 +112,7 @@ jobs:
                   deployments/docker-compose.prod.yml \
                   deployments/nginx/prod.conf \
                   deployments/scripts/init-db.sh \
+                  deployments/scripts/deploy-release.sh \
                   deployments/scripts/issue-certs.sh \
                   deployments/scripts/renew-certs.sh
                 scp -P "${{ secrets.DEPLOY_PORT }}" /tmp/littlecafe-deploy.tar.gz \
@@ -128,22 +130,20 @@ jobs:
                 printf '%s' "${{ secrets.GHCR_READ_TOKEN }}" | \
                   ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
                   "docker login ghcr.io -u '${{ secrets.GHCR_USERNAME }}' --password-stdin"
-            - name: Bootstrap production database
+            - name: Ensure deploy env keys
               shell: bash
               run: |
                 ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
                   "set -e
-                   mkdir -p /opt/littlecafe
                    cd /opt/littlecafe
                    touch .env.deploy
-                   for S in IDENTITY ORDER ACTIVITY WALLET AI NOTIFICATION REPORTING; do
+                   for S in COMMERCE EXPERIENCE AI PLATFORM; do
                      if ! grep -q \"^\${S}_IMAGE=\" .env.deploy; then
                        lower=\$(printf %s \"\${S}\" | tr '[:upper:]' '[:lower:]')
                        printf '%s_IMAGE=ghcr.io/hycat-team/littlecafe-backend-%s:latest\\n' \"\${S}\" \"\${lower}\" >> .env.deploy
                      fi
                    done
-                   chmod 600 .env.deploy
-                   docker compose --env-file .env.production --env-file .env.deploy -f deployments/docker-compose.prod.yml --profile init run --rm db-init"
+                   chmod 600 .env.deploy"
             - name: Deploy pinned images and migrations
               shell: bash
               env:
@@ -154,40 +154,18 @@ jobs:
                   DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
               run: |
                 set -euo pipefail
+                args=()
                 for service in $(printf '%s' "${SERVICES_JSON}" | jq -r '.[]'); do
-                  upper=$(printf '%s' "${service}" | tr '[:lower:]' '[:upper:]')
                   image="${IMAGE_PREFIX}-${service}"
                   digest=$(docker buildx imagetools inspect "${image}:${GITHUB_SHA}" --format '{{.Manifest.Digest}}')
                   ref="${image}@${digest}"
-
-                  ssh -p "${DEPLOY_PORT}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
-                    "set -e
-                     mkdir -p /opt/littlecafe
-                     cd /opt/littlecafe
-                     touch .env.deploy
-                     grep -v '^${upper}_IMAGE=' .env.deploy > .env.deploy.next || true
-                     printf '%s_IMAGE=%s\\n' '${upper}' '${ref}' >> .env.deploy.next
-                     mv .env.deploy.next .env.deploy
-                     chmod 600 .env.deploy
-                     for S in IDENTITY ORDER ACTIVITY WALLET AI NOTIFICATION REPORTING; do
-                       if ! grep -q ^\${S}_IMAGE= .env.deploy; then
-                         lower=\$(printf %s \${S} | tr '[:upper:]' '[:lower:]')
-                         printf '%s_IMAGE=ghcr.io/hycat-team/littlecafe-backend-%s:latest\\n' \${S} \${lower} >> .env.deploy
-                       fi
-                     done
-                     docker compose --env-file .env.production --env-file .env.deploy -f deployments/docker-compose.prod.yml config >/dev/null
-                     docker compose --env-file .env.production --env-file .env.deploy -f deployments/docker-compose.prod.yml pull '${service}'
-                     docker compose --env-file .env.production --env-file .env.deploy -f deployments/docker-compose.prod.yml --profile migrate run --rm migrate-${service}
-                     docker compose --env-file .env.production --env-file .env.deploy -f deployments/docker-compose.prod.yml up -d '${service}'
-                     docker compose --env-file .env.production --env-file .env.deploy -f deployments/docker-compose.prod.yml ps '${service}'"
+                  args+=("${service}=${ref}")
                 done
-            - name: Recreate Nginx after service rollout
-              shell: bash
-              run: |
-                ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-                  "cd /opt/littlecafe && \
-                   docker compose --env-file .env.production --env-file .env.deploy \
-                   -f deployments/docker-compose.prod.yml up -d --force-recreate nginx"
+                printf -v quoted '%q ' "${args[@]}"
+                ssh -o ServerAliveInterval=30 -o ServerAliveCountMax=6 \
+                  -p "${DEPLOY_PORT}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
+                  "cd /opt/littlecafe && bash deployments/scripts/deploy-release.sh \
+                   deployments/docker-compose.prod.yml .env.production .env.deploy ${quoted}"
 
     smoke-services:
         name: Smoke container ${{ matrix.service }}
@@ -197,7 +175,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                service: [identity, order, activity, wallet, ai, notification, reporting]
+                service: [commerce, experience, ai, platform]
         steps:
             - name: Prepare SSH
               shell: bash
@@ -210,7 +188,7 @@ jobs:
             - name: Wait for service healthcheck
               shell: bash
               run: |
-                for attempt in $(seq 1 12); do
+                for _ in $(seq 1 12); do
                   status=$(ssh -p "${{ secrets.DEPLOY_PORT }}" \
                     "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
                     "cd /opt/littlecafe && id=\$(docker compose --env-file .env.production --env-file .env.deploy -f deployments/docker-compose.prod.yml ps -q ${{ matrix.service }}); \
@@ -241,7 +219,7 @@ jobs:
             - name: Check health endpoint through the production nginx
               shell: bash
               run: |
-                for attempt in $(seq 1 12); do
+                for _ in $(seq 1 12); do
                   if ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
                     "curl --fail --silent --show-error --max-time 15 \
                      --resolve api.littlecafe.kids:8444:127.0.0.1 \

@@ -4,12 +4,12 @@
 
 | Môi trường | Cách chạy | Ghi chú |
 |---|---|---|
-| Local dev | `deployments/docker-compose.yml` (profiles `infra`, `full`, `observability`) | Postgres, Redis, RabbitMQ; 7 service; Nginx 8080 |
+| Local dev | `deployments/docker-compose.yml` (profiles `infra`, `full`, `observability`) | Postgres, Redis, RabbitMQ; 4 service; Nginx 8080 |
 | Production | Một VPS, `deployments/docker-compose.prod.yml` | Image GHCR pin digest, migration job trước rollout, Nginx |
 
 - `make docker-infra-up`: chỉ hạ tầng (Postgres/Redis/RabbitMQ).
-- `make docker-dev-up`: full stack (infra + 7 service + Nginx).
-- Chạy service trên host: `make run svc=<service>`; port HTTP 8101-8107, gRPC 9101-9104 (xem `architecture.md`).
+- `make docker-dev-up`: full stack (infra + 4 service + Nginx).
+- Chạy service trên host: `make run svc=<service>`; port HTTP 8101-8104, gRPC 9101-9104 (xem `architecture.md`).
 - Compose nạp env vào container qua `env_file`: dev dùng `.env`, production dùng `.env.production`; key canonical nằm trong `.env.example` / `.env.production.example`.
 - Certificate local nằm ngoài repo (`CERTS_DIR`), mount read-only `/run/littlecafe/certs`; chi tiết `docs/operations/certificates.md`.
 - `APP_MODE=http|worker|all` chọn thành phần chạy trong một binary.
@@ -63,7 +63,8 @@ Chạy khi PR/push `main` (bỏ qua `docs/**` và `*.md`):
 - Runbook triển khai/rollback: `docs/operations/deployment.md`.
 - Certificate/mTLS: `docs/operations/certificates.md`.
 - Setup local: `docs/development/environments.md` §4.
-- Không dùng `docker compose down -v` trên production (xoá volume database); backup phải phủ cả 7 database trước thay đổi hạ tầng lớn.
+- Không dùng `docker compose down -v` trên production (xoá volume database); backup phải phủ cả 4 database trước thay đổi hạ tầng lớn.
+- Deploy: app service chỉ `depends_on` Postgres; Redis/RabbitMQ dùng startup retry. Nginx được recreate sau cùng bởi `deploy-release.sh`; không dựa vào `depends_on` của Compose.
 
 ## 8. Chưa triển khai
 

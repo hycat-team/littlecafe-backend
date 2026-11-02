@@ -1,0 +1,2 @@
+# Experience service overlay. Merged on top of configs/base.yaml.
+# Owns Activity and Content; add only sections owned by this service.

@@ -68,8 +68,9 @@ Nguyên tắc:
   - TLS nginx: `/opt/littlecafe-tls/<domain>/{fullchain.pem,privkey.pem}`.
 - `APP_UID`/`APP_GID` khớp user deploy (mặc định `1000`) để container đọc secret
   `700/600` mà không mở quyền toàn hệ thống.
-- JWT ES256: mọi service mount public key; chỉ Identity mount private key.
-- mTLS: 4 service gRPC (`identity/order/activity/wallet`) cần server cert;
+- JWT ES256: mọi service mount public key; chỉ Commerce (module Identity) mount
+  private key.
+- mTLS: cả 4 service gRPC (`commerce/experience/ai/platform`) cần server cert;
   `service-client` dùng khi service gọi service khác qua gRPC.
 - Token Vercel (DNS-01) và GHCR read token chỉ nằm trên VPS/CI secret.
 - Không log secret; mask giá trị nhạy cảm khi debug.
@@ -86,7 +87,9 @@ Nguyên tắc:
    để bật PostgreSQL, Redis, RabbitMQ.
 4. Chạy `make generate`, `make test`, `make build-all`.
 5. Chạy full stack bằng profile `full` sau khi certificate sẵn sàng. Port host:
-   HTTP 8101–8107, gRPC 9101–9104, Nginx 8080.
+   HTTP 8101–8104, gRPC 9101–9104, Nginx 8080.
+   Local compose giữ `depends_on` đầy đủ (Postgres, Redis, RabbitMQ); prod/staging
+   chỉ giữ Postgres vì Redis/RabbitMQ có startup retry.
 6. Chạy một service trên host bằng `make run svc=<service>`.
 
 Không thêm entity/endpoint mẫu. Mỗi thay đổi nghiệp vụ bắt đầu từ requirement,
@@ -94,7 +97,7 @@ workflow, ADR và contract đã duyệt.
 
 ## 5. Database và migration
 
-- Mỗi stack có Postgres riêng với 7 database/role: `littlecafe_<service>`.
+- Mỗi stack có Postgres riêng với 4 database/role: `littlecafe_<service>`.
 - `database/init/00-init.sql` chỉ dùng cho local dev; staging/production dùng
   `deployments/scripts/init-db.sh` qua service `db-init` (idempotent).
 - Migration Goose chạy qua service `migrate-<service>` với

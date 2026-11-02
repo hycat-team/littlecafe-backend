@@ -26,8 +26,6 @@ x-runtime: &runtime
         TZ: Asia/Ho_Chi_Minh
     depends_on:
         postgres: {condition: service_healthy}
-        redis: {condition: service_healthy}
-        rabbitmq: {condition: service_healthy}
     mem_limit: 128m
     stop_grace_period: 30s
     security_opt: *security
@@ -111,8 +109,8 @@ services:
         security_opt: *security
         logging: *logging
 
-    migrate-identity:
-        image: ${IDENTITY_IMAGE:?IDENTITY_IMAGE is required}
+    migrate-commerce:
+        image: ${COMMERCE_IMAGE:?COMMERCE_IMAGE is required}
         profiles: ["migrate"]
         restart: "no"
         mem_limit: 128m
@@ -120,34 +118,36 @@ services:
         command: ["-migrate-only"]
         environment:
             <<: *runtime-env
-            DB_USER: littlecafe_identity
-            DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?IDENTITY_DB_PASSWORD is required}
-            DB_NAME: littlecafe_identity
+            DB_USER: littlecafe_commerce
+            DB_PASSWORD: ${COMMERCE_DB_PASSWORD:?COMMERCE_DB_PASSWORD is required}
+            DB_NAME: littlecafe_commerce
             DB_MIGRATE_ON_START: "true"
             JWT_PRIVATE_KEY: /run/littlecafe/jwt/jwt-private.pem
+        volumes:
+            - ${JWT_DIR:-/opt/littlecafe-secrets/jwt}:/run/littlecafe/jwt:ro
         depends_on:
             postgres: {condition: service_healthy}
         security_opt: *security
         logging: *logging
 
-    identity:
+    commerce:
         <<: *runtime
-        image: ${IDENTITY_IMAGE:?IDENTITY_IMAGE is required}
+        image: ${COMMERCE_IMAGE:?COMMERCE_IMAGE is required}
         environment:
             <<: *runtime-env
-            DB_USER: littlecafe_identity
-            DB_PASSWORD: ${IDENTITY_DB_PASSWORD:?IDENTITY_DB_PASSWORD is required}
-            DB_NAME: littlecafe_identity
+            DB_USER: littlecafe_commerce
+            DB_PASSWORD: ${COMMERCE_DB_PASSWORD:?COMMERCE_DB_PASSWORD is required}
+            DB_NAME: littlecafe_commerce
             GRPC_TLS_CA_FILE: /run/littlecafe/certs/ca.crt
-            GRPC_TLS_CERT_FILE: /run/littlecafe/certs/identity.crt
-            GRPC_TLS_KEY_FILE: /run/littlecafe/certs/identity.key
+            GRPC_TLS_CERT_FILE: /run/littlecafe/certs/commerce.crt
+            GRPC_TLS_KEY_FILE: /run/littlecafe/certs/commerce.key
             JWT_PRIVATE_KEY: /run/littlecafe/jwt/jwt-private.pem
         volumes:
             - ${CERTS_DIR:-/opt/littlecafe-secrets/certs}:/run/littlecafe/certs:ro
             - ${JWT_DIR:-/opt/littlecafe-secrets/jwt}:/run/littlecafe/jwt:ro
 
-    migrate-order:
-        image: ${ORDER_IMAGE:?ORDER_IMAGE is required}
+    migrate-experience:
+        image: ${EXPERIENCE_IMAGE:?EXPERIENCE_IMAGE is required}
         profiles: ["migrate"]
         restart: "no"
         mem_limit: 128m
@@ -155,92 +155,28 @@ services:
         command: ["-migrate-only"]
         environment:
             <<: *runtime-env
-            DB_USER: littlecafe_order
-            DB_PASSWORD: ${ORDER_DB_PASSWORD:?ORDER_DB_PASSWORD is required}
-            DB_NAME: littlecafe_order
+            DB_USER: littlecafe_experience
+            DB_PASSWORD: ${EXPERIENCE_DB_PASSWORD:?EXPERIENCE_DB_PASSWORD is required}
+            DB_NAME: littlecafe_experience
             DB_MIGRATE_ON_START: "true"
-        depends_on:
-            postgres: {condition: service_healthy}
-        security_opt: *security
-        logging: *logging
-
-    order:
-        <<: *runtime
-        image: ${ORDER_IMAGE:?ORDER_IMAGE is required}
-        environment:
-            <<: *runtime-env
-            DB_USER: littlecafe_order
-            DB_PASSWORD: ${ORDER_DB_PASSWORD:?ORDER_DB_PASSWORD is required}
-            DB_NAME: littlecafe_order
-            GRPC_TLS_CA_FILE: /run/littlecafe/certs/ca.crt
-            GRPC_TLS_CERT_FILE: /run/littlecafe/certs/order.crt
-            GRPC_TLS_KEY_FILE: /run/littlecafe/certs/order.key
         volumes:
-            - ${CERTS_DIR:-/opt/littlecafe-secrets/certs}:/run/littlecafe/certs:ro
             - ${JWT_DIR:-/opt/littlecafe-secrets/jwt}/jwt-public.pem:/run/littlecafe/jwt/jwt-public.pem:ro
-
-    migrate-activity:
-        image: ${ACTIVITY_IMAGE:?ACTIVITY_IMAGE is required}
-        profiles: ["migrate"]
-        restart: "no"
-        mem_limit: 128m
-        env_file: ../.env.production
-        command: ["-migrate-only"]
-        environment:
-            <<: *runtime-env
-            DB_USER: littlecafe_activity
-            DB_PASSWORD: ${ACTIVITY_DB_PASSWORD:?ACTIVITY_DB_PASSWORD is required}
-            DB_NAME: littlecafe_activity
-            DB_MIGRATE_ON_START: "true"
         depends_on:
             postgres: {condition: service_healthy}
         security_opt: *security
         logging: *logging
 
-    activity:
+    experience:
         <<: *runtime
-        image: ${ACTIVITY_IMAGE:?ACTIVITY_IMAGE is required}
+        image: ${EXPERIENCE_IMAGE:?EXPERIENCE_IMAGE is required}
         environment:
             <<: *runtime-env
-            DB_USER: littlecafe_activity
-            DB_PASSWORD: ${ACTIVITY_DB_PASSWORD:?ACTIVITY_DB_PASSWORD is required}
-            DB_NAME: littlecafe_activity
+            DB_USER: littlecafe_experience
+            DB_PASSWORD: ${EXPERIENCE_DB_PASSWORD:?EXPERIENCE_DB_PASSWORD is required}
+            DB_NAME: littlecafe_experience
             GRPC_TLS_CA_FILE: /run/littlecafe/certs/ca.crt
-            GRPC_TLS_CERT_FILE: /run/littlecafe/certs/activity.crt
-            GRPC_TLS_KEY_FILE: /run/littlecafe/certs/activity.key
-        volumes:
-            - ${CERTS_DIR:-/opt/littlecafe-secrets/certs}:/run/littlecafe/certs:ro
-            - ${JWT_DIR:-/opt/littlecafe-secrets/jwt}/jwt-public.pem:/run/littlecafe/jwt/jwt-public.pem:ro
-
-    migrate-wallet:
-        image: ${WALLET_IMAGE:?WALLET_IMAGE is required}
-        profiles: ["migrate"]
-        restart: "no"
-        mem_limit: 128m
-        env_file: ../.env.production
-        command: ["-migrate-only"]
-        environment:
-            <<: *runtime-env
-            DB_USER: littlecafe_wallet
-            DB_PASSWORD: ${WALLET_DB_PASSWORD:?WALLET_DB_PASSWORD is required}
-            DB_NAME: littlecafe_wallet
-            DB_MIGRATE_ON_START: "true"
-        depends_on:
-            postgres: {condition: service_healthy}
-        security_opt: *security
-        logging: *logging
-
-    wallet:
-        <<: *runtime
-        image: ${WALLET_IMAGE:?WALLET_IMAGE is required}
-        environment:
-            <<: *runtime-env
-            DB_USER: littlecafe_wallet
-            DB_PASSWORD: ${WALLET_DB_PASSWORD:?WALLET_DB_PASSWORD is required}
-            DB_NAME: littlecafe_wallet
-            GRPC_TLS_CA_FILE: /run/littlecafe/certs/ca.crt
-            GRPC_TLS_CERT_FILE: /run/littlecafe/certs/wallet.crt
-            GRPC_TLS_KEY_FILE: /run/littlecafe/certs/wallet.key
+            GRPC_TLS_CERT_FILE: /run/littlecafe/certs/experience.crt
+            GRPC_TLS_KEY_FILE: /run/littlecafe/certs/experience.key
         volumes:
             - ${CERTS_DIR:-/opt/littlecafe-secrets/certs}:/run/littlecafe/certs:ro
             - ${JWT_DIR:-/opt/littlecafe-secrets/jwt}/jwt-public.pem:/run/littlecafe/jwt/jwt-public.pem:ro
@@ -258,6 +194,8 @@ services:
             DB_PASSWORD: ${AI_DB_PASSWORD:?AI_DB_PASSWORD is required}
             DB_NAME: littlecafe_ai
             DB_MIGRATE_ON_START: "true"
+        volumes:
+            - ${JWT_DIR:-/opt/littlecafe-secrets/jwt}/jwt-public.pem:/run/littlecafe/jwt/jwt-public.pem:ro
         depends_on:
             postgres: {condition: service_healthy}
         security_opt: *security
@@ -271,11 +209,15 @@ services:
             DB_USER: littlecafe_ai
             DB_PASSWORD: ${AI_DB_PASSWORD:?AI_DB_PASSWORD is required}
             DB_NAME: littlecafe_ai
+            GRPC_TLS_CA_FILE: /run/littlecafe/certs/ca.crt
+            GRPC_TLS_CERT_FILE: /run/littlecafe/certs/ai.crt
+            GRPC_TLS_KEY_FILE: /run/littlecafe/certs/ai.key
         volumes:
+            - ${CERTS_DIR:-/opt/littlecafe-secrets/certs}:/run/littlecafe/certs:ro
             - ${JWT_DIR:-/opt/littlecafe-secrets/jwt}/jwt-public.pem:/run/littlecafe/jwt/jwt-public.pem:ro
 
-    migrate-notification:
-        image: ${NOTIFICATION_IMAGE:?NOTIFICATION_IMAGE is required}
+    migrate-platform:
+        image: ${PLATFORM_IMAGE:?PLATFORM_IMAGE is required}
         profiles: ["migrate"]
         restart: "no"
         mem_limit: 128m
@@ -283,53 +225,30 @@ services:
         command: ["-migrate-only"]
         environment:
             <<: *runtime-env
-            DB_USER: littlecafe_notification
-            DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?NOTIFICATION_DB_PASSWORD is required}
-            DB_NAME: littlecafe_notification
+            DB_USER: littlecafe_platform
+            DB_PASSWORD: ${PLATFORM_DB_PASSWORD:?PLATFORM_DB_PASSWORD is required}
+            DB_NAME: littlecafe_platform
             DB_MIGRATE_ON_START: "true"
-        depends_on:
-            postgres: {condition: service_healthy}
-        security_opt: *security
-        logging: *logging
-
-    notification:
-        <<: *runtime
-        image: ${NOTIFICATION_IMAGE:?NOTIFICATION_IMAGE is required}
-        environment:
-            <<: *runtime-env
-            DB_USER: littlecafe_notification
-            DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD:?NOTIFICATION_DB_PASSWORD is required}
-            DB_NAME: littlecafe_notification
         volumes:
             - ${JWT_DIR:-/opt/littlecafe-secrets/jwt}/jwt-public.pem:/run/littlecafe/jwt/jwt-public.pem:ro
-
-    migrate-reporting:
-        image: ${REPORTING_IMAGE:?REPORTING_IMAGE is required}
-        profiles: ["migrate"]
-        restart: "no"
-        mem_limit: 128m
-        env_file: ../.env.production
-        command: ["-migrate-only"]
-        environment:
-            <<: *runtime-env
-            DB_USER: littlecafe_reporting
-            DB_PASSWORD: ${REPORTING_DB_PASSWORD:?REPORTING_DB_PASSWORD is required}
-            DB_NAME: littlecafe_reporting
-            DB_MIGRATE_ON_START: "true"
         depends_on:
             postgres: {condition: service_healthy}
         security_opt: *security
         logging: *logging
 
-    reporting:
+    platform:
         <<: *runtime
-        image: ${REPORTING_IMAGE:?REPORTING_IMAGE is required}
+        image: ${PLATFORM_IMAGE:?PLATFORM_IMAGE is required}
         environment:
             <<: *runtime-env
-            DB_USER: littlecafe_reporting
-            DB_PASSWORD: ${REPORTING_DB_PASSWORD:?REPORTING_DB_PASSWORD is required}
-            DB_NAME: littlecafe_reporting
+            DB_USER: littlecafe_platform
+            DB_PASSWORD: ${PLATFORM_DB_PASSWORD:?PLATFORM_DB_PASSWORD is required}
+            DB_NAME: littlecafe_platform
+            GRPC_TLS_CA_FILE: /run/littlecafe/certs/ca.crt
+            GRPC_TLS_CERT_FILE: /run/littlecafe/certs/platform.crt
+            GRPC_TLS_KEY_FILE: /run/littlecafe/certs/platform.key
         volumes:
+            - ${CERTS_DIR:-/opt/littlecafe-secrets/certs}:/run/littlecafe/certs:ro
             - ${JWT_DIR:-/opt/littlecafe-secrets/jwt}/jwt-public.pem:/run/littlecafe/jwt/jwt-public.pem:ro
 
     nginx:
@@ -345,14 +264,6 @@ services:
         volumes:
             - ./nginx/prod.conf:/etc/nginx/templates/default.conf.template:ro
             - ${TLS_DIR:-/opt/littlecafe-tls}:/etc/nginx/tls:ro
-        depends_on:
-            - identity
-            - order
-            - activity
-            - wallet
-            - ai
-            - notification
-            - reporting
         security_opt: *security
         logging: *logging
 

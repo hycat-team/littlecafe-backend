@@ -52,7 +52,7 @@ issue_certificate() {
   rm -f -- "$stage_dir/$name.csr" "$stage_dir/$name.ext"
 }
 
-for service in identity order activity wallet; do
+for service in commerce experience ai platform; do
   issue_certificate "$service" serverAuth "DNS:$service,DNS:$service.littlecafe.internal"
 done
 issue_certificate service-client clientAuth "DNS:service-client.littlecafe.internal"
