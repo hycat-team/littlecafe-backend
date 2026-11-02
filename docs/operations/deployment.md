@@ -25,7 +25,9 @@ và tách hoàn toàn volume/network/secret:
 | Staging | `/opt/littlecafe-staging` | 8081 | 8443 |
 | Production | `/opt/littlecafe` | 8082 | 8444 |
 
-Không publish port Postgres/Redis/RabbitMQ. TLS do littlecafe tự quản trong
+Không publish Postgres/Redis/RabbitMQ ra public. Ngoại lệ có kiểm soát: Postgres
+bind loopback `127.0.0.1:5433` (production) và `127.0.0.1:5434` (staging) cho
+operator. TLS do littlecafe tự quản trong
 `TLS_DIR` (mặc định `/opt/littlecafe-tls`), nginx mount read-only; cert cấp/gia
 hạn độc lập bằng lego qua DNS-01 của Vercel. Chi tiết:
 [`certificates.md`](certificates.md).
