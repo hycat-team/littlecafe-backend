@@ -16,6 +16,22 @@ type Config struct {
 
 	Google  Google  `mapstructure:"google"`
 	Signing Signing `mapstructure:"signing"`
+	Payment Payment `mapstructure:"payment"`
+}
+
+// Payment holds the payment provider adapter settings (payOS collection and
+// the feature-gated payout path).
+type Payment struct {
+	Provider           string `mapstructure:"provider"`
+	ClientID           string `mapstructure:"client_id"`
+	APIKey             string `mapstructure:"api_key"`
+	ChecksumKey        string `mapstructure:"checksum_key"`
+	ReturnURL          string `mapstructure:"return_url"`
+	CancelURL          string `mapstructure:"cancel_url"`
+	WebhookURL         string `mapstructure:"webhook_url"`
+	PayoutEnabled      bool   `mapstructure:"payout_enabled"`
+	ExpiredMinutes     int    `mapstructure:"expired_minutes"`
+	ReconciliationCron string `mapstructure:"reconciliation_cron"`
 }
 
 // Google holds the Google OAuth/OIDC client settings.
