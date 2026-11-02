@@ -11,7 +11,7 @@ CD cho VPS:
   dispatch.
 
 Khi dispatch, input `services` nhận `all` hoặc danh sách phân tách bằng dấu phẩy,
-ví dụ `identity,order`. Mặc định nên deploy `all` vì các service có quan hệ gRPC
+ví dụ `commerce,experience`. Mặc định nên deploy `all` vì các service có quan hệ gRPC
 và Nginx phụ thuộc toàn bộ stack. Deploy lẻ chỉ dùng khi thay đổi service độc lập
 đã được xác nhận.
 
@@ -79,18 +79,18 @@ Workflow tự quản lý `.env.deploy` (prod) và `.env.staging.deploy` (staging
 File chỉ chứa image reference đã pin digest, ví dụ:
 
 ```text
-IDENTITY_IMAGE=ghcr.io/hycat-team/littlecafe-backend-identity@sha256:<digest>
+COMMERCE_IMAGE=ghcr.io/hycat-team/littlecafe-backend-commerce@sha256:<digest>
 ```
 
 Không dùng `docker compose down -v` trên production; thao tác đó xóa volumes
-database. Backup phải bao phủ cả bảy database trước thay đổi hạ tầng lớn.
+database. Backup phải bao phủ cả bốn database trước thay đổi hạ tầng lớn.
 
 ## 4. Provision database
 
 Bước đầu tiên của mỗi lần deploy chạy service `db-init` (profile `init`) với
 `deployments/scripts/init-db.sh`. Script idempotent: tạo role
 `littlecafe_<service>`, database `littlecafe_<service>`, extension `pgcrypto`
-cho cả bảy database và `vector` cho `littlecafe_ai`. Password lấy từ
+cho cả bốn database và `vector` cho `littlecafe_ai`. Password lấy từ
 `<SERVICE>_DB_PASSWORD` trong env file tương ứng.
 
 Không tạo bảng ở bước này. Sau `db-init`, CD chạy job `migrate-<service>`
@@ -138,7 +138,7 @@ tương ứng trong `.env.deploy` rồi chạy:
 ```bash
 cd /opt/littlecafe
 docker compose --env-file .env.production --env-file .env.deploy \
-  -f deployments/docker-compose.prod.yml up -d identity
+  -f deployments/docker-compose.prod.yml up -d commerce
 ```
 
 Sau rollback:
@@ -249,7 +249,7 @@ Sửa digest trong `/opt/littlecafe-staging/.env.staging.deploy` về image cũ 
 ```bash
 cd /opt/littlecafe-staging
 docker compose --env-file .env.staging --env-file .env.staging.deploy \
-  -f deployments/docker-compose.staging.yml up -d identity
+  -f deployments/docker-compose.staging.yml up -d commerce
 ```
 
 ## 8. Runbook ngoài repo

@@ -2,7 +2,7 @@
 
 ## 1. Nguyên tắc
 
-- Mutation liên service dùng RabbitMQ event; read-only dùng gRPC. Không service nào truy cập database của service khác.
+- Gọi đồng bộ liên service dùng gRPC; mutation bất đồng bộ dùng RabbitMQ event. Không service nào truy cập database của service khác.
 - Mọi event publish qua **transactional outbox**: record ghi trong cùng transaction với thay đổi nghiệp vụ.
 - Consumer xử lý **at-least-once** và dedup qua inbox.
 - Event chỉ được đăng ký khi có contract AsyncAPI/JSON Schema xác định owner, version, payload và replay policy. Bootstrap hiện không có event nghiệp vụ nào.

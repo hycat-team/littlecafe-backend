@@ -39,12 +39,12 @@ jobs:
               run: |
                 set -euo pipefail
                 if [[ -z "${REQUESTED_SERVICES}" || "${REQUESTED_SERVICES}" == "all" ]]; then
-                  services=(identity order activity wallet ai notification reporting)
+                  services=(commerce experience ai platform)
                 else
                   IFS=',' read -ra services <<< "${REQUESTED_SERVICES// /}"
                 fi
 
-                allowed=(identity order activity wallet ai notification reporting)
+                allowed=(commerce experience ai platform)
                 for service in "${services[@]}"; do
                   if [[ ! " ${allowed[*]} " == *" ${service} "* ]]; then
                     echo "Unsupported service: ${service}" >&2
@@ -136,7 +136,7 @@ jobs:
                    mkdir -p /opt/littlecafe
                    cd /opt/littlecafe
                    touch .env.deploy
-                   for S in IDENTITY ORDER ACTIVITY WALLET AI NOTIFICATION REPORTING; do
+                   for S in COMMERCE EXPERIENCE AI PLATFORM; do
                      if ! grep -q \"^\${S}_IMAGE=\" .env.deploy; then
                        lower=\$(printf %s \"\${S}\" | tr '[:upper:]' '[:lower:]')
                        printf '%s_IMAGE=ghcr.io/hycat-team/littlecafe-backend-%s:latest\\n' \"\${S}\" \"\${lower}\" >> .env.deploy
@@ -169,7 +169,7 @@ jobs:
                      printf '%s_IMAGE=%s\\n' '${upper}' '${ref}' >> .env.deploy.next
                      mv .env.deploy.next .env.deploy
                      chmod 600 .env.deploy
-                     for S in IDENTITY ORDER ACTIVITY WALLET AI NOTIFICATION REPORTING; do
+                     for S in COMMERCE EXPERIENCE AI PLATFORM; do
                        if ! grep -q ^\${S}_IMAGE= .env.deploy; then
                          lower=\$(printf %s \${S} | tr '[:upper:]' '[:lower:]')
                          printf '%s_IMAGE=ghcr.io/hycat-team/littlecafe-backend-%s:latest\\n' \${S} \${lower} >> .env.deploy
@@ -197,7 +197,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                service: [identity, order, activity, wallet, ai, notification, reporting]
+                service: [commerce, experience, ai, platform]
         steps:
             - name: Prepare SSH
               shell: bash

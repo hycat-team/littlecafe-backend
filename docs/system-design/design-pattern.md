@@ -215,7 +215,7 @@ Hai cơ chế Redis, chọn theo ngữ nghĩa (không gộp "cho nhất quán"):
 | `errorutils` | `ToAppError`, `WrapError`, `FilterStackTraceArray`, `PrimaryStackFrame` |
 | `numberutils` | `FormatBytes` |
 | `sliceutils` | `IndexBy`, `UniqueUUIDs`, `UniqueAndSortStrings`, ... |
-| `jwtutils` | `ValidateTokenES256`, load EC public key (verify dùng chung; signer ES256 nằm ở Identity `infrastructure/security/jwtsigner`) |
+| `jwtutils` | `ValidateTokenES256`, load EC public key (verify dùng chung; signer ES256 nằm ở Commerce, module Identity `infrastructure/security/jwtsigner`) |
 | `cryptoutils` | `Encrypt`/`Decrypt` AES-GCM |
 | `timeutils` | `BusinessLocation`, `FormatAPI`, `GetNow` (Asia/Ho_Chi_Minh) |
 
@@ -259,7 +259,7 @@ Quy ước:
   `OrderResponse`, `OrderPage`, `CreateOrderRequest`, `UpdateOrderRequest`; tag
   theo resource.
 - Cursor pagination là mặc định; offset chỉ dùng cho bảng quản trị.
-- Protobuf chỉ dùng cho read-only cross-service query. Generated code phải
+- Protobuf dùng cho contract gRPC đồng bộ (read và command idempotent). Generated code phải
   commit; CI regenerate và yêu cầu Git diff sạch.
 - `application/dto` giữ các shape không sinh từ OpenAPI: contract payload liên module, event payload, read-model/analytics, alias pagination.
 - Enum/constant không đặt trong `dto`; để ở `domain/constants`.

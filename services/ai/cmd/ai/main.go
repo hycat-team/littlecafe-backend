@@ -16,7 +16,7 @@ import (
 	"github.com/hycat-team/littlecafe-backend/shared/pkg/logger"
 )
 
-// @title LittleCafe Backend - Ai API
+// @title LittleCafe Backend - AI API
 // @version 1.0
 // @description Backend platform for LittleCafe
 // @BasePath /api/v1

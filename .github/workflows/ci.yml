@@ -151,7 +151,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                service: [identity, order, activity, wallet, ai, notification, reporting]
+                service: [commerce, experience, ai, platform]
         steps:
             - uses: actions/checkout@v5
             - uses: docker/setup-buildx-action@v4
@@ -177,7 +177,7 @@ jobs:
                 cp .env.example .env
                 cp .env.production.example .env.production
                 cp .env.staging.example .env.staging
-                for service in identity order activity wallet ai notification reporting; do
+                for service in commerce experience ai platform; do
                   upper=$(printf '%s' "${service}" | tr '[:lower:]' '[:upper:]')
                   printf '%s_IMAGE=ghcr.io/hycat-team/littlecafe-backend-%s:ci\n' "${upper}" "${service}" >> .env.deploy
                   printf '%s_IMAGE=ghcr.io/hycat-team/littlecafe-backend-%s:staging-ci\n' "${upper}" "${service}" >> .env.staging.deploy

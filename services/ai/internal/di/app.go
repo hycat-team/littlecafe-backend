@@ -7,3 +7,6 @@ func newModuleRouters() []bootstrap.ModuleRouter { return nil }
 
 // newModuleWorkers starts empty until an AsyncAPI event contract is approved.
 func newModuleWorkers() []bootstrap.ModuleWorker { return nil }
+
+// newGRPCRegistrars keeps the gRPC host healthy without publishing a fake RPC.
+func newGRPCRegistrars() []bootstrap.GRPCServerRegistrar { return nil }
