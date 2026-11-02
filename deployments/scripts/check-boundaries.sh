@@ -37,5 +37,24 @@ for application_dir in shared/application services/*/internal/application; do
   fi
 done
 
+# Module boundaries inside a service: a module must not import another module's
+# infrastructure or presentation packages (persistence stays private).
+for service_dir in services/*; do
+  [ -d "$service_dir/internal/modules" ] || continue
+  service=$(basename "$service_dir")
+  for module_dir in "$service_dir"/internal/modules/*; do
+    [ -d "$module_dir" ] || continue
+    module=$(basename "$module_dir")
+    prefix="${module}/services/${service}/internal/modules/"
+    matches=$(grep -R -n -E --include='*.go' "${prefix}[^/]+/(infrastructure|presentation)" "$module_dir" 2>/dev/null || true)
+    violations=$(printf '%s\n' "$matches" | grep -v "${prefix}${module}/" || true)
+    if [ -n "$violations" ]; then
+      echo "cross-module infrastructure/presentation import detected in ${service}/${module}:" >&2
+      echo "$violations" >&2
+      failed=1
+    fi
+  done
+done
+
 [ "$failed" -eq 0 ]
 echo "Dependency boundaries are valid."

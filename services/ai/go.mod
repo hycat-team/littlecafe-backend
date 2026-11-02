@@ -5,8 +5,10 @@ go 1.26.0
 require (
 	github.com/gin-gonic/gin v1.12.0
 	github.com/google/wire v0.7.0
+	github.com/hycat-team/littlecafe-backend/contracts v0.0.0
 	github.com/hycat-team/littlecafe-backend/shared v0.0.0
 	go.uber.org/zap v1.28.0
+	google.golang.org/grpc v1.83.2
 )
 
 require (
@@ -65,6 +67,7 @@ require (
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.41.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260831171406-18b4a7587f8a // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/postgres v1.6.3 // indirect
@@ -73,4 +76,6 @@ require (
 
 // Local workspace modules are replaced so that each module can be tidied and
 // built on its own, not only through go.work.
+replace github.com/hycat-team/littlecafe-backend/contracts => ../../contracts
+
 replace github.com/hycat-team/littlecafe-backend/shared => ../../shared

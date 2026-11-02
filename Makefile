@@ -1,8 +1,9 @@
 # Config and variables
 export
 
-SERVICES := identity order activity wallet ai notification reporting
+SERVICES := commerce experience ai platform
 WIRE_VERSION := v0.7.0
+GOOSE_VERSION := v3.28.0
 BUF_VERSION := v1.57.2
 OAPI_CODEGEN_VERSION := v2.4.1
 REDOCLY_VERSION := 1.34.5
@@ -31,7 +32,7 @@ COVER_HTML := $(COVER_DIR)/coverage.html
 COVER_FLAGS ?= -covermode=atomic
 COVER_MIN ?= 80
 COVER_EXCLUDE ?= cmd/,internal/di/,internal/bootstrap/,database/migrations/,shared/infrastructure/,contracts/openapi/,shared/provider.go,_gen.go,.pb.go
-COVER_PKGS := ./shared/... ./contracts/... ./services/identity/... ./services/order/... ./services/activity/... ./services/wallet/... ./services/ai/... ./services/notification/... ./services/reporting/...
+COVER_PKGS := ./shared/... ./contracts/... ./services/commerce/... ./services/experience/... ./services/ai/... ./services/platform/...
 COVER_FILTER_CMD := go run scripts/coverage/filter.go -in "$(COVER_PROFILE)" -out "$(COVER_BUSINESS_PROFILE)" -exclude "$(COVER_EXCLUDE)"
 
 ifeq ($(OS),Windows_NT)
@@ -62,7 +63,7 @@ FMT_CMD := gofmt -w .
 
 SVC := $(or $(SVC),$(svc))
 name := $(or $(name),$(NAME))
-SVC_REQ = $(if $(filter $(SVC),$(SERVICES)),,$(error This target requires svc=<$(SERVICES)> — e.g. make $@ svc=identity))
+SVC_REQ = $(if $(filter $(SVC),$(SERVICES)),,$(error This target requires svc=<$(SERVICES)> — e.g. make $@ svc=commerce))
 unexport SVC_REQ
 
 .PHONY: help install-tools install-goose wire wire-all buf-gen buf-lint openapi-gen openapi-lint asyncapi-lint openapi-check error-codes-check contract-lint generate generate-check fmt fmt-check tidy tidy-check vet test test-race test-cover test-cover-html coverage-check lint check team-check team-list team-test build build-all run dev clean migrate-status migrate-up migrate-down migrate-create migrate-version docker-infra-up docker-dev-up docker-dev-stop docker-dev-down docker-prod-up docker-prod-stop docker-prod-down nginx-reload-local
@@ -73,15 +74,14 @@ help:
 	@echo "========================================================================"
 	@echo "  make dev        : generate code and build all services"
 	@echo "  make run svc=   : run one service locally ($(SERVICES))"
-	@echo "  make test       : run all workspace tests"
-	@echo "  make test-cover : run workspace statement coverage -> $(COVER_PROFILE)"
+	@echo "  make test       : run all workspace tests"	@echo "  make test-cover : run workspace statement coverage -> $(COVER_PROFILE)"
 	@echo "  make coverage-check : fail when business coverage is below $(COVER_MIN)%"
 	@echo "  make test-cover-html : generate HTML coverage report -> $(COVER_HTML)"
 	@echo "  make check      : full quality gate (fmt, tidy, vet, race tests, build, specs)"
 	@echo "  make team-check : validate the specs/<owner>-<NNN>-<slug> layout (strict)"
 	@echo "  make team-list  : print the feature table from meta.json files"
 	@echo "  make docker-dev-up : start local infrastructure + services"
-	@echo "Per-service targets take svc=<$(SERVICES)>, e.g. make build svc=identity"
+	@echo "Per-service targets take svc=<$(SERVICES)>, e.g. make build svc=commerce"
 	@echo "========================================================================"
 
 install-tools:
@@ -92,7 +92,7 @@ install-tools:
 
 install-goose:
 	@echo Installing Goose CLI tool...
-	@go install github.com/pressly/goose/v3/cmd/goose@latest
+	@go install github.com/pressly/goose/v3/cmd/goose@$(GOOSE_VERSION)
 	@echo Goose CLI installed.
 
 wire:
@@ -103,13 +103,10 @@ wire:
 
 wire-all:
 	@echo Running Google Wire for all services...
-	@go run github.com/google/wire/cmd/wire@$(WIRE_VERSION) ./services/identity/internal/di/...
-	@go run github.com/google/wire/cmd/wire@$(WIRE_VERSION) ./services/order/internal/di/...
-	@go run github.com/google/wire/cmd/wire@$(WIRE_VERSION) ./services/activity/internal/di/...
-	@go run github.com/google/wire/cmd/wire@$(WIRE_VERSION) ./services/wallet/internal/di/...
+	@go run github.com/google/wire/cmd/wire@$(WIRE_VERSION) ./services/commerce/internal/di/...
+	@go run github.com/google/wire/cmd/wire@$(WIRE_VERSION) ./services/experience/internal/di/...
 	@go run github.com/google/wire/cmd/wire@$(WIRE_VERSION) ./services/ai/internal/di/...
-	@go run github.com/google/wire/cmd/wire@$(WIRE_VERSION) ./services/notification/internal/di/...
-	@go run github.com/google/wire/cmd/wire@$(WIRE_VERSION) ./services/reporting/internal/di/...
+	@go run github.com/google/wire/cmd/wire@$(WIRE_VERSION) ./services/platform/internal/di/...
 	@echo Google Wire finished for all services.
 
 buf-gen:
@@ -162,13 +159,10 @@ tidy:
 	@echo "Tidying Go modules (workspace)..."
 	@cd shared && go mod tidy
 	@cd contracts && go mod tidy
-	@cd services/identity && go mod tidy
-	@cd services/order && go mod tidy
-	@cd services/activity && go mod tidy
-	@cd services/wallet && go mod tidy
+	@cd services/commerce && go mod tidy
+	@cd services/experience && go mod tidy
 	@cd services/ai && go mod tidy
-	@cd services/notification && go mod tidy
-	@cd services/reporting && go mod tidy
+	@cd services/platform && go mod tidy
 	@go work sync
 	@echo Go module tidy finished.
 
@@ -176,58 +170,46 @@ tidy-check:
 	@echo Checking whether go.mod and go.sum files are tidy...
 	@cd shared && go mod tidy -diff
 	@cd contracts && go mod tidy -diff
-	@cd services/identity && go mod tidy -diff
-	@cd services/order && go mod tidy -diff
-	@cd services/activity && go mod tidy -diff
-	@cd services/wallet && go mod tidy -diff
+	@cd services/commerce && go mod tidy -diff
+	@cd services/experience && go mod tidy -diff
 	@cd services/ai && go mod tidy -diff
-	@cd services/notification && go mod tidy -diff
-	@cd services/reporting && go mod tidy -diff
+	@cd services/platform && go mod tidy -diff
 	@echo Go module files are tidy.
 
 generate-check:
 	@echo Checking generated Wire and OpenAPI sources...
 	@$(MAKE) generate
-	@git diff --exit-code -- contracts/openapi services/identity/internal/di services/order/internal/di services/activity/internal/di services/wallet/internal/di services/ai/internal/di services/notification/internal/di services/reporting/internal/di
+	@git diff --exit-code -- contracts/openapi services/commerce/internal/di services/experience/internal/di services/ai/internal/di services/platform/internal/di
 	@echo Generated files are up to date.
 
 vet:
 	@echo "Running go vet (all workspace modules)..."
 	@cd shared && go vet ./...
 	@cd contracts && go vet ./...
-	@cd services/identity && go vet ./...
-	@cd services/order && go vet ./...
-	@cd services/activity && go vet ./...
-	@cd services/wallet && go vet ./...
+	@cd services/commerce && go vet ./...
+	@cd services/experience && go vet ./...
 	@cd services/ai && go vet ./...
-	@cd services/notification && go vet ./...
-	@cd services/reporting && go vet ./...
+	@cd services/platform && go vet ./...
 	@echo Go vet finished.
 
 test:
 	@echo "Running Go tests (all workspace modules)..."
 	@cd shared && $(TEST_CMD)
 	@cd contracts && $(TEST_CMD)
-	@cd services/identity && $(TEST_CMD)
-	@cd services/order && $(TEST_CMD)
-	@cd services/activity && $(TEST_CMD)
-	@cd services/wallet && $(TEST_CMD)
+	@cd services/commerce && $(TEST_CMD)
+	@cd services/experience && $(TEST_CMD)
 	@cd services/ai && $(TEST_CMD)
-	@cd services/notification && $(TEST_CMD)
-	@cd services/reporting && $(TEST_CMD)
+	@cd services/platform && $(TEST_CMD)
 	@echo Go tests finished.
 
 test-race:
 	@echo "Running Go tests with race detector (all workspace modules)..."
 	@cd shared && $(RACE_TEST_CMD)
 	@cd contracts && $(RACE_TEST_CMD)
-	@cd services/identity && $(RACE_TEST_CMD)
-	@cd services/order && $(RACE_TEST_CMD)
-	@cd services/activity && $(RACE_TEST_CMD)
-	@cd services/wallet && $(RACE_TEST_CMD)
+	@cd services/commerce && $(RACE_TEST_CMD)
+	@cd services/experience && $(RACE_TEST_CMD)
 	@cd services/ai && $(RACE_TEST_CMD)
-	@cd services/notification && $(RACE_TEST_CMD)
-	@cd services/reporting && $(RACE_TEST_CMD)
+	@cd services/platform && $(RACE_TEST_CMD)
 	@echo Go race tests finished.
 
 test-cover:
@@ -268,13 +250,10 @@ build:
 build-all:
 	@echo Building service binaries...
 	@$(MKDIR_BIN_CMD)
-	@go build $(GO_BUILD_FLAGS) -o "$(BIN_DIR)/identity$(GO_BIN_EXT)" ./services/identity/cmd/identity
-	@go build $(GO_BUILD_FLAGS) -o "$(BIN_DIR)/order$(GO_BIN_EXT)" ./services/order/cmd/order
-	@go build $(GO_BUILD_FLAGS) -o "$(BIN_DIR)/activity$(GO_BIN_EXT)" ./services/activity/cmd/activity
-	@go build $(GO_BUILD_FLAGS) -o "$(BIN_DIR)/wallet$(GO_BIN_EXT)" ./services/wallet/cmd/wallet
+	@go build $(GO_BUILD_FLAGS) -o "$(BIN_DIR)/commerce$(GO_BIN_EXT)" ./services/commerce/cmd/commerce
+	@go build $(GO_BUILD_FLAGS) -o "$(BIN_DIR)/experience$(GO_BIN_EXT)" ./services/experience/cmd/experience
 	@go build $(GO_BUILD_FLAGS) -o "$(BIN_DIR)/ai$(GO_BIN_EXT)" ./services/ai/cmd/ai
-	@go build $(GO_BUILD_FLAGS) -o "$(BIN_DIR)/notification$(GO_BIN_EXT)" ./services/notification/cmd/notification
-	@go build $(GO_BUILD_FLAGS) -o "$(BIN_DIR)/reporting$(GO_BIN_EXT)" ./services/reporting/cmd/reporting
+	@go build $(GO_BUILD_FLAGS) -o "$(BIN_DIR)/platform$(GO_BIN_EXT)" ./services/platform/cmd/platform
 	@echo Build succeeded. Binaries in $(BIN_DIR)/
 
 run: build
@@ -305,7 +284,7 @@ migrate-down:
 migrate-create:
 	$(SVC_REQ)
 ifndef name
-	$(error migrate-create requires name=xxx — e.g. make migrate-create svc=identity name=add_feature)
+	$(error migrate-create requires name=xxx — e.g. make migrate-create svc=commerce name=add_feature)
 endif
 	@goose -dir ./services/$(SVC)/database/migrations create $(name) sql
 

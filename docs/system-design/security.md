@@ -6,24 +6,24 @@ Tài liệu này mô tả các cơ chế bảo mật đang có trong code và c�
 
 ### 1.1 Email/password
 
-- Hash bằng **Argon2id** (`services/identity/internal/modules/identity/infrastructure/security/passwordutils/argon2id.go`): salt 16 byte ngẫu nhiên, `time=3`, `memory=64 MiB`, `parallelism=2`, key 32 byte; verify bằng so sánh constant-time.
+- Hash bằng **Argon2id** (`services/commerce/internal/modules/identity/infrastructure/security/passwordutils/argon2id.go`): salt 16 byte ngẫu nhiên, `time=3`, `memory=64 MiB`, `parallelism=2`, key 32 byte; verify bằng so sánh constant-time.
 - Password rỗng bị từ chối ngay từ `Hash`.
 
 ### 1.2 Google OAuth/OIDC
 
-- Adapter: `services/identity/internal/modules/identity/infrastructure/oauth/google_provider.go`, cấu hình `google.*` trong `configs/identity.yaml`.
+- Adapter: `services/commerce/internal/modules/identity/infrastructure/oauth/google_provider.go`, cấu hình `google.*` trong `configs/commerce.yaml`.
 - Redirect URI chuẩn: `https://api.littlecafe.kids/api/v1/identity/oauth/google/callback`; state TTL mặc định 10 phút.
 - Sau callback, backend đổi code lấy identity; redirect về frontend thuộc feature Identity và chưa chốt env key (hiện chỉ có `GOOGLE_OAUTH_CALLBACK_URL` là callback backend).
 
 ### 1.3 Access token ES256
 
-- Ký ES256 ở Identity (`services/identity/internal/modules/identity/infrastructure/security/jwtsigner`), verify ở `shared/pkg/utils/jwtutils` (`LoadECDSAPublicKey`, `ValidateTokenES256`). **Chỉ Identity giữ private key** (`signing.private_key_file` trong `configs/identity.yaml`, bắt buộc ở production theo `Config.Validate`); service khác chỉ nạp public key (`jwt.public_key_file`, bắt buộc ở production theo `validateConfig`).
+- Ký ES256 ở Commerce (module Identity) (`services/commerce/internal/modules/identity/infrastructure/security/jwtsigner`), verify ở `shared/pkg/utils/jwtutils` (`LoadECDSAPublicKey`, `ValidateTokenES256`). **Chỉ Commerce giữ private key** (`signing.private_key_file` trong `configs/commerce.yaml`, bắt buộc ở production theo `Config.Validate`); service khác chỉ nạp public key (`jwt.public_key_file`, bắt buộc ở production theo `validateConfig`).
 - Claims: `sub` (user UUID), `email`, `role_slug`, `type`, `iss`, `aud`, `exp`, `iat`, `jti`.
 - `ValidateTokenES256` chặn sai thuật toán (phải đúng `ES256`) và sai token type; lỗi trả `apperror.ErrInvalidAccessToken`/`ErrUnexpectedSigningToken`.
 
 ### 1.4 Refresh token
 
-- Sinh 32 byte ngẫu nhiên, encode Base64URL; **chỉ lưu SHA-256 digest** (`services/identity/internal/modules/identity/infrastructure/security/tokenutils/refresh.go`).
+- Sinh 32 byte ngẫu nhiên, encode Base64URL; **chỉ lưu SHA-256 digest** (`services/commerce/internal/modules/identity/infrastructure/security/tokenutils/refresh.go`).
 - Rotation, revoke và reuse detection là yêu cầu bắt buộc của feature Identity (constitution V); chưa có implementation trong bootstrap.
 - Thu hồi phiên dùng `shared/infrastructure/security/redis_token_blacklist_service.go` (Redis dùng chung): blacklist theo token, theo user, có prefix tuỳ biến; `CheckBlacklist` kiểm tra cả hai.
 

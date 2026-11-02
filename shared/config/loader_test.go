@@ -28,7 +28,7 @@ server:
 database:
   host: localhost
   port: 5432
-  name: littlecafe_identity
+  name: littlecafe_commerce
   sslmode: disable
   timezone: Asia/Ho_Chi_Minh
 jwt:
@@ -78,7 +78,7 @@ func TestLoadMergesBaseAndOverlay(t *testing.T) {
 	if cfg.Server.Port != 8080 {
 		t.Fatalf("Server.Port = %d, want base value", cfg.Server.Port)
 	}
-	if cfg.Database.Name != "littlecafe_identity" {
+	if cfg.Database.Name != "littlecafe_commerce" {
 		t.Fatalf("Database.Name = %q", cfg.Database.Name)
 	}
 }
@@ -210,7 +210,7 @@ func TestValidateRejectsWildcardOriginInProduction(t *testing.T) {
 	cfg.Server.Port = 8080
 	cfg.Server.FrontendOrigins = []string{"*"}
 	cfg.Database.Host = "localhost"
-	cfg.Database.Name = "littlecafe_identity"
+	cfg.Database.Name = "littlecafe_commerce"
 	cfg.Database.Port = 5432
 	cfg.Jwt.Algorithm = "ES256"
 	cfg.Jwt.PublicKeyFile = "/tmp/jwt-public.pem"

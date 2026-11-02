@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,25 +13,27 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 
 	"github.com/hycat-team/littlecafe-backend/shared/config"
 	"github.com/hycat-team/littlecafe-backend/shared/pkg/logger"
 )
 
-// App owns the HTTP server lifecycle.
+// App owns the HTTP and gRPC server lifecycle.
 type App struct {
-	cfg     *config.Config
-	log     logger.Interface
-	engine  *gin.Engine
-	workers *Workers
+	cfg        *config.Config
+	log        logger.Interface
+	engine     *gin.Engine
+	grpcServer *grpc.Server
+	workers    *Workers
 }
 
 // NewApp wires the application dependencies produced by Wire.
-func NewApp(cfg *config.Config, log logger.Interface, engine *gin.Engine, workers *Workers) *App {
-	return &App{cfg: cfg, log: log, engine: engine, workers: workers}
+func NewApp(cfg *config.Config, log logger.Interface, engine *gin.Engine, grpcServer *grpc.Server, workers *Workers) *App {
+	return &App{cfg: cfg, log: log, engine: engine, grpcServer: grpcServer, workers: workers}
 }
 
-// Run starts the HTTP server and blocks until
+// Run starts the HTTP and gRPC server and blocks until
 // a shutdown signal arrives.
 func (a *App) Run() error {
 	addr := fmt.Sprintf(":%d", a.cfg.Server.Port)
@@ -51,6 +54,18 @@ func (a *App) Run() error {
 			errCh <- err
 		}
 	}()
+	go func() {
+		grpcAddr := fmt.Sprintf(":%d", a.cfg.Server.GRPCPort)
+		lis, err := net.Listen("tcp", grpcAddr)
+		if err != nil {
+			errCh <- fmt.Errorf("gRPC listen on %s: %w", grpcAddr, err)
+			return
+		}
+		a.log.Info("gRPC server listening", zap.String("addr", grpcAddr))
+		if err := a.grpcServer.Serve(lis); err != nil && !errors.Is(err, grpc.ErrServerStopped) {
+			errCh <- err
+		}
+	}()
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
@@ -60,6 +75,7 @@ func (a *App) Run() error {
 	case <-quit:
 		a.log.Info("shutdown signal received")
 		a.workers.Stop()
+		a.grpcServer.GracefulStop()
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := srv.Shutdown(ctx); err != nil {

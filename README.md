@@ -1,27 +1,25 @@
 # LittleCafe Backend
 
 Contract-first backend for LittleCafe, a kids cafe platform. Built as a Go
-multi-module workspace (`go.work`) with **seven independently deployable
+multi-module workspace (`go.work`) with **four independently deployable
 services**, Clean Architecture, and compiler-enforced service boundaries.
 Module path: `github.com/hycat-team/littlecafe-backend`.
 
 ## Workspace
 
-- Seven services: Identity, Order, Activity, Wallet, AI, Notification, Reporting.
-- `Content` is a module inside Activity with its own business boundary.
+- Four services: Commerce, Experience, AI, Platform.
+- `Commerce` owns Identity, Order, and Wallet modules; `Experience` owns
+  Activity and Content; `Platform` owns Notification and Reporting.
 - `shared/` holds common infrastructure; `contracts/` is the machine-readable
   source for OpenAPI, AsyncAPI/JSON Schema, and protobuf.
-- One PostgreSQL instance with seven databases and seven separate roles.
+- One PostgreSQL instance with four databases and four separate roles.
 
 | Service | HTTP (local) | gRPC (local) |
 |---|---:|---:|
-| Identity | 8101 | 9101 |
-| Order | 8102 | 9102 |
-| Activity | 8103 | 9103 |
-| Wallet | 8104 | 9104 |
-| AI | 8105 | - |
-| Notification | 8106 | - |
-| Reporting | 8107 | - |
+| Commerce | 8101 | 9101 |
+| Experience | 8102 | 9102 |
+| AI | 8103 | 9103 |
+| Platform | 8104 | 9104 |
 
 Nginx local listens on 8080. Production API:
 `https://api.littlecafe.kids:8444/api/v1`; staging:
@@ -34,8 +32,8 @@ Nginx local listens on 8080. Production API:
 | Language | Go 1.26 multi-module workspace (`go.work`) |
 | HTTP | Gin + `oapi-codegen` strict server |
 | Contracts | OpenAPI, AsyncAPI/JSON Schema, protobuf |
-| Inter-service | gRPC for reads; RabbitMQ + transactional outbox for mutations |
-| Database | PostgreSQL 17 + pgvector (7 databases/roles) |
+| Inter-service | gRPC for synchronous reads/commands; RabbitMQ + transactional outbox for asynchronous events |
+| Database | PostgreSQL 17 + pgvector (4 databases/roles) |
 | Cache / realtime | Redis 7 |
 | Migration / DI | Goose / Google Wire |
 | Providers | Google OAuth, payOS, Brevo, Cloudinary |

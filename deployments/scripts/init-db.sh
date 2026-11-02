@@ -39,7 +39,7 @@ WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'database')\gexec
 SQL
 }
 
-services="identity order activity wallet ai notification reporting"
+services="commerce experience ai platform"
 
 for service in $services; do
   upper=$(printf '%s' "$service" | tr '[:lower:]' '[:upper:]')

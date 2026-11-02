@@ -1,32 +1,20 @@
 -- Development bootstrap only. Production credentials are provisioned outside Git.
-CREATE ROLE littlecafe_identity LOGIN PASSWORD '12345678';
-CREATE ROLE littlecafe_order LOGIN PASSWORD '12345678';
-CREATE ROLE littlecafe_activity LOGIN PASSWORD '12345678';
-CREATE ROLE littlecafe_wallet LOGIN PASSWORD '12345678';
+CREATE ROLE littlecafe_commerce LOGIN PASSWORD '12345678';
+CREATE ROLE littlecafe_experience LOGIN PASSWORD '12345678';
 CREATE ROLE littlecafe_ai LOGIN PASSWORD '12345678';
-CREATE ROLE littlecafe_notification LOGIN PASSWORD '12345678';
-CREATE ROLE littlecafe_reporting LOGIN PASSWORD '12345678';
+CREATE ROLE littlecafe_platform LOGIN PASSWORD '12345678';
 
-CREATE DATABASE littlecafe_identity OWNER littlecafe_identity;
-CREATE DATABASE littlecafe_order OWNER littlecafe_order;
-CREATE DATABASE littlecafe_activity OWNER littlecafe_activity;
-CREATE DATABASE littlecafe_wallet OWNER littlecafe_wallet;
+CREATE DATABASE littlecafe_commerce OWNER littlecafe_commerce;
+CREATE DATABASE littlecafe_experience OWNER littlecafe_experience;
 CREATE DATABASE littlecafe_ai OWNER littlecafe_ai;
-CREATE DATABASE littlecafe_notification OWNER littlecafe_notification;
-CREATE DATABASE littlecafe_reporting OWNER littlecafe_reporting;
+CREATE DATABASE littlecafe_platform OWNER littlecafe_platform;
 
-\connect littlecafe_identity
+\connect littlecafe_commerce
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
-\connect littlecafe_order
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-\connect littlecafe_activity
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-\connect littlecafe_wallet
+\connect littlecafe_experience
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 \connect littlecafe_ai
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE EXTENSION IF NOT EXISTS vector;
-\connect littlecafe_notification
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-\connect littlecafe_reporting
+\connect littlecafe_platform
 CREATE EXTENSION IF NOT EXISTS pgcrypto;

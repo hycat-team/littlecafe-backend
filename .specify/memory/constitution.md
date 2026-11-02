@@ -101,25 +101,28 @@ choice would change a public contract, the data model, the architecture, or
 user-visible behavior, the agent MUST stop and ask instead of deciding.
 
 ### II. Service Boundaries & Data Ownership
-The backend has seven services: Identity, Order, Activity, Wallet, AI,
-Notification, and Reporting. Content belongs to Activity. Each service owns its
-own database and migrations. Importing another service's implementation or
-reading its tables is prohibited. Cross-service reads use gRPC; cross-service
-mutations use RabbitMQ events.
+The backend has four services: Commerce (Identity, Order, Wallet), Experience
+(Activity, Content), AI, and Platform (Notification, Reporting). Each service
+owns its own database and migrations. Importing another service's implementation
+or reading its tables is prohibited. Commerce and Experience expose Identity,
+Order, Wallet, Activity, and Content as internal modules behind one service
+boundary; module-to-module calls inside a service go through application
+interfaces and MUST NOT reach another module's persistence. Cross-service
+synchronous calls use gRPC; cross-service asynchronous events use RabbitMQ.
 
 ### III. Architecture & Contracts
 Every service uses Clean Architecture with Wire. HTTP is OpenAPI contract-first
 with Gin and the `oapi-codegen` strict server interface. Events use
-AsyncAPI/JSON Schema; protobuf is reserved for read-only cross-service
-contracts. Generated code is committed and CI verifies drift. Creating sample
-entities, endpoints, RPCs, or events is prohibited.
+AsyncAPI/JSON Schema; protobuf defines synchronous cross-service contracts for
+reads and idempotent commands. Generated code is committed and CI verifies drift.
+Creating sample entities, endpoints, RPCs, or events is prohibited.
 
 ### IV. Data & Consistency
 Identifiers use UUIDv7. Money is `int64`/`BIGINT` VND. Timestamps use
 `TIMESTAMPTZ`; the business calendar is `Asia/Ho_Chi_Minh`. Important mutations
 require an `Idempotency-Key`. Transactional outbox, inbox/dedup, retry, and DLQ
-are mandatory for events. Order or Activity owns the initiating saga;
-Notification and Reporting participate by choreography.
+are mandatory for events. Commerce or Experience owns the initiating saga;
+Platform (Notification, Reporting) participates by choreography.
 
 ### V. Security & Privacy
 Email/password uses Argon2id; Google OAuth/OIDC is supported. Access tokens are
@@ -162,19 +165,21 @@ does not belong to the task, the agent MUST ask before writing.
 
 ## Technology Stack & Constraints
 
-- **Language & workspace**: Go 1.26 multi-module workspace (`go.work`) with nine
-  modules: seven services plus `shared` and `contracts`. Cross-service
+- **Language & workspace**: Go 1.26 multi-module workspace (`go.work`) with six
+  modules: four services plus `shared` and `contracts`. Cross-service
   implementation imports MUST fail at compile time.
 - **HTTP**: Gin with the `oapi-codegen` strict server interface; OpenAPI is the
   machine-readable contract.
-- **Inter-service**: gRPC/protobuf for read-only queries; RabbitMQ for
-  asynchronous mutation via the transactional outbox.
-- **Storage**: one PostgreSQL instance (pgvector image) with seven databases and
-  seven roles; Redis for cache, rate limit, cooldown, token blacklist, and SSE
-  Pub/Sub.
+- **Inter-service**: gRPC/protobuf for synchronous reads and idempotent
+  commands; RabbitMQ for asynchronous events and projections via the
+  transactional outbox.
+- **Storage**: one PostgreSQL instance (pgvector image) with four databases and
+  four roles; `vector` only in the AI database. Redis for cache, rate limit,
+  cooldown, token blacklist, and SSE Pub/Sub.
 - **Migrations**: Goose per service, SQL files embedded in the service, applied
-  with a direct connection under an advisory lock. Editing an applied migration
-  on a shared or live environment is prohibited.
+  with a direct connection under an advisory lock. Migration filenames use
+  `YYYYMMDDHHMMSS_<slug>.sql`. Editing an applied migration on a shared or live
+  environment is prohibited.
 - **DI**: Google Wire per service; `wire_gen.go` is committed and drift-checked.
 - **Deployment**: Docker Compose on one VPS, images from GHCR pinned by digest,
   Nginx as the single entry point.

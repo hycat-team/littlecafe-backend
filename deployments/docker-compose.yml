@@ -71,67 +71,35 @@ services:
             timeout: 5s
             retries: 20
 
-    identity:
+    commerce:
         <<: *service-common
         build:
             context: ..
-            dockerfile: services/identity/Dockerfile
+            dockerfile: services/commerce/Dockerfile
         environment:
             <<: *service-env
-            DB_USER: littlecafe_identity
-            DB_PASSWORD: ${IDENTITY_DB_PASSWORD}
-            DB_NAME: littlecafe_identity
+            DB_USER: littlecafe_commerce
+            DB_PASSWORD: ${COMMERCE_DB_PASSWORD}
+            DB_NAME: littlecafe_commerce
         ports:
             - "8101:8080"
             - "9101:9090"
         volumes:
             - ${CERTS_DIR}:/run/littlecafe/certs:ro
 
-    order:
+    experience:
         <<: *service-common
         build:
             context: ..
-            dockerfile: services/order/Dockerfile
+            dockerfile: services/experience/Dockerfile
         environment:
             <<: *service-env
-            DB_USER: littlecafe_order
-            DB_PASSWORD: ${ORDER_DB_PASSWORD}
-            DB_NAME: littlecafe_order
+            DB_USER: littlecafe_experience
+            DB_PASSWORD: ${EXPERIENCE_DB_PASSWORD}
+            DB_NAME: littlecafe_experience
         ports:
             - "8102:8080"
             - "9102:9090"
-        volumes:
-            - ${CERTS_DIR}:/run/littlecafe/certs:ro
-
-    activity:
-        <<: *service-common
-        build:
-            context: ..
-            dockerfile: services/activity/Dockerfile
-        environment:
-            <<: *service-env
-            DB_USER: littlecafe_activity
-            DB_PASSWORD: ${ACTIVITY_DB_PASSWORD}
-            DB_NAME: littlecafe_activity
-        ports:
-            - "8103:8080"
-            - "9103:9090"
-        volumes:
-            - ${CERTS_DIR}:/run/littlecafe/certs:ro
-
-    wallet:
-        <<: *service-common
-        build:
-            context: ..
-            dockerfile: services/wallet/Dockerfile
-        environment:
-            <<: *service-env
-            DB_USER: littlecafe_wallet
-            DB_PASSWORD: ${WALLET_DB_PASSWORD}
-            DB_NAME: littlecafe_wallet
-        ports:
-            - "8104:8080"
-            - "9104:9090"
         volumes:
             - ${CERTS_DIR}:/run/littlecafe/certs:ro
 
@@ -146,33 +114,26 @@ services:
             DB_PASSWORD: ${AI_DB_PASSWORD}
             DB_NAME: littlecafe_ai
         ports:
-            - "8105:8080"
+            - "8103:8080"
+            - "9103:9090"
+        volumes:
+            - ${CERTS_DIR}:/run/littlecafe/certs:ro
 
-    notification:
+    platform:
         <<: *service-common
         build:
             context: ..
-            dockerfile: services/notification/Dockerfile
+            dockerfile: services/platform/Dockerfile
         environment:
             <<: *service-env
-            DB_USER: littlecafe_notification
-            DB_PASSWORD: ${NOTIFICATION_DB_PASSWORD}
-            DB_NAME: littlecafe_notification
+            DB_USER: littlecafe_platform
+            DB_PASSWORD: ${PLATFORM_DB_PASSWORD}
+            DB_NAME: littlecafe_platform
         ports:
-            - "8106:8080"
-
-    reporting:
-        <<: *service-common
-        build:
-            context: ..
-            dockerfile: services/reporting/Dockerfile
-        environment:
-            <<: *service-env
-            DB_USER: littlecafe_reporting
-            DB_PASSWORD: ${REPORTING_DB_PASSWORD}
-            DB_NAME: littlecafe_reporting
-        ports:
-            - "8107:8080"
+            - "8104:8080"
+            - "9104:9090"
+        volumes:
+            - ${CERTS_DIR}:/run/littlecafe/certs:ro
 
     nginx:
         image: nginx:alpine
@@ -182,13 +143,10 @@ services:
         volumes:
             - ./nginx/local.conf:/etc/nginx/templates/default.conf.template:ro
         depends_on:
-            - identity
-            - order
-            - activity
-            - wallet
+            - commerce
+            - experience
             - ai
-            - notification
-            - reporting
+            - platform
 
     otel-collector:
         image: otel/opentelemetry-collector-contrib:0.138.0

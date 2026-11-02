@@ -53,7 +53,9 @@
   `plan.md`. `.agents/skills/**`, `.specify/**`, `scripts/speckit/**` are
   lead-owned.
 - **Migrations**: one open feature per service; rebase `main`; never edit applied
-  migrations; run on an empty DB and stay idempotent.
+  migrations; run on an empty DB and stay idempotent. Filenames use
+  `YYYYMMDDHHMMSS_<slug>.sql`; create them with `make migrate-create` (never
+  sequential numbers or `-s`).
 - **Frontend handoff**: update `specs/<owner>-<NNN>-<slug>/frontend-guide.md` on
   client-surface changes; set `READY_FOR_FRONTEND` only when contract, code,
   tests, and counted sync are complete.

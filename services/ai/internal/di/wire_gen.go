@@ -23,6 +23,11 @@ import (
 func InitializeApp(cfg *config.Config, log logger.Interface) (*bootstrap.App, error) {
 	v := newModuleRouters()
 	engine := bootstrap.NewRouter(cfg, log, v)
+	v2 := newGRPCRegistrars()
+	server, err := bootstrap.NewGRPCServer(v2)
+	if err != nil {
+		return nil, err
+	}
 	gormDB, err := db.NewPostgresConnection(cfg, log)
 	if err != nil {
 		return nil, err
@@ -39,8 +44,8 @@ func InitializeApp(cfg *config.Config, log logger.Interface) (*bootstrap.App, er
 		return nil, err
 	}
 	outboxWorker := worker.NewOutboxWorker(outboxUseCase, outboxListener, cfg, log)
-	v2 := newModuleWorkers()
-	workers := bootstrap.NewWorkers(outboxWorker, v2)
-	app := bootstrap.NewApp(cfg, log, engine, workers)
+	v3 := newModuleWorkers()
+	workers := bootstrap.NewWorkers(outboxWorker, v3)
+	app := bootstrap.NewApp(cfg, log, engine, server, workers)
 	return app, nil
 }

@@ -16,7 +16,7 @@ database:
     port: 5432
     user: ${DB_USER:-littlecafe_admin}
     password: ${DB_PASSWORD:-123456}
-    name: ${DB_NAME:-littlecafe_identity}
+    name: ${DB_NAME:-littlecafe_commerce}
     sslmode: disable
     timezone: Asia/Ho_Chi_Minh
     migrate_on_start: ${DB_MIGRATE_ON_START:-false}
