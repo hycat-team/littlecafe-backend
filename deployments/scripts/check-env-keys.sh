@@ -13,9 +13,9 @@ set -eu
 ENV_DIR=${ENV_DIR:-deployments/env}
 ENVS=${ENVS:-"production staging"}
 
-# Deprecated per-service database keys still present in the live VPS files.
-# They are unused by compose/init-db and will be pruned after cutover.
-LEGACY_ALLOWLIST="IDENTITY_DB_PASSWORD ORDER_DB_PASSWORD ACTIVITY_DB_PASSWORD WALLET_DB_PASSWORD NOTIFICATION_DB_PASSWORD REPORTING_DB_PASSWORD"
+# Every key in the encrypted file must be documented in the example file.
+# Extra keys are rejected: prune leftovers before adding new ones.
+LEGACY_ALLOWLIST=""
 
 fail() { printf 'env-check: %s\n' "$*" >&2; exit 1; }
 
