@@ -3,3 +3,6 @@
 *.jpg binary
 *.ico binary
 *.pptx binary
+
+# SOPS-encrypted env files must keep LF endings: CRLF changes dotenv values.
+deployments/env/*.env.enc text eol=lf

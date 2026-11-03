@@ -49,6 +49,8 @@ Nguyên tắc:
 1. Xác định đúng loại theo bảng 2.1.
 2. Cập nhật `configs/base.yaml` hoặc overlay service.
 3. Cập nhật `.env.example`, `.env.production.example`, `.env.staging.example`.
+   Với giá trị secret, sửa file mã hóa bằng `make env-edit ENV=<env>` (xem
+   [`sops-keys.md`](sops-keys.md)), không sửa plaintext trên VPS.
 4. Cập nhật Compose nếu setting ảnh hưởng `environment`, `ports`, `volumes`,
    `command` hoặc `user`.
 5. Cập nhật `.github/workflows/ci.yml` nếu cần validate Compose mới.
@@ -58,14 +60,23 @@ Nguyên tắc:
 
 ## 3. Secret và file
 
-- `.env`, `.env.production`, `.env.staging` không commit; chỉ nằm trên máy
-  developer hoặc VPS, quyền `600`.
+- Env staging/production trong Git là **ciphertext SOPS**:
+  `deployments/env/staging.env.enc`, `deployments/env/production.env.enc`.
+  Không commit plaintext; private key age không nằm trong repo.
+- Local: mỗi dev có `.env` riêng (gitignored) sinh từ `make env-local`; local
+  không chứa secret thật nên không mã hóa.
+- Plaintext runtime chỉ nằm trên VPS (`/opt/littlecafe/.env.production`,
+  `/opt/littlecafe-staging/.env.staging`, mode `600`), do CD giải mã bằng
+  `deployments/scripts/apply-env.sh`. Không sửa tay file này.
 - File `.env*.example` chỉ chứa placeholder, không chứa giá trị thật.
 - Comment trong file `.env*` viết bằng tiếng Anh.
 - Vị trí secret trên VPS:
-  - Production: `/opt/littlecafe-secrets/{certs,jwt,acme}` và `vercel.token`.
-  - Staging: `/opt/littlecafe-staging-secrets/{certs,jwt}`.
+  - Production: `/opt/littlecafe-secrets/{certs,jwt,acme,age}` và `vercel.token`.
+  - Staging: `/opt/littlecafe-staging-secrets/{certs,jwt,age}`.
   - TLS nginx: `/opt/littlecafe-tls/<domain>/{fullchain.pem,privkey.pem}`.
+  - Thư mục `age/` chứa identity giải mã env (600, 700 cho thư mục) và **không**
+    được mount vào container.
+- Cấp quyền, xoay key, offboarding và recovery: [`sops-keys.md`](sops-keys.md).
 - `APP_UID`/`APP_GID` khớp user deploy (mặc định `1000`) để container đọc secret
   `700/600` mà không mở quyền toàn hệ thống.
 - JWT ES256: mọi service mount public key; chỉ Commerce (module Identity) mount
@@ -77,9 +88,11 @@ Nguyên tắc:
 
 ## 4. Local setup
 
-1. Copy `.env.example` thành `.env`, giữ file thật ngoài Git. Compose nạp `.env`
-   vào mọi container qua `env_file`, nên biến provider (Google, payOS, Brevo,
-   Cloudinary, JWT...) phải nằm trong file này.
+1. Chạy `make env-local` để tạo `.env` từ `.env.example` (không ghi đè nếu đã
+   có), rồi `make env-local-check`. Compose nạp `.env` vào mọi container qua
+   `env_file`, nên biến provider (Google, payOS, Brevo, Cloudinary, JWT...) phải
+   nằm trong file này. Local không cần age key; quyền đọc env staging/production
+   xem [`sops-keys.md`](sops-keys.md).
 2. Tạo certificate local ngoài repository bằng
    `deployments/scripts/rotate-mtls-certs.sh`; `CERTS_DIR` trong `.env` trỏ tới
    thư mục đó.
@@ -162,11 +175,12 @@ workflow, ADR và contract đã duyệt.
 ## 9. Checklist và liên kết
 
 - Checklist/gate: [`gates.md`](gates.md). Trước merge vẫn kiểm tra thêm: 3 file
-  `.env*.example`, Compose dev/staging/prod, CI Compose validation, secret, và
-  migration trên DB rỗng.
+  `.env*.example`, `make env-check`, Compose dev/staging/prod, CI Compose
+  validation, secret, và migration trên DB rỗng.
 - Deploy/rollback: [`../operations/deployment.md`](../operations/deployment.md);
   certificate: [`../operations/certificates.md`](../operations/certificates.md);
-  branch/release: [`git-workflow.md`](git-workflow.md).
+  age key: [`sops-keys.md`](sops-keys.md); branch/release:
+  [`git-workflow.md`](git-workflow.md).
 - Chính sách mức dự án: `.specify/memory/constitution.md` và
   `littlecafe-docs/deployment/environments.md`; runbook ngoài repo:
   `local-docs/deploy/`.

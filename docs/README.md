@@ -10,7 +10,7 @@ hành.
 |---|---|
 | Spec Kit / feature | [spec-kit-workflow](development/spec-kit-workflow.md), [gates](development/gates.md) |
 | Git / PR / release | [git-workflow](development/git-workflow.md) |
-| Config / env / secret | [environments](development/environments.md) |
+| Config / env / secret | [environments](development/environments.md), [sops-keys](development/sops-keys.md) |
 | Deploy / rollback | [deployment](operations/deployment.md), [certificates](operations/certificates.md) |
 | Kiến trúc / boundaries | [architecture](system-design/architecture.md) |
 | Error / handler / DTO / i18n | [design-pattern](system-design/design-pattern.md) |
@@ -29,6 +29,7 @@ hành.
 - [git-workflow](development/git-workflow.md) — branch model, PR, release/tag, hotfix.
 - [gates](development/gates.md) — nguồn chuẩn duy nhất cho gate.
 - [environments](development/environments.md) — config/env/secret, local setup, kiểm tra môi trường.
+- [sops-keys](development/sops-keys.md) — nhận quyền, sửa, cập nhật và thu hồi age key cho env mã hóa.
 - [spec-kit-customizations](development/spec-kit-customizations.md) — deviation và upgrade.
 
 ## Operations & system design

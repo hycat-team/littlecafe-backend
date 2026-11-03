@@ -45,6 +45,8 @@ jobs:
               run: make generate
             - name: Verify generated sources are committed
               run: git diff --exit-code
+            - name: Check SOPS env key parity
+              run: make env-check
             - name: Validate deployment scripts
               run: bash -n deployments/scripts/deploy-release.sh
             - name: Lint GitHub workflows
@@ -149,6 +151,26 @@ jobs:
               run: make openapi-gen
             - name: Verify generated contracts are committed
               run: git diff --exit-code -- contracts/
+
+    env-sops:
+        name: SOPS env encryption
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v5
+            - name: Install sops and age
+              shell: bash
+              run: |
+                sudo curl -fsSL -o /usr/local/bin/sops \
+                  https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.linux.amd64
+                sudo chmod +x /usr/local/bin/sops
+                curl -fsSL \
+                  https://github.com/FiloSottile/age/releases/download/v1.3.2/age-v1.3.2-linux-amd64.tar.gz \
+                  | tar -xz -C /tmp
+                sudo install -m 755 /tmp/age/age-keygen /usr/local/bin/age-keygen
+                sops --version
+                command -v age-keygen
+            - name: Round-trip apply-env test
+              run: make env-sops-test SOPS_MODE=binary
 
     image-build:
         name: Validate image ${{ matrix.service }}

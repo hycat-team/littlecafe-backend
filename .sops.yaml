@@ -1,0 +1,18 @@
+# SOPS configuration for LittleCafe deployment environment files.
+#
+# Only age PUBLIC keys belong here. Private keys stay on developer machines,
+# the VPS and the offline recovery medium. Never commit a private key.
+#
+# Dev recipients are added as developers onboard; see
+# docs/development/sops-keys.md for the full key lifecycle (add, rotate,
+# offboard, recover).
+creation_rules:
+  - path_regex: staging\.env\.enc$
+    age: >-
+      age1al7tv7lyqxnc5z0488f96wuj02mpq5aacz8ejtncg5l8v58cpq8qn9swem,
+      age1daklta2dy6d24m0exha2hzwj8q33fzw9k4c9gawwjkxxv6mpjpks4q6e4n
+  - path_regex: production\.env\.enc$
+    age: >-
+      age1al7tv7lyqxnc5z0488f96wuj02mpq5aacz8ejtncg5l8v58cpq8qn9swem,
+      age1rtcgsn30cnls75glnwln8mg6ruxwcc6mpj00juwwsl9995wkkdjqqvfhhh,
+      age1ml40agxskst9rr5tln563sj6v7l3ajje9hrqnymejlfrrmgxwqusn54pd9

@@ -142,7 +142,8 @@ never an authoritative data source.
 ### VII. Runtime & Quality
 Runtime is a single VPS with Docker Compose; images are pinned to GHCR by Git
 SHA. The production migration job runs before rollout under an advisory lock.
-Secrets and certificates live outside Git. Zap JSON, Prometheus, and
+Secrets and certificates live outside Git as plaintext; SOPS ciphertext may be
+committed when age private keys stay outside the repository (ADR-001). Zap JSON, Prometheus, and
 OpenTelemetry are the observability standard. Every PR runs formatting, vet,
 race tests, contract lint, codegen drift, build, and boundary checks appropriate
 to the change scope.
