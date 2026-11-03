@@ -70,7 +70,7 @@ name := $(or $(name),$(NAME))
 SVC_REQ = $(if $(filter $(SVC),$(SERVICES)),,$(error This target requires svc=<$(SERVICES)> — e.g. make $@ svc=commerce))
 unexport SVC_REQ
 
-.PHONY: help install-tools install-goose wire wire-all buf-gen buf-lint openapi-gen openapi-lint asyncapi-lint openapi-check error-codes-check contract-lint generate generate-check fmt fmt-check tidy tidy-check vet test test-race test-cover test-cover-html coverage-check lint check team-check team-list team-test build build-all run dev clean migrate-status migrate-up migrate-down migrate-create migrate-version docker-infra-up docker-dev-up docker-dev-stop docker-dev-down docker-prod-up docker-prod-stop docker-prod-down nginx-reload-local env-local env-local-check env-edit env-apply env-updatekeys env-check env-verify env-sops-test
+.PHONY: help install-tools install-goose wire wire-all buf-gen buf-lint openapi-gen openapi-lint asyncapi-lint openapi-check error-codes-check contract-lint generate generate-check fmt fmt-check tidy tidy-check vet test test-race test-cover test-cover-html coverage-check lint check team-check team-list team-test build build-all run dev clean migrate-status migrate-up migrate-down migrate-create migrate-version docker-infra-up docker-dev-up docker-dev-stop docker-dev-down docker-prod-up docker-prod-stop docker-prod-down nginx-reload-local env-local env-local-check env-edit env-updatekeys env-check env-verify env-sops-test
 
 help:
 	@echo "========================================================================"
@@ -254,10 +254,6 @@ env-local-check:
 env-edit:
 	@if [ -z "$(ENV)" ]; then echo "usage: make env-edit ENV=staging|production"; exit 64; fi
 	@SOPS_MODE=$(SOPS_MODE) sh deployments/scripts/sops-run.sh edit deployments/env/$(ENV).env.enc
-
-env-apply:
-	@if [ -z "$(ENV)" ]; then echo "usage: make env-apply ENV=staging|production"; exit 64; fi
-	@sh deployments/scripts/apply-env.sh deployments/env/$(ENV).env.enc .env.$(ENV) .env.$(ENV).example
 
 env-updatekeys:
 	@for env in production staging; do \

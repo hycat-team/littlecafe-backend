@@ -70,8 +70,9 @@ make env-local-check
 
 ```powershell
 make env-verify
-make env-apply ENV=staging   # tạo .env.staging local khi cần chạy tay
 ```
+
+Không tạo `.env.staging`/`.env.production` trên laptop; chỉ decrypt kiểm tra.
 
 Không dùng script: `age-keygen -o <path>` rồi copy vào `keys.txt`; xem docs age.
 
@@ -162,7 +163,6 @@ Sau đó vẫn phải đưa thay đổi vào Git để lần deploy sau không g
 make env-edit ENV=staging     # sửa ciphertext
 make env-check                # parity, không cần key
 make env-verify               # decrypt thử
-make env-apply ENV=staging    # tạo .env.staging local
 make env-updatekeys           # sync recipient sau khi sửa .sops.yaml
 make env-sops-test            # test round-trip apply-env
 ```

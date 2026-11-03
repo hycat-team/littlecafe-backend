@@ -90,9 +90,9 @@ Gửi lead public key `age1...` (không gửi private key); lead thêm vào
 
 ```powershell
 make env-verify
-make env-apply ENV=staging   # tạo .env.staging local khi cần
 ```
 
+Không tạo `.env.staging`/`.env.production` trên laptop; chỉ decrypt kiểm tra.
 Quy trình đầy đủ: [`sops-keys.md`](sops-keys.md) §4.
 
 ## 8. Lệnh thường dùng
