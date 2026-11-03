@@ -1,22 +1,20 @@
 # Môi trường phát triển và triển khai
 
-Chuẩn cho developer và agent khi viết code, thêm config hoặc thay đổi hành vi
-phụ thuộc môi trường. Runbook triển khai nằm trong
-[`../operations/deployment.md`](../operations/deployment.md); branch/release nằm
-trong [`git-workflow.md`](git-workflow.md).
+Canonical cho: phân loại config/env/secret, local setup, pitfall môi trường.
+Deploy/rollback: [`../operations/deployment.md`](../operations/deployment.md);
+cập nhật env và age key: [`sops-keys.md`](sops-keys.md); policy mức dự án:
+`littlecafe-docs/deployment/environments.md`.
 
 ## 1. Bảng môi trường
 
-| Môi trường | Mục đích | Nhánh / trigger | URL | Thư mục VPS | Compose |
+| Môi trường | Mục đích | Trigger | URL | Thư mục VPS | Compose |
 | --- | --- | --- | --- | --- | --- |
 | Local | Phát triển, test nhanh | bất kỳ | `http://localhost:8080` | — | `deployments/docker-compose.yml` |
-| Staging | Frontend test, UAT | push `develop` hoặc dispatch | `https://staging-api.littlecafe.kids:8443` | `/opt/littlecafe-staging` | `deployments/docker-compose.staging.yml` |
-| Production | Người dùng thật | tag `v*` hoặc dispatch | `https://api.littlecafe.kids:8444` | `/opt/littlecafe` | `deployments/docker-compose.prod.yml` |
+| Staging | Frontend test, UAT | push `develop` / dispatch | `https://staging-api.littlecafe.kids:8443` | `/opt/littlecafe-staging` | `deployments/docker-compose.staging.yml` |
+| Production | Người dùng thật | tag `v*` / dispatch | `https://api.littlecafe.kids:8444` | `/opt/littlecafe` | `deployments/docker-compose.prod.yml` |
 
-- Staging và production chạy trên cùng VPS, tách compose project, volume,
-  network, secret, JWT và CA.
-- Port 80/443 thuộc stack khác; littlecafe dùng 8081/8443 (staging) và
-  8082/8444 (production).
+- Cùng VPS, tách compose project, volume, network, secret, JWT và CA.
+- 80/443 thuộc stack khác; littlecafe dùng 8081/8443 (staging), 8082/8444 (prod).
 - Local không cần mTLS; chỉ cần JWT nếu test đăng nhập.
 
 ## 2. Config và biến môi trường
@@ -25,101 +23,78 @@ trong [`git-workflow.md`](git-workflow.md).
 
 | Loại giá trị | Nơi đặt | Ví dụ |
 | --- | --- | --- |
-| Hằng số ứng dụng | `configs/base.yaml` hoặc `configs/<service>.yaml` | port, timeout, rate limit, outbox batch size, provider name |
-| Host/endpoint thay đổi theo môi trường | env hoặc Compose `environment` | `DB_HOST`, `REDIS_HOST`, `RABBITMQ_HOST` |
-| Secret | env file trên máy/VPS hoặc file secret | DB password, provider API key, private key path |
-| Định danh môi trường / flag vận hành | env | `APP_MODE`, `SERVER_ENV`, `LOG_LEVEL`, `EMAIL_ENABLED` |
-| CORS frontend origins | `server.frontend_origins` (env `FRONTEND_ORIGINS`) | `https://a.example.com,https://b.example.com` |
-| Chỉ dùng cho Compose | Compose hoặc env | `TZ`, mount path, `APP_UID`/`APP_GID` |
-
-Nguyên tắc:
+| Hằng số ứng dụng | `configs/base.yaml` hoặc `configs/<service>.yaml` | port, timeout, rate limit, batch size |
+| Host/endpoint khác theo môi trường | env hoặc Compose `environment` | `DB_HOST`, `REDIS_HOST`, `RABBITMQ_HOST` |
+| Secret | env ciphertext trong Git (staging/prod), `.env` local | DB password, provider key, key path |
+| Flag vận hành | env | `APP_MODE`, `SERVER_ENV`, `LOG_LEVEL`, `EMAIL_ENABLED` |
+| CORS frontend | `FRONTEND_ORIGINS` (CSV) | `https://a.example.com,https://b.example.com` |
+| Chỉ Compose dùng | Compose hoặc env | `TZ`, mount path, `APP_UID`/`APP_GID` |
 
 - Giá trị giống nhau ở mọi môi trường là literal trong `configs/`.
-- Chỉ secret và giá trị thực sự khác theo môi trường mới đưa vào env.
+- Chỉ secret và giá trị thực sự khác môi trường mới vào env.
 - Không hardcode host, port, URL, credential trong code.
 - Không rẽ nhánh business logic theo môi trường; dùng config hoặc feature flag.
-- CORS xử lý ở Go middleware; `FRONTEND_ORIGINS` là CSV. `*` chỉ hợp lệ ngoài
-  production; production phải liệt kê origin cụ thể.
-- Không đọc `os.Getenv` trong `domain`, `application`, `presentation`; mọi giá
-  trị đi qua struct config của `shared/config` hoặc config service. Validation
-  fail fast khi khởi động.
+- Không `os.Getenv` trong `domain`/`application`/`presentation`; đi qua
+  `shared/config`, validation fail fast khi khởi động.
+- CORS xử lý ở Go middleware; `*` chỉ hợp lệ ngoài production.
 
-### 2.2. Khi thêm hoặc đổi một setting
+### 2.2. Thêm hoặc đổi một setting
 
-1. Xác định đúng loại theo bảng 2.1.
-2. Cập nhật `configs/base.yaml` hoặc overlay service.
-3. Cập nhật `.env.example`, `.env.production.example`, `.env.staging.example`.
-   Với giá trị secret, sửa file mã hóa bằng `make env-edit ENV=<env>` (xem
-   [`sops-keys.md`](sops-keys.md)), không sửa plaintext trên VPS.
-4. Cập nhật Compose nếu setting ảnh hưởng `environment`, `ports`, `volumes`,
-   `command` hoặc `user`.
-5. Cập nhật `.github/workflows/ci.yml` nếu cần validate Compose mới.
-6. Cập nhật `docs/operations/` và tài liệu này.
-7. Thêm test cho config loader/validation nếu setting có ràng buộc.
-8. Chạy `docker compose config` cho cả 3 môi trường.
+1. Phân loại theo bảng 2.1.
+2. Hằng số → sửa `configs/`. Env/secret → cập nhật `.env.<env>.example` và
+   ciphertext theo [`sops-keys.md`](sops-keys.md) §5.
+3. Cập nhật Compose/CI nếu setting ảnh hưởng `environment`, `ports`, `volumes`,
+   `command`, `user` hoặc validation Compose.
+4. Chạy `docker compose config` cho cả 3 môi trường, `make env-check`; thêm test
+   config loader nếu có ràng buộc.
 
 ## 3. Secret và file
 
-- Env staging/production trong Git là **ciphertext SOPS**:
-  `deployments/env/staging.env.enc`, `deployments/env/production.env.enc`.
-  Không commit plaintext; private key age không nằm trong repo.
-- Local: mỗi dev có `.env` riêng (gitignored) sinh từ `make env-local`; local
-  không chứa secret thật nên không mã hóa.
-- Plaintext runtime chỉ nằm trên VPS (`/opt/littlecafe/.env.production`,
-  `/opt/littlecafe-staging/.env.staging`, mode `600`), do CD giải mã bằng
-  `deployments/scripts/apply-env.sh`. Không sửa tay file này.
-- File `.env*.example` chỉ chứa placeholder, không chứa giá trị thật.
-- Comment trong file `.env*` viết bằng tiếng Anh.
+- Env staging/production trong Git là ciphertext SOPS:
+  `deployments/env/{staging,production}.env.enc`; không commit plaintext, private
+  key age không nằm trong repo.
+- Local: `.env` riêng từng dev (gitignored) sinh từ `make env-local`; không chứa
+  secret thật nên không mã hóa.
+- Plaintext runtime chỉ trên VPS (`/opt/littlecafe/.env.production`,
+  `/opt/littlecafe-staging/.env.staging`, mode 600), do CD giải mã bằng
+  `deployments/scripts/apply-env.sh`; không sửa tay.
+- `.env*.example` chỉ chứa placeholder; comment trong `.env*` viết tiếng Anh.
 - Vị trí secret trên VPS:
-  - Production: `/opt/littlecafe-secrets/{certs,jwt,acme,age}` và `vercel.token`.
+  - Production: `/opt/littlecafe-secrets/{certs,jwt,acme,age}` + `vercel.token`.
   - Staging: `/opt/littlecafe-staging-secrets/{certs,jwt,age}`.
   - TLS nginx: `/opt/littlecafe-tls/<domain>/{fullchain.pem,privkey.pem}`.
-  - Thư mục `age/` chứa identity giải mã env (600, 700 cho thư mục) và **không**
-    được mount vào container.
-- Cấp quyền, xoay key, offboarding và recovery: [`sops-keys.md`](sops-keys.md).
-- `APP_UID`/`APP_GID` khớp user deploy (mặc định `1000`) để container đọc secret
-  `700/600` mà không mở quyền toàn hệ thống.
-- JWT ES256: mọi service mount public key; chỉ Commerce (module Identity) mount
-  private key.
-- mTLS: cả 4 service gRPC (`commerce/experience/ai/platform`) cần server cert;
-  `service-client` dùng khi service gọi service khác qua gRPC.
-- Token Vercel (DNS-01) và GHCR read token chỉ nằm trên VPS/CI secret.
-- Không log secret; mask giá trị nhạy cảm khi debug.
+  - `age/` (700, key 600) chứa identity giải mã env, không mount vào container.
+- `APP_UID`/`APP_GID` khớp user deploy (mặc định 1000) để container đọc secret
+  700/600 mà không mở quyền toàn hệ thống.
+- JWT ES256: mọi service mount public key; chỉ Commerce mount private key. mTLS:
+  4 service gRPC cần server cert; `service-client` dùng khi gọi service khác.
+- Cấp quyền/rotate/offboarding/recovery: [`sops-keys.md`](sops-keys.md).
+- Token Vercel và GHCR read token chỉ nằm trên VPS/CI secret; không log secret.
 
 ## 4. Local setup
 
-1. Chạy `make env-local` để tạo `.env` từ `.env.example` (không ghi đè nếu đã
-   có), rồi `make env-local-check`. Compose nạp `.env` vào mọi container qua
-   `env_file`, nên biến provider (Google, payOS, Brevo, Cloudinary, JWT...) phải
-   nằm trong file này. Local không cần age key; quyền đọc env staging/production
-   xem [`sops-keys.md`](sops-keys.md).
-2. Tạo certificate local ngoài repository bằng
-   `deployments/scripts/rotate-mtls-certs.sh`; `CERTS_DIR` trong `.env` trỏ tới
-   thư mục đó.
-3. Chạy `docker compose -f deployments/docker-compose.yml --profile infra up -d`
-   để bật PostgreSQL, Redis, RabbitMQ.
-4. Chạy `make generate`, `make test`, `make build-all`.
-5. Chạy full stack bằng profile `full` sau khi certificate sẵn sàng. Port host:
-   HTTP 8101–8104, gRPC 9101–9104, Nginx 8080.
-   Local compose giữ `depends_on` đầy đủ (Postgres, Redis, RabbitMQ); prod/staging
-   chỉ giữ Postgres vì Redis/RabbitMQ có startup retry.
-6. Chạy một service trên host bằng `make run svc=<service>`.
+1. `make env-local` (tạo `.env` từ `.env.example`, không ghi đè) rồi
+   `make env-local-check`. Local không cần age key.
+2. Tạo certificate local ngoài repo bằng `deployments/scripts/rotate-mtls-certs.sh`;
+   `CERTS_DIR` trong `.env` trỏ tới thư mục đó.
+3. `docker compose -f deployments/docker-compose.yml --profile infra up -d`.
+4. `make generate && make test && make build-all`.
+5. Full stack: profile `full` sau khi có cert; HTTP 8101–8104, gRPC 9101–9104,
+   Nginx 8080. Chạy một service trên host: `make run svc=<service>`.
 
-Không thêm entity/endpoint mẫu. Mỗi thay đổi nghiệp vụ bắt đầu từ requirement,
+Không thêm entity/endpoint mẫu; thay đổi nghiệp vụ bắt đầu từ requirement,
 workflow, ADR và contract đã duyệt.
 
 ## 5. Database và migration
 
 - Mỗi stack có Postgres riêng với 4 database/role: `littlecafe_<service>`.
-- `database/init/00-init.sql` chỉ dùng cho local dev; staging/production dùng
+- Local dùng `database/init/00-init.sql`; staging/production dùng
   `deployments/scripts/init-db.sh` qua service `db-init` (idempotent).
-- Migration Goose chạy qua service `migrate-<service>` với
-  `command: ["-migrate-only"]`.
-- Migration phải chạy trên database rỗng, idempotent và không đọc database của
-  service khác.
-- Không kết nối chéo môi trường (local → staging, staging → production).
-- Thay đổi phá hủy schema phải có backup trước; ưu tiên forward-fix.
-- Chi tiết Goose/schema: [`../system-design/data-and-migrations.md`](../system-design/data-and-migrations.md).
+- Goose chạy qua `migrate-<service>` với `command: ["-migrate-only"]`.
+- Migration phải chạy trên DB rỗng, idempotent, không đọc DB service khác; không
+  kết nối chéo môi trường.
+- Thay đổi phá hủy schema phải backup trước; ưu tiên forward-fix.
+- Chi tiết schema/Goose: [`../system-design/data-and-migrations.md`](../system-design/data-and-migrations.md).
 
 ## 6. Provider bên thứ ba
 
@@ -131,56 +106,38 @@ workflow, ADR và contract đã duyệt.
 | Cloudinary | trống | test account | thật |
 
 - Không dùng credential production ở staging/local.
-- Callback, return, cancel và webhook URL trỏ đúng môi trường.
+- Callback/return/cancel/webhook URL trỏ đúng môi trường.
 - Staging không gửi email thật và không tạo giao dịch thật.
 
 ## 7. Kiểm tra theo môi trường
 
-### Local
-
-- Áp dụng [`gates.md`](gates.md) theo phạm vi thay đổi (gồm codegen/drift nếu
-  đổi contract hoặc Wire).
-- Kiểm tra Compose bằng `docker compose ... config` khi sửa file Compose.
-- Chạy full stack khi thay đổi ảnh hưởng runtime; kiểm tra health và CORS.
-
-### Staging
-
-- Push `develop` để CD build, migrate, rollout, smoke.
-- Kiểm tra container healthy, health qua nginx, CORS theo `FRONTEND_ORIGINS`,
-  log không có lỗi cấu hình.
-- Frontend test trên staging trước khi xem xét production.
-
-### Production
-
-- Merge `develop` → `main`, tag `v*`, theo dõi CD.
-- Backup database trước thay đổi rủi ro.
-- Smoke health, kiểm tra container, log và tài nguyên sau rollout.
-- Rollback bằng digest/tag cũ; không `docker compose down -v`.
+- Gate kỹ thuật: [`gates.md`](gates.md) — nguồn chuẩn duy nhất.
+- Local: `docker compose ... config` khi sửa Compose; chạy full stack khi thay
+  đổi runtime, kiểm tra health/CORS.
+- Staging: push `develop`, kiểm tra container/health/CORS/log trước khi xét
+  production. Production: merge `main` + tag/`dispatch`, backup DB nếu rủi ro,
+  smoke health/container/log/tài nguyên.
+- Không `docker compose down -v`; rollback theo
+  [`../operations/deployment.md`](../operations/deployment.md) §6–§7.
 
 ## 8. Pitfall đã gặp
 
 - **Credential trong URL**: base64 có `/` hoặc `+` phải URL-encode khi build DSN
-  (AMQP đã dùng `url.UserPassword`).
+  (AMQP dùng `url.UserPassword`).
 - **`-migrate-only`**: image có `ENTRYPOINT ["/app/app"]`, Compose `command` chỉ
   được là `["-migrate-only"]`.
-- **SQL migration**: không để literal `\n` trong file `.sql`; psql meta-command
-  là `\connect` (một backslash).
-- **Quyền secret**: container distroless nonroot không đọc được thư mục `700`
-  và key `600`; chạy service bằng `APP_UID/APP_GID` khớp user deploy.
-- **Smoke từ GitHub runner**: firewall VPS có thể chặn IP runner ở 8443/8444;
-  smoke public nên chạy từ VPS hoặc kiểm tra thủ công.
-- **Nginx static upstream**: nếu service upstream chết, nginx có thể không start;
-  kiểm tra container trước khi recreate nginx.
+- **SQL migration**: không để literal `\n`; psql meta-command là `\connect`.
+- **Quyền secret**: container distroless nonroot không đọc được thư mục 700 và key
+  600; dùng `APP_UID/APP_GID` khớp user deploy.
+- **Smoke từ GitHub runner**: firewall VPS có thể chặn IP runner ở 8443/8444.
+- **Nginx static upstream**: upstream chết có thể làm nginx không start; kiểm tra
+  container trước khi recreate nginx.
 
-## 9. Checklist và liên kết
+## 9. Liên kết
 
-- Checklist/gate: [`gates.md`](gates.md). Trước merge vẫn kiểm tra thêm: 3 file
-  `.env*.example`, `make env-check`, Compose dev/staging/prod, CI Compose
-  validation, secret, và migration trên DB rỗng.
-- Deploy/rollback: [`../operations/deployment.md`](../operations/deployment.md);
-  certificate: [`../operations/certificates.md`](../operations/certificates.md);
-  age key: [`sops-keys.md`](sops-keys.md); branch/release:
+- Deploy/rollback: [`../operations/deployment.md`](../operations/deployment.md).
+- Certificate: [`../operations/certificates.md`](../operations/certificates.md).
+- Env/key: [`sops-keys.md`](sops-keys.md); branch/release:
   [`git-workflow.md`](git-workflow.md).
-- Chính sách mức dự án: `.specify/memory/constitution.md` và
-  `littlecafe-docs/deployment/environments.md`; runbook ngoài repo:
-  `local-docs/deploy/`.
+- Policy: `.specify/memory/constitution.md` và
+  `littlecafe-docs/deployment/environments.md`; runbook: `local-docs/deploy/`.
