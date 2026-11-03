@@ -51,7 +51,7 @@ Nginx local listens on 8080. Production API:
 ## Quickstart
 
 ```powershell
-Copy-Item .env.example .env
+make env-local            # copy .env.example -> .env (local only, never commit)
 docker compose -f deployments/docker-compose.yml --profile infra up -d
 make generate
 make test
@@ -62,6 +62,8 @@ make build-all
 
 Chi tiết local setup, certificate, port và full stack:
 [docs/development/environments.md](docs/development/environments.md) §4.
+Lần đầu clone, nếu cần quyền đọc env staging/production, làm theo
+[docs/development/sops-keys.md](docs/development/sops-keys.md).
 Chạy `make help` để xem toàn bộ target.
 
 ## Docs
@@ -71,6 +73,7 @@ Chạy `make help` để xem toàn bộ target.
 - [Git workflow](docs/development/git-workflow.md)
 - [Gates](docs/development/gates.md)
 - [Environments](docs/development/environments.md)
+- [SOPS keys](docs/development/sops-keys.md)
 - [Architecture](docs/system-design/architecture.md)
 - [Design patterns](docs/system-design/design-pattern.md)
 - [Deployment](docs/operations/deployment.md)

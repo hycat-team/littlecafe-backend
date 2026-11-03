@@ -47,7 +47,9 @@ Tài liệu này mô tả các cơ chế bảo mật đang có trong code và c�
 - **AES-GCM** (`shared/pkg/utils/cryptoutils/aesgcm.go`): nonce ngẫu nhiên, hỗ trợ associated data. Dùng cho encrypted snapshot của withdrawal với withdrawal ID làm associated data.
 - Không lưu bank profile tái sử dụng; mỗi withdrawal lưu snapshot mã hoá (theo `littlecafe-docs/integrations/payos.md`).
 - PII không xuất hiện trong log, event hoặc fixture ngoài mức tối thiểu.
-- Secret và certificate nằm ngoài Git; `.env` thật không commit.
+- Secret và certificate nằm ngoài Git dưới dạng plaintext; env deployment
+  staging/production được commit dưới dạng ciphertext SOPS (age). Local `.env`
+  per-dev không commit. Xem [`../development/sops-keys.md`](../development/sops-keys.md).
 
 ## 5. API surface
 
