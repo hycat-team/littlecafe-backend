@@ -24,6 +24,7 @@
   `docs/development/gates.md`. Before branch/PR/release work, read
   `docs/development/git-workflow.md`.
 - Before feature files: `pwsh scripts/speckit/team-feature.ps1 resolve -Json`.
+- Before local setup: `docs/development/bootstrap.md`.
 - Before code: read the relevant `docs/system-design/` and `docs/development/`
   docs. Before config/secrets/env/deploy: read
   `docs/development/environments.md`.

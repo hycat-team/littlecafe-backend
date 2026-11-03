@@ -46,28 +46,24 @@ Nginx local listens on 8080. Production API:
 - Docker & Docker Compose
 - GNU Make (Windows: Chocolatey/Git Bash/WSL)
 - Buf CLI (`make install-tools`) when changing protobuf
-- Local certificates for the full stack
+- OpenSSL (local JWT keys)
 
 ## Quickstart
 
 ```powershell
-make env-local            # copy .env.example -> .env (local only, never commit)
-docker compose -f deployments/docker-compose.yml --profile infra up -d
-make generate
-make test
-make test-cover
-make coverage-check
-make build-all
+make env-local
+make docker-infra-up
+make generate && make test && make build-all
 ```
 
-Chi tiết local setup, certificate, port và full stack:
-[docs/development/environments.md](docs/development/environments.md) §4.
-Lần đầu clone, nếu cần quyền đọc env staging/production, làm theo
-[docs/development/sops-keys.md](docs/development/sops-keys.md).
+Checklist đầy đủ (JWT, full stack, mTLS, quyền đọc env):
+**[docs/development/bootstrap.md](docs/development/bootstrap.md)**.
+Chi tiết config/port: [docs/development/environments.md](docs/development/environments.md).
 Chạy `make help` để xem toàn bộ target.
 
 ## Docs
 
+- [Bootstrap](docs/development/bootstrap.md)
 - [Documentation index](docs/README.md)
 - [Spec Kit workflow](docs/development/spec-kit-workflow.md)
 - [Git workflow](docs/development/git-workflow.md)

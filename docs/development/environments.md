@@ -1,7 +1,7 @@
 # Môi trường phát triển và triển khai
 
-Canonical cho: phân loại config/env/secret, local setup, pitfall môi trường.
-Deploy/rollback: [`../operations/deployment.md`](../operations/deployment.md);
+Canonical cho: phân loại config/env/secret, pitfall môi trường. Local setup:
+[`bootstrap.md`](bootstrap.md). Deploy/rollback: [`../operations/deployment.md`](../operations/deployment.md);
 cập nhật env và age key: [`sops-keys.md`](sops-keys.md); policy mức dự án:
 `littlecafe-docs/deployment/environments.md`.
 
@@ -73,14 +73,9 @@ cập nhật env và age key: [`sops-keys.md`](sops-keys.md); policy mức dự 
 
 ## 4. Local setup
 
-1. `make env-local` (tạo `.env` từ `.env.example`, không ghi đè) rồi
-   `make env-local-check`. Local không cần age key.
-2. Tạo certificate local ngoài repo bằng `deployments/scripts/rotate-mtls-certs.sh`;
-   `CERTS_DIR` trong `.env` trỏ tới thư mục đó.
-3. `docker compose -f deployments/docker-compose.yml --profile infra up -d`.
-4. `make generate && make test && make build-all`.
-5. Full stack: profile `full` sau khi có cert; HTTP 8101–8104, gRPC 9101–9104,
-   Nginx 8080. Chạy một service trên host: `make run svc=<service>`.
+Checklist đầy đủ: [`bootstrap.md`](bootstrap.md) — canonical cho clone → env →
+JWT → infra → full stack → mTLS/SOPS. Local không cần mTLS; JWT key nằm trong
+`CERTS_DIR` ngoài repo.
 
 Không thêm entity/endpoint mẫu; thay đổi nghiệp vụ bắt đầu từ requirement,
 workflow, ADR và contract đã duyệt.

@@ -51,6 +51,8 @@ Không muốn cài: `docker run --rm ghcr.io/getsops/sops:v3.13.3-alpine --versi
 
 ### 4.1. Local (không cần key)
 
+Setup đầy đủ: [`bootstrap.md`](bootstrap.md).
+
 ```powershell
 make env-local        # tạo .env từ .env.example nếu chưa có
 make env-local-check
