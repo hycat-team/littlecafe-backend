@@ -113,11 +113,15 @@ jobs:
               run: |
                 tar -czf /tmp/littlecafe-staging-deploy.tar.gz \
                   deployments/docker-compose.staging.yml \
+                  deployments/env/staging.env.enc \
                   deployments/nginx/staging.conf \
-                  deployments/scripts/init-db.sh \
+                  deployments/scripts/apply-env.sh \
                   deployments/scripts/deploy-release.sh \
+                  deployments/scripts/init-db.sh \
                   deployments/scripts/issue-certs.sh \
-                  deployments/scripts/renew-certs.sh
+                  deployments/scripts/renew-certs.sh \
+                  deployments/scripts/sops-run.sh \
+                  .env.staging.example
                 scp -P "${{ secrets.DEPLOY_PORT }}" /tmp/littlecafe-staging-deploy.tar.gz \
                   "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/littlecafe-staging-deploy.tar.gz"
             - name: Install deployment files
@@ -133,6 +137,14 @@ jobs:
                 printf '%s' "${{ secrets.GHCR_READ_TOKEN }}" | \
                   ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
                   "docker login ghcr.io -u '${{ secrets.GHCR_USERNAME }}' --password-stdin"
+            - name: Apply staging env from SOPS
+              shell: bash
+              run: |
+                ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+                  "cd /opt/littlecafe-staging && \
+                   SOPS_AGE_KEY_FILE=/opt/littlecafe-staging-secrets/age/keys.txt \
+                   sh deployments/scripts/apply-env.sh \
+                     deployments/env/staging.env.enc .env.staging .env.staging.example"
             - name: Ensure staging deploy env keys
               shell: bash
               run: |

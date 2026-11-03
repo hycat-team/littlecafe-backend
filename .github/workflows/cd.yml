@@ -110,11 +110,15 @@ jobs:
               run: |
                 tar -czf /tmp/littlecafe-deploy.tar.gz \
                   deployments/docker-compose.prod.yml \
+                  deployments/env/production.env.enc \
                   deployments/nginx/prod.conf \
-                  deployments/scripts/init-db.sh \
+                  deployments/scripts/apply-env.sh \
                   deployments/scripts/deploy-release.sh \
+                  deployments/scripts/init-db.sh \
                   deployments/scripts/issue-certs.sh \
-                  deployments/scripts/renew-certs.sh
+                  deployments/scripts/renew-certs.sh \
+                  deployments/scripts/sops-run.sh \
+                  .env.production.example
                 scp -P "${{ secrets.DEPLOY_PORT }}" /tmp/littlecafe-deploy.tar.gz \
                   "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/tmp/littlecafe-deploy.tar.gz"
             - name: Install deployment files
@@ -130,6 +134,14 @@ jobs:
                 printf '%s' "${{ secrets.GHCR_READ_TOKEN }}" | \
                   ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
                   "docker login ghcr.io -u '${{ secrets.GHCR_USERNAME }}' --password-stdin"
+            - name: Apply production env from SOPS
+              shell: bash
+              run: |
+                ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+                  "cd /opt/littlecafe && \
+                   SOPS_AGE_KEY_FILE=/opt/littlecafe-secrets/age/keys.txt \
+                   sh deployments/scripts/apply-env.sh \
+                     deployments/env/production.env.enc .env.production .env.production.example"
             - name: Ensure deploy env keys
               shell: bash
               run: |

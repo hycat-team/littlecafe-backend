@@ -40,6 +40,7 @@ tag/manual dispatch (prod) hoặc push develop (staging)
   -> build/push image matrix lên GHCR
   -> SSH upload compose/nginx/scripts files
   -> resolve digest immutable cho các service được chọn
+  -> decrypt env từ SOPS (apply-env.sh, một lần cho mỗi stack)
   -> deploy-release.sh (một SSH, một writer .env.deploy):
        - backup .env.deploy -> .env.deploy.prev
        - ghi image digest atomic
@@ -80,11 +81,22 @@ Repository variables tùy chọn:
 | `PRODUCTION_HEALTH_URL` | URL smoke production (mặc định `https://api.littlecafe.kids:8444/api/v1/health`) |
 | `STAGING_HEALTH_URL` | URL smoke staging (mặc định `https://staging-api.littlecafe.kids:8443/api/v1/health`) |
 
-File `/opt/littlecafe/.env.production` và `/opt/littlecafe-staging/.env.staging`
-được tạo ngoài Git, chứa database credentials, provider keys, JWT paths và
-đường dẫn secret mount. Compose nạp file này qua `env_file`; biến bắt buộc khai
-báo `${VAR:?...}` nên thiếu giá trị sẽ fail ngay khi parse compose. Không đưa
-các giá trị này vào GitHub workflow.
+Env staging/production được commit dưới dạng ciphertext SOPS:
+`deployments/env/staging.env.enc` và `deployments/env/production.env.enc`.
+Trước khi rollout, CD chạy `deployments/scripts/apply-env.sh` trên VPS để giải mã
+thành `/opt/littlecafe-staging/.env.staging` hoặc `/opt/littlecafe/.env.production`
+(mode `600`). Compose nạp file này qua `env_file`; biến bắt buộc khai báo
+`${VAR:?...}` nên thiếu giá trị sẽ fail ngay khi parse compose.
+
+- Age identity của VPS: `/opt/littlecafe-secrets/age/keys.txt` (production) và
+  `/opt/littlecafe-staging-secrets/age/keys.txt` (staging), mode `600`, không
+  mount vào container.
+- CD truyền `SOPS_AGE_KEY_FILE` tương ứng; không đưa giá trị secret vào GitHub
+  workflow.
+- Plaintext `.env.*` trên VPS là artifact dẫn xuất, không sửa tay; mọi thay đổi
+  đi qua Git (`make env-edit`) rồi deploy.
+- Key custody, rotation, offboarding và recovery:
+  [`../development/sops-keys.md`](../development/sops-keys.md).
 
 Workflow tự quản lý `.env.deploy` (prod) và `.env.staging.deploy` (staging).
 File chỉ chứa image reference đã pin digest, ví dụ:
@@ -186,12 +198,16 @@ local. Stack chạy độc lập trên VPS, tách khỏi production và stack kh
 1. Tạo thư mục secret ngoài thư mục deploy (để `rotate-mtls-certs.sh` chấp nhận):
 
    ```bash
-   sudo mkdir -p /opt/littlecafe-secrets/{certs,jwt,acme} /opt/littlecafe-staging-secrets/{certs,jwt} /opt/littlecafe-tls
+   sudo mkdir -p /opt/littlecafe-secrets/{certs,jwt,acme,age} /opt/littlecafe-staging-secrets/{certs,jwt,age} /opt/littlecafe-tls
    sudo chown -R deploy:deploy /opt/littlecafe-secrets /opt/littlecafe-staging-secrets /opt/littlecafe-tls
+   chmod 700 /opt/littlecafe-secrets/age /opt/littlecafe-staging-secrets/age
    ```
 
-2. Tạo `/opt/littlecafe-staging/.env.staging` từ `.env.staging.example`, thay
-   toàn bộ mật khẩu và provider key bằng giá trị thật; `chmod 600`.
+2. Đặt age identity cho từng stack (mode `600`, owner `deploy`):
+   `/opt/littlecafe-secrets/age/keys.txt` và
+   `/opt/littlecafe-staging-secrets/age/keys.txt`. Env plaintext được CD giải mã
+   từ Git; không tạo `.env.staging`/`.env.production` bằng tay. Chi tiết cấp key:
+   [`../development/sops-keys.md`](../development/sops-keys.md).
 
 3. Sinh mTLS cert riêng cho staging (chạy từ `/opt/littlecafe`):
 

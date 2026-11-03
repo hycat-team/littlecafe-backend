@@ -70,6 +70,10 @@ tmp/
 *.pfx
 secrets/
 
+# age identities used by SOPS: private keys never belong in Git
+keys.txt
+*.agekey
+
 # Local compose / config overrides
 docker-compose.override.yml
 deployments/*.local.yml

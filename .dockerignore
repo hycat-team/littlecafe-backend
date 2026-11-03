@@ -5,5 +5,9 @@
 **/*.exe
 **/.env
 **/.env.*
-!**/.env.example
+**/.env.example
 !**/.env.production.example
+!**/.env.staging.example
+
+# SOPS ciphertext does not belong in image builds.
+deployments/env/
