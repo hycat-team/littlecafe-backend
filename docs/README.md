@@ -7,6 +7,7 @@ này giữ contract machine-readable, hướng dẫn implementation và vận h�
 
 | Task | Đọc |
 |---|---|
+| Bootstrap dev mới | [bootstrap](development/bootstrap.md) |
 | Spec Kit / feature | [spec-kit-workflow](development/spec-kit-workflow.md), [gates](development/gates.md) |
 | Git / PR / release | [git-workflow](development/git-workflow.md) |
 | Config / env / secret | [environments](development/environments.md), [sops-keys](development/sops-keys.md) |
@@ -27,9 +28,10 @@ này giữ contract machine-readable, hướng dẫn implementation và vận h�
 
 | Chủ đề | Canonical | Ghi chú |
 |---|---|---|
+| Bootstrap local | [bootstrap](development/bootstrap.md) | Entry point khi clone |
 | Policy môi trường, gate, trách nhiệm | `littlecafe-docs/deployment/environments.md` | Mức dự án |
 | Quyết định kiến trúc | `littlecafe-docs/architecture/decisions/001-architecture-decisions.md` | ADR-001 |
-| Config/env, local setup, pitfall | [environments](development/environments.md) | Giá trị nào ở đâu |
+| Config/env, pitfall | [environments](development/environments.md) | Giá trị nào ở đâu |
 | Cập nhật env, SOPS/age key | [sops-keys](development/sops-keys.md) | Workflow + key lifecycle |
 | CD, deploy, rollback | [deployment](operations/deployment.md) | VPS/Compose |
 | Certificate, JWT, mTLS | [certificates](operations/certificates.md) | Private CA |
@@ -46,7 +48,7 @@ này giữ contract machine-readable, hướng dẫn implementation và vận h�
 3. Không lặp bảng, command hoặc contract giữa các file; sửa canonical trước.
 4. Link trong repo dùng đường dẫn tương đối; link sang repo khác dùng path trong
    backtick (``littlecafe-backend/docs/...``).
-5. Độ dài mục tiêu: README ≤ 60 dòng; policy ≤ 100; implementation/ops ≤ 250;
+5. Độ dài mục tiêu: README ≤ 100 dòng; policy ≤ 100; implementation/ops ≤ 250;
    ADR ≤ 180. Ưu tiên bảng và checklist thay vì đoạn văn.
 
 Feature thay đổi client surface phải bàn giao qua
