@@ -78,6 +78,9 @@
   `.specify/templates/overrides/` (or a repo-owned template).
 - **Language**: i18n via `shared/pkg/i18n`; identifiers/logs English; specs and
   reports Vietnamese; `.env*` comments English.
+- **Docs**: one topic = one canonical file; link instead of duplicating. Policy
+  lives in `littlecafe-docs`, implementation here, runbooks in `local-docs`. See
+  `docs/README.md` §Quy tắc tài liệu.
 - **Paths**: relative only.
 
 ## 4. Gate
@@ -98,7 +101,7 @@
 | Architecture / boundaries | `docs/system-design/architecture.md` |
 | API / events / gRPC | `contracts/`, `docs/system-design/design-pattern.md`, `docs/system-design/event-driven-design.md` |
 | Data / migrations | `docs/system-design/data-and-migrations.md`, `docs/development/spec-kit-workflow.md` |
-| Config / env / deploy | `docs/development/environments.md`, `docs/operations/deployment.md` |
+| Config / env / deploy | `docs/development/environments.md`, `docs/development/sops-keys.md`, `docs/operations/deployment.md` |
 | Security / runtime / AI | `docs/system-design/security.md`, `docs/system-design/runtime-observability.md`, `docs/system-design/ai-service.md` |
 | Frontend handoff | `docs/development/spec-kit-workflow.md`, `.specify/templates/frontend-guide-template.md` |
 | Backend integration handoff | `docs/development/spec-kit-workflow.md`, `.specify/templates/backend-integration-guide-template.md` |

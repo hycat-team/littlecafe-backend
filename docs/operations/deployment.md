@@ -1,126 +1,94 @@
 # Triển khai
 
-Production và staging chạy bằng Docker Compose trên một VPS. CI kiểm tra source,
-contract, dependency boundary, image `linux/amd64` và Compose config; CI không
-push image và không chạm môi trường chạy.
+Canonical cho: CD, deploy, rollback trên VPS. Env/key:
+[`../development/sops-keys.md`](../development/sops-keys.md); giá trị config:
+[`../development/environments.md`](../development/environments.md); certificate:
+[`certificates.md`](certificates.md).
 
-CD cho VPS:
+Production và staging chạy Docker Compose trên một VPS. CI kiểm tra source,
+contract, boundary, image `linux/amd64` và Compose config; CI không push image và
+không chạm môi trường chạy.
 
-- `.github/workflows/cd.yml` — production, chạy khi push tag `v*` hoặc dispatch.
-- `.github/workflows/cd-staging.yml` — staging, chạy khi push `develop` hoặc
-  dispatch.
-
-Khi dispatch, input `services` nhận `all` hoặc danh sách phân tách bằng dấu phẩy,
-ví dụ `commerce,experience`. Mặc định nên deploy `all` vì các service có quan hệ gRPC
-và Nginx phụ thuộc toàn bộ stack. Deploy lẻ chỉ dùng khi thay đổi service độc lập
-đã được xác nhận.
+- `.github/workflows/cd.yml` — production, tag `v*` hoặc dispatch.
+- `.github/workflows/cd-staging.yml` — staging, push `develop` hoặc dispatch.
+- Dispatch nhận `services=all` hoặc CSV (`commerce,experience`). Mặc định `all`
+  vì service có quan hệ gRPC và Nginx phụ thuộc toàn stack.
 
 ## 1. Topology trên VPS dùng chung
-
-VPS có thể đang chạy một stack khác đã chiếm 80/443. littlecafe dùng port riêng
-và tách hoàn toàn volume/network/secret:
 
 | Stack | Thư mục | HTTP | HTTPS |
 |---|---|---:|---:|
 | Staging | `/opt/littlecafe-staging` | 8081 | 8443 |
 | Production | `/opt/littlecafe` | 8082 | 8444 |
 
-Không publish Postgres/Redis/RabbitMQ ra public. Ngoại lệ có kiểm soát: Postgres
-bind loopback `127.0.0.1:5433` (production) và `127.0.0.1:5434` (staging) cho
-operator. TLS do littlecafe tự quản trong
-`TLS_DIR` (mặc định `/opt/littlecafe-tls`), nginx mount read-only; cert cấp/gia
-hạn độc lập bằng lego qua DNS-01 của Vercel. Chi tiết:
-[`certificates.md`](certificates.md).
+- Không publish Postgres/Redis/RabbitMQ ra public; ngoại lệ có kiểm soát:
+  Postgres bind loopback `127.0.0.1:5433` (prod), `127.0.0.1:5434` (staging).
+- TLS do littlecafe tự quản trong `TLS_DIR` (`/opt/littlecafe-tls`), nginx mount
+  read-only; cấp/gia hạn bằng lego DNS-01 Vercel. Chi tiết:
+  [`certificates.md`](certificates.md).
+- VPS có thể chạy stack khác; chỉ thao tác trong `/opt/littlecafe*` và container
+  prefix `littlecafe-`.
 
 ## 2. Luồng CD
 
 ```text
-tag/manual dispatch (prod) hoặc push develop (staging)
+tag/dispatch (prod) hoặc push develop (staging)
   -> plan + validate service list
   -> build/push image matrix lên GHCR
-  -> SSH upload compose/nginx/scripts files
-  -> resolve digest immutable cho các service được chọn
-  -> decrypt env từ SOPS (apply-env.sh, một lần cho mỗi stack)
+  -> SSH upload compose/nginx/scripts/env ciphertext
+  -> resolve digest immutable cho service được chọn
+  -> apply-env.sh decrypt SOPS (một lần mỗi stack)
   -> deploy-release.sh (một SSH, một writer .env.deploy):
        - backup .env.deploy -> .env.deploy.prev
        - ghi image digest atomic
-       - compose pull các service được chọn
+       - compose pull service được chọn
        - up -d --wait postgres redis rabbitmq
        - db-init (idempotent)
-       - migrate-<service> chạy song song, fail-fast
-       - up -d --wait --no-deps các service
+       - migrate-<service> song song, fail-fast
+       - up -d --wait --no-deps service
        - recreate nginx sau cùng
-  -> smoke test container health + public health
+  -> smoke container health + public health
 ```
 
-`depends_on` chỉ giữ `postgres` cho service app vì Redis/RabbitMQ client đã có
-startup retry. Nginx không còn `depends_on`; CD recreate sau khi service healthy.
-Local compose vẫn giữ `depends_on` đầy đủ để dev tiện.
+`depends_on` chỉ giữ Postgres cho service app vì Redis/RabbitMQ có startup retry;
+Nginx recreate sau khi service healthy. Local compose giữ `depends_on` đầy đủ.
 
-## 3. GitHub Environment và secrets
+## 3. GitHub Environment, secret và env file
 
-Tạo hai environment `production` và `staging`, bật Required reviewers nếu muốn
-có approval gate.
-
-Required repository/environment secrets:
+Tạo environment `production`/`staging`, bật Required reviewers nếu cần approval.
 
 | Secret | Vai trò |
 |---|---|
-| `DEPLOY_HOST` | Hostname/IP VPS |
-| `DEPLOY_USER` | SSH user |
-| `DEPLOY_PORT` | SSH port |
-| `DEPLOY_SSH_KEY` | Private key deploy |
-| `DEPLOY_KNOWN_HOSTS` | Output đã kiểm tra từ `ssh-keyscan` |
-| `GHCR_USERNAME` | Tài khoản đọc GHCR trên VPS |
-| `GHCR_READ_TOKEN` | PAT có quyền `read:packages` |
+| `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_PORT` | Kết nối SSH |
+| `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS` | Private key + host key đã kiểm tra |
+| `GHCR_USERNAME`, `GHCR_READ_TOKEN` | Đọc GHCR trên VPS |
 
-Repository variables tùy chọn:
+Variable tùy chọn: `PRODUCTION_HEALTH_URL`, `STAGING_HEALTH_URL`.
 
-| Variable | Vai trò |
-|---|---|
-| `PRODUCTION_HEALTH_URL` | URL smoke production (mặc định `https://api.littlecafe.kids:8444/api/v1/health`) |
-| `STAGING_HEALTH_URL` | URL smoke staging (mặc định `https://staging-api.littlecafe.kids:8443/api/v1/health`) |
+Env staging/production là ciphertext SOPS trong Git; CD giải mã trên VPS thành
+`.env.staging`/`.env.production` (mode 600). Compose nạp qua `env_file`; biến bắt
+buộc dùng `${VAR:?...}` nên thiếu giá trị fail ngay khi parse. Không đưa secret
+ứng dụng vào GitHub workflow.
 
-Env staging/production được commit dưới dạng ciphertext SOPS:
-`deployments/env/staging.env.enc` và `deployments/env/production.env.enc`.
-Trước khi rollout, CD chạy `deployments/scripts/apply-env.sh` trên VPS để giải mã
-thành `/opt/littlecafe-staging/.env.staging` hoặc `/opt/littlecafe/.env.production`
-(mode `600`). Compose nạp file này qua `env_file`; biến bắt buộc khai báo
-`${VAR:?...}` nên thiếu giá trị sẽ fail ngay khi parse compose.
-
-- Age identity của VPS: `/opt/littlecafe-secrets/age/keys.txt` (production) và
-  `/opt/littlecafe-staging-secrets/age/keys.txt` (staging), mode `600`, không
-  mount vào container.
-- CD truyền `SOPS_AGE_KEY_FILE` tương ứng; không đưa giá trị secret vào GitHub
-  workflow.
-- Plaintext `.env.*` trên VPS là artifact dẫn xuất, không sửa tay; mọi thay đổi
-  đi qua Git (`make env-edit`) rồi deploy.
-- Key custody, rotation, offboarding và recovery:
-  [`../development/sops-keys.md`](../development/sops-keys.md).
-
-Workflow tự quản lý `.env.deploy` (prod) và `.env.staging.deploy` (staging).
-File chỉ chứa image reference đã pin digest, ví dụ:
-
-```text
-COMMERCE_IMAGE=ghcr.io/hycat-team/littlecafe-backend-commerce@sha256:<digest>
-```
-
-Không dùng `docker compose down -v` trên production; thao tác đó xóa volumes
-database. Backup phải bao phủ cả bốn database trước thay đổi hạ tầng lớn.
+- Age identity: `/opt/littlecafe-secrets/age/keys.txt` (prod),
+  `/opt/littlecafe-staging-secrets/age/keys.txt` (staging), 600, không mount.
+- Plaintext trên VPS là artifact dẫn xuất; sửa qua Git
+  (`make env-edit`) rồi deploy. Quy trình/rotation: `sops-keys.md`.
+- `.env.deploy` (prod) / `.env.staging.deploy` (staging) do CD quản lý, chỉ chứa
+  image digest:
+  `COMMERCE_IMAGE=ghcr.io/hycat-team/littlecafe-backend-commerce@sha256:<digest>`.
+- Không `docker compose down -v` (xóa volume DB); backup cả 4 database trước thay
+  đổi hạ tầng lớn.
 
 ## 4. Provision database
 
-Sau khi `postgres redis rabbitmq` healthy, CD chạy service `db-init` (profile
-`init`) với `deployments/scripts/init-db.sh`. Script idempotent: tạo role
-`littlecafe_<service>`, database `littlecafe_<service>`, extension `pgcrypto`
-cho cả bốn database và `vector` cho `littlecafe_ai`. Password lấy từ
-`<SERVICE>_DB_PASSWORD` trong env file tương ứng.
+Sau khi `postgres redis rabbitmq` healthy, CD chạy `db-init` (profile `init`) với
+`deployments/scripts/init-db.sh`: tạo role/database `littlecafe_<service>`,
+extension `pgcrypto` (4 DB) và `vector` (AI). Password lấy từ
+`<SERVICE>_DB_PASSWORD`.
 
-Không tạo bảng ở bước này. Sau `db-init`, CD chạy các `migrate-<service>`
-(`--profile migrate`) **song song** trước rollout; migration Goose của từng
-service tạo schema trong database riêng.
-
-Nếu cần provision thủ công khi `db-init` lỗi:
+Sau `db-init`, `migrate-<service>` (profile `migrate`) chạy song song trước
+rollout; Goose tạo schema trong DB riêng. Nếu `db-init` lỗi, chạy thủ công:
 
 ```bash
 cd /opt/littlecafe
@@ -132,21 +100,18 @@ docker compose --env-file .env.production --env-file .env.deploy \
 
 ## 5. Certificate
 
-Nginx mount `TLS_DIR` (mặc định `/opt/littlecafe-tls`) read-only tại
-`/etc/nginx/tls`; cert phải tồn tại trước khi nginx khởi động. Cấp cert lần đầu
-bằng `deployments/scripts/issue-certs.sh` (lego, DNS-01 Vercel); gia hạn tự động
-bằng `deployments/scripts/renew-certs.sh` qua cron. Không phụ thuộc stack khác.
-Chi tiết: [`certificates.md`](certificates.md).
+Nginx mount `TLS_DIR` read-only tại `/etc/nginx/tls`; cert phải tồn tại trước khi
+nginx start. Cấp lần đầu bằng `issue-certs.sh`, gia hạn bằng `renew-certs.sh` qua
+cron. Chi tiết cert/JWT/mTLS: [`certificates.md`](certificates.md).
 
 ## 6. Production
 
 ### Deploy
 
-Push tag `v*` hoặc dispatch `cd.yml`. Workflow build image tag release, pin
-digest vào `.env.deploy`, rồi gọi `deploy-release.sh` để pull, `db-init`,
-migration song song, rollout 4 service song song và recreate Nginx sau cùng.
-Nếu app health fail sau rollout, script tự động khôi phục `.env.deploy.prev` và
-rollback image cũ.
+Push tag `v*` hoặc dispatch `cd.yml`. Workflow build image release, pin digest vào
+`.env.deploy`, rồi `deploy-release.sh` pull, `db-init`, migrate song song, rollout
+4 service, recreate Nginx. App health fail sau rollout → script khôi phục
+`.env.deploy.prev` và rollback image cũ.
 
 ### Kiểm tra
 
@@ -154,12 +119,11 @@ rollback image cũ.
 curl -fsS https://api.littlecafe.kids:8444/api/v1/health
 ```
 
-Kiểm tra container, log, tài nguyên và CORS theo `FRONTEND_ORIGINS`.
+Kiểm tra container, log, tài nguyên, CORS theo `FRONTEND_ORIGINS`.
 
 ### Rollback
 
-Dispatch lại workflow với commit/tag chứa image mong muốn, hoặc sửa image digest
-tương ứng trong `.env.deploy` rồi chạy:
+Dispatch lại workflow với commit/tag cũ, hoặc:
 
 ```bash
 cd /opt/littlecafe
@@ -171,116 +135,44 @@ docker compose --env-file .env.production --env-file .env.deploy \
   -f deployments/docker-compose.prod.yml up -d --force-recreate --no-deps nginx
 ```
 
-Migration là forward-only; rollback chỉ đổi image, không rollback schema.
-
-Sau rollback:
-
-```bash
-docker compose --env-file .env.production --env-file .env.deploy \
-  -f deployments/docker-compose.prod.yml ps
-curl -fsS https://api.littlecafe.kids:8444/api/v1/health
-```
+Migration forward-only; rollback chỉ đổi image, không rollback schema. Sau đó
+kiểm tra `docker compose ... ps` và health. Env rollback: xem
+[`sops-keys.md`](../development/sops-keys.md) §5.6.
 
 ## 7. Staging
 
-Staging phục vụ frontend test API mà không cần chạy backend cùng hạ tầng ở máy
-local. Stack chạy độc lập trên VPS, tách khỏi production và stack khác đang chiếm
-80/443.
+- Trigger: push `develop` hoặc dispatch. Thư mục `/opt/littlecafe-staging`.
+- URL `https://staging-api.littlecafe.kids:8443/api/v1`; CORS mặc định
+  `http://localhost:3000`, `http://127.0.0.1:3000`.
 
-- Nhánh trigger: `develop` (push) hoặc dispatch.
-- Thư mục VPS: `/opt/littlecafe-staging`.
-- URL: `https://staging-api.littlecafe.kids:8443/api/v1`.
-- CORS đọc `FRONTEND_ORIGINS` (CSV); mặc định staging cho
-  `http://localhost:3000` và `http://127.0.0.1:3000`.
+### Chuẩn bị một lần
 
-### Chuẩn bị một lần trên VPS
+1. Thư mục + age key: xem [`certificates.md`](certificates.md) §JWT/TLS và
+   [`sops-keys.md`](../development/sops-keys.md) §6.4.
+2. mTLS/JWT riêng cho staging: `certificates.md`.
+3. DNS A record `staging-api` → IP VPS; mở firewall 8443 (và 8081/8444/8082 nếu
+   cần) ở panel provider (Docker bypass ufw).
+4. Cấp cert lần đầu + cron gia hạn: `certificates.md` và `issue-certs.sh`/
+   `renew-certs.sh`.
 
-1. Tạo thư mục secret ngoài thư mục deploy (để `rotate-mtls-certs.sh` chấp nhận):
+### Deploy và kiểm tra
 
-   ```bash
-   sudo mkdir -p /opt/littlecafe-secrets/{certs,jwt,acme,age} /opt/littlecafe-staging-secrets/{certs,jwt,age} /opt/littlecafe-tls
-   sudo chown -R deploy:deploy /opt/littlecafe-secrets /opt/littlecafe-staging-secrets /opt/littlecafe-tls
-   chmod 700 /opt/littlecafe-secrets/age /opt/littlecafe-staging-secrets/age
-   ```
-
-2. Đặt age identity cho từng stack (mode `600`, owner `deploy`):
-   `/opt/littlecafe-secrets/age/keys.txt` và
-   `/opt/littlecafe-staging-secrets/age/keys.txt`. Env plaintext được CD giải mã
-   từ Git; không tạo `.env.staging`/`.env.production` bằng tay. Chi tiết cấp key:
-   [`../development/sops-keys.md`](../development/sops-keys.md).
-
-3. Sinh mTLS cert riêng cho staging (chạy từ `/opt/littlecafe`):
-
-   ```bash
-   cd /opt/littlecafe
-   sh deployments/scripts/rotate-mtls-certs.sh /opt/littlecafe-staging-secrets/certs
-   ```
-
-4. Sinh cặp JWT ES256 riêng cho staging trong
-   `/opt/littlecafe-staging-secrets/jwt`:
-
-   ```bash
-   cd /opt/littlecafe-staging-secrets/jwt
-   openssl ecparam -name prime256v1 -genkey -noout -out jwt-private.pem
-   openssl ec -in jwt-private.pem -pubout -out jwt-public.pem
-   ```
-
-5. Thêm DNS A record trên Vercel: `staging-api` → IP VPS.
-
-6. Tạo Vercel API token (quyền quản lý DNS `littlecafe.kids`) và lưu vào
-   `/opt/littlecafe-secrets/vercel.token` (`chmod 600`). Cấp cert lần đầu bằng
-   lego qua DNS-01:
-
-   ```bash
-   printf '%s' '<vercel-token>' > /opt/littlecafe-secrets/vercel.token
-   printf '%s' '<email>' > /opt/littlecafe-secrets/acme/account.email
-   chmod 600 /opt/littlecafe-secrets/vercel.token /opt/littlecafe-secrets/acme/account.email
-
-   cd /opt/littlecafe
-   sh deployments/scripts/issue-certs.sh issue
-   ```
-
-   Kiểm tra `/opt/littlecafe-tls/staging-api.littlecafe.kids/` có
-   `fullchain.pem` và `privkey.pem`.
-
-7. Mở firewall port `8443` (và `8081`, `8444`, `8082` nếu cần) ở firewall của
-   nhà cung cấp VPS. Docker bypass ufw và `INPUT` thường đang `ACCEPT`, nên ưu
-   tiên mở ở panel provider.
-
-8. Cài cron gia hạn cert:
-
-   ```cron
-   0 3 * * * sh /opt/littlecafe/deployments/scripts/renew-certs.sh >> /home/deploy/littlecafe-renew.log 2>&1
-   ```
-
-### Deploy
-
-Push lên `develop` để chạy `cd-staging.yml`, hoặc dispatch thủ công. Workflow
-build image tag `staging-<sha>`, pin digest vào `.env.staging.deploy`, chạy
-`db-init`, migration rồi rollout từng service.
-
-### Kiểm tra
+Push `develop` → `cd-staging.yml`; workflow build `staging-<sha>`, pin digest,
+`db-init`, migrate, rollout. Kiểm tra:
 
 ```bash
 curl -fsS https://staging-api.littlecafe.kids:8443/api/v1/health
-
 curl -i -X OPTIONS https://staging-api.littlecafe.kids:8443/api/v1/health \
-  -H "Origin: http://localhost:3000" \
-  -H "Access-Control-Request-Method: GET"
+  -H "Origin: http://localhost:3000" -H "Access-Control-Request-Method: GET"
 ```
 
-Phải thấy `Access-Control-Allow-Origin: http://localhost:3000`. Kiểm tra tài
-nguyên để tránh ảnh hưởng stack khác:
-
-```bash
-docker stats --no-stream
-free -h
-df -h
-```
+Phải thấy `Access-Control-Allow-Origin: http://localhost:3000`. Kiểm tra
+`docker stats --no-stream`, `free -h`, `df -h` để tránh ảnh hưởng stack khác.
 
 ### Rollback
 
-Sửa digest trong `/opt/littlecafe-staging/.env.staging.deploy` về image cũ rồi:
+Sửa digest trong `/opt/littlecafe-staging/.env.staging.deploy` về image cũ rồi
+recreate service:
 
 ```bash
 cd /opt/littlecafe-staging
@@ -290,6 +182,5 @@ docker compose --env-file .env.staging --env-file .env.staging.deploy \
 
 ## 8. Runbook ngoài repo
 
-Bộ runbook đầy đủ nằm ngoài repo tại `local-docs/deploy/` (variables,
-main-process, operations, troubleshooting). Branch/release flow:
-[`../development/git-workflow.md`](../development/git-workflow.md).
+Runbook đầy đủ: `local-docs/deploy/` (variables, bootstrap, operations,
+troubleshooting). Branch/release: [`../development/git-workflow.md`](../development/git-workflow.md).
