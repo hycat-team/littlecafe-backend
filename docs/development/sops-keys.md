@@ -21,11 +21,15 @@ Phân loại giá trị: [`environments.md`](environments.md); deploy/rollback:
 
 | Key | Nơi lưu |
 | --- | --- |
-| Lead | `%AppData%\sops\age\keys.txt` / `~/.config/sops/age/keys.txt` |
+| Lead | `~/.config/sops/age/keys.txt` |
 | Dev | như trên, trên máy dev |
 | VPS production | `/opt/littlecafe-secrets/age/keys.txt` (600) |
 | VPS staging | `/opt/littlecafe-staging-secrets/age/keys.txt` (600) |
 | Recovery production | Password manager/giấy in offline |
+
+Trên Windows, SOPS chỉ tự đọc `%AppData%\sops\age\keys.txt`; identity tại
+`~/.config` phải được trỏ bằng `SOPS_AGE_KEY_FILE` (script onboarding tự set user
+env). Linux/macOS tự đọc `~/.config/sops/age/keys.txt`.
 
 Public key `age1...` an toàn để commit/gửi chat. Private key
 `AGE-SECRET-KEY-1...` không commit, không gửi, không dán vào issue/PR/log. File
@@ -55,8 +59,9 @@ make env-local-check
 ### 4.2. Nhận quyền staging/production
 
 1. `pwsh scripts/env/init-dev-key.ps1` (Linux/macOS:
-   `sh scripts/env/init-dev-key.sh`) — tạo `keys.txt` persistent, in public key.
-   Đã có identity khác: dùng `-New`/`--new` để thêm.
+   `sh scripts/env/init-dev-key.sh`) — tạo `~/.config/sops/age/keys.txt`, set
+   `SOPS_AGE_KEY_FILE` nếu chưa có, in public key. Đã có identity khác: dùng
+   `-New`/`--new` để thêm.
 2. Gửi lead: handle, tên máy, `age1...`. Không gửi private key.
 3. Lead thêm vào `.sops.yaml` → `make env-updatekeys` → commit/merge.
 4. `git pull`, xác nhận:
@@ -226,6 +231,7 @@ Mất toàn bộ key (lead + VPS + recovery) = không khôi phục được ciph
 | `sops: command not found` | Mở terminal mới/cài lại; hoặc `SOPS_MODE=docker` |
 | `no matching creation rules found` | Chạy từ repo root; kiểm tra `path_regex` trong `.sops.yaml` |
 | `no key could decrypt` | Identity chưa được cấp hoặc sai `SOPS_AGE_KEY_FILE` |
+| Windows không tìm thấy key | Set user env `SOPS_AGE_KEY_FILE` trỏ `~/.config/sops/age/keys.txt`, mở terminal mới |
 | `invalid dotenv input line` | File nguồn CRLF hoặc dòng thiếu `=`; chuyển LF |
 | `invalid character '#'` | Thiếu `--input-type dotenv`; dùng `make env-verify`/`env-edit` |
 | `sops edit` không mở editor | Đặt `EDITOR` (`code --wait`, `notepad`) |
