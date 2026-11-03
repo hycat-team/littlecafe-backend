@@ -1,45 +1,37 @@
 # SOPS và age cho biến môi trường
 
-Tài liệu này là nguồn chuẩn cho việc **nhận quyền, sửa, cập nhật và thu hồi key**
-đối với các file env được mã hóa của LittleCafe. Đọc mục 4 nếu bạn vừa clone
-source và cần chạy local; đọc mục 7 nếu bạn là người cấp/thu hồi quyền.
-
-- Quy ước config/env: [`environments.md`](environments.md).
-- Luồng triển khai: [`../operations/deployment.md`](../operations/deployment.md).
-- Chính sách môi trường: `littlecafe-docs/deployment/environments.md`.
+Canonical cho: quy trình cập nhật env, cấp/thu hồi age key, rotate, recovery.
+Phân loại giá trị: [`environments.md`](environments.md); deploy/rollback:
+[`../operations/deployment.md`](../operations/deployment.md); policy:
+`littlecafe-docs/deployment/environments.md`.
 
 ## 1. Mô hình
 
-| Môi trường | File trong Git | Ai giải mã được |
+| Môi trường | Nguồn chuẩn | Ai giải mã |
 | --- | --- | --- |
-| Local | Không có file mã hóa; `.env` per-dev từ `.env.example` | Chỉ máy dev đó (không phải secret thật) |
-| Staging | `deployments/env/staging.env.enc` | Dev được cấp quyền, lead, VPS staging |
-| Production | `deployments/env/production.env.enc` | Dev được cấp quyền, lead, VPS production, recovery key |
+| Local | `.env` per-dev từ `.env.example` | Chỉ máy dev (không có secret thật) |
+| Staging | `deployments/env/staging.env.enc` | Dev được cấp, lead, VPS staging |
+| Production | `deployments/env/production.env.enc` | Dev được cấp, lead, VPS production, recovery key |
 
-- SOPS mã hóa **value** trong file dotenv; **tên key và comment dạng `#`** vẫn
-  đọc được, nên review thấy được key nào thay đổi mà không thấy giá trị.
-- File `.enc` có metadata `sops_*` và MAC; sửa tay sẽ làm hỏng file.
-- Plaintext runtime chỉ tồn tại trên VPS tại `/opt/littlecafe/.env.production`
-  và `/opt/littlecafe-staging/.env.staging` (mode 600), do CD giải mã từ Git.
-- Local dev không dùng SOPS và không cần age key.
+- SOPS mã hóa value; tên key và comment `#` vẫn đọc được để review diff.
+- File `.enc` có metadata `sops_*` và MAC; sửa tay sẽ hỏng file.
+- Plaintext runtime chỉ tồn tại trên VPS (mode 600), do CD giải mã từ Git.
 
 ## 2. Ai giữ key nào
 
-| Key | Nơi lưu | Ghi chú |
-| --- | --- | --- |
-| Lead | `%AppData%\sops\age\keys.txt` (Windows), `~/.config/sops/age/keys.txt` (Linux/macOS) | Là recipient của staging + production |
-| Dev | như trên, trên máy của dev | Chỉ gửi public key cho lead |
-| VPS production | `/opt/littlecafe-secrets/age/keys.txt` (600) | Chỉ dùng cho production |
-| VPS staging | `/opt/littlecafe-staging-secrets/age/keys.txt` (600) | Chỉ dùng cho staging |
-| Recovery production | Password manager/giấy in offline | Chỉ là recipient của production |
+| Key | Nơi lưu |
+| --- | --- |
+| Lead | `%AppData%\sops\age\keys.txt` / `~/.config/sops/age/keys.txt` |
+| Dev | như trên, trên máy dev |
+| VPS production | `/opt/littlecafe-secrets/age/keys.txt` (600) |
+| VPS staging | `/opt/littlecafe-staging-secrets/age/keys.txt` (600) |
+| Recovery production | Password manager/giấy in offline |
 
-Public key có dạng `age1...`, an toàn để commit và gửi qua chat nội bộ.
-Private key có dạng `AGE-SECRET-KEY-1...`, **không** commit, **không** gửi ai,
-**không** dán vào issue/PR/log.
+Public key `age1...` an toàn để commit/gửi chat. Private key
+`AGE-SECRET-KEY-1...` không commit, không gửi, không dán vào issue/PR/log. File
+key phải backup (password manager) và bật full-disk encryption.
 
 ## 3. Cài công cụ
-
-Windows (không cần quyền admin):
 
 ```powershell
 winget install --id FiloSottile.age -e
@@ -47,151 +39,144 @@ winget install --id SecretsOPerationS.SOPS -e
 sops --version   # 3.13.x
 ```
 
-Linux/macOS:
+Linux/macOS: `apt/brew install age`; tải `sops` từ GitHub releases v3.13.3.
+Không muốn cài: `docker run --rm ghcr.io/getsops/sops:v3.13.3-alpine --version`
+(chỉ dùng cho decrypt/updatekeys; `sops edit` cần binary).
 
-```bash
-sudo apt install age        # hoặc: brew install age
-# sops: tải binary từ https://github.com/getsops/sops/releases (v3.13.3)
-```
+## 4. Onboarding
 
-Nếu không muốn cài `sops`, có thể dùng Docker:
-
-```bash
-docker run --rm ghcr.io/getsops/sops:v3.13.3-alpine --version
-```
-
-`SOPS_MODE=docker` chỉ dùng cho `decrypt`/`updatekeys`; **`sops edit` cần binary**
-vì cần editor. Dev nên cài binary để sửa env.
-
-## 4. Lần đầu clone source
-
-### 4.1. Chạy local (không cần key)
+### 4.1. Local (không cần key)
 
 ```powershell
 make env-local        # tạo .env từ .env.example nếu chưa có
-make env-local-check  # so key với .env.example
+make env-local-check
 ```
 
-`make env-local` không ghi đè `.env` đang có. Local dùng password placeholder,
-provider key rỗng; không có secret thật nên không cần mã hóa.
+### 4.2. Nhận quyền staging/production
 
-### 4.2. Nhận quyền đọc staging/production
-
-1. Sinh key trên máy bạn:
-
-   ```powershell
-   pwsh scripts/env/init-dev-key.ps1
-   ```
-
-   Script tạo `%AppData%\sops\age\keys.txt` (nếu chưa có), in ra **public key**.
-   Nếu đã có identity từ project khác, script in key hiện có; dùng `-New` để thêm
-   identity mới. Trên Linux/macOS: `sh scripts/env/init-dev-key.sh`.
-
-2. Gửi lead thông tin sau (chỉ public key):
-
-   ```text
-   handle: <tên bạn>
-   machine: <tên máy>
-   pubkey: age1...
-   ```
-
-3. Lead thêm public key vào `.sops.yaml`, chạy `make env-updatekeys`, commit.
-   Sau khi merge, `git pull` và xác nhận:
-
-   ```powershell
-   make env-verify
-   ```
-
-   Hoặc gọi trực tiếp (phải chỉ rõ format, vì đuôi `.enc` không cho SOPS biết
-   đây là dotenv):
-
-   ```powershell
-   sops decrypt --input-type dotenv --output-type dotenv deployments/env/staging.env.enc > $null
-   sops decrypt --input-type dotenv --output-type dotenv deployments/env/production.env.enc > $null
-   ```
-
-4. Khi cần file env để chạy tay:
-
-   ```powershell
-   make env-apply ENV=staging      # tạo .env.staging (gitignored, mode 600)
-   ```
-
-Backup private key vào password manager. Mất key không mất dữ liệu: sinh key
-mới, gửi public key, lead cấp lại; nhưng phải làm trước khi cần dùng.
-
-## 5. Sinh key thủ công (không dùng script)
-
-Windows:
+1. `pwsh scripts/env/init-dev-key.ps1` (Linux/macOS:
+   `sh scripts/env/init-dev-key.sh`) — tạo `keys.txt` persistent, in public key.
+   Đã có identity khác: dùng `-New`/`--new` để thêm.
+2. Gửi lead: handle, tên máy, `age1...`. Không gửi private key.
+3. Lead thêm vào `.sops.yaml` → `make env-updatekeys` → commit/merge.
+4. `git pull`, xác nhận:
 
 ```powershell
-New-Item -ItemType Directory -Force "$env:APPDATA\sops\age" | Out-Null
-$out = age-keygen
-$out | Out-File -Append -Encoding ascii "$env:APPDATA\sops\age\keys.txt"
-($out | Select-String '^# public key: (age1\S+)').Matches[0].Groups[1].Value
+make env-verify
+make env-apply ENV=staging   # tạo .env.staging local khi cần chạy tay
 ```
 
-Linux/macOS:
+Không dùng script: `age-keygen -o <path>` rồi copy vào `keys.txt`; xem docs age.
+
+## 5. Quy trình cập nhật env
+
+### 5.1. Local
+
+Sửa trực tiếp `.env`; không commit, không cần SOPS. Khi `.env.example` thêm key,
+chạy `make env-local-check`.
+
+### 5.2. Staging/production — luồng chuẩn
+
+1. Phân loại giá trị theo [`environments.md`](environments.md) §2.1. Key mới phải
+   thêm vào `.env.<env>.example` **cùng PR**.
+2. Sửa ciphertext:
+
+   ```powershell
+   $env:EDITOR = "code --wait"      # hoặc notepad
+   make env-edit ENV=staging        # hoặc production
+   ```
+
+3. Kiểm tra local:
+
+   ```powershell
+   git diff -- deployments/env/staging.env.enc
+   make env-check     # key set khớp .example, không thừa/thiếu
+   make env-verify    # decrypt bằng key của bạn
+   ```
+
+4. Commit trên nhánh từ `develop`, mở PR:
+
+   ```powershell
+   git switch -c chore/env-<mô-tả> develop
+   git add deployments/env .env.staging.example
+   git commit -m "chore(env): <mô tả>"
+   git push -u origin chore/env-<mô-tả>
+   ```
+
+5. Merge `develop` → CD staging tự chạy (apply env + rollout + smoke). Kiểm tra
+   health `https://staging-api.littlecafe.kids:8443/api/v1/health` và CORS.
+6. Merge `develop` → `main`, tag `v*` (release) hoặc dispatch `CD - VPS` nếu
+   khẩn cấp; CD production apply env + rollout.
+7. Kiểm tra health `https://api.littlecafe.kids:8444/api/v1/health`, container,
+   log. Không `docker compose down -v`.
+
+### 5.3. Thêm / xóa key
+
+- Thêm: `.example` + cả hai `.enc` trong cùng PR. `make env-check` fail nếu thiếu
+  hoặc thừa.
+- Xóa: xác nhận compose/code không còn dùng (`grep` trong `deployments/`,
+  `configs/`, `services/`), xóa khỏi `.example` và hai `.enc` bằng `make env-edit`.
+- `sops unset` không hỗ trợ dotenv flat key; xóa trực tiếp trong editor.
+
+### 5.4. Rotate secret
+
+- Provider key: sửa env → deploy service dùng key (`commerce`, `platform`...).
+- `REDIS_PASSWORD`, `RABBITMQ_PASSWORD`: sửa env → recreate service tương ứng.
+- `*_DB_PASSWORD`: sửa env → deploy; `db-init` chạy `ALTER ROLE` trước rollout rồi
+  service recreate với password mới.
+- Offboarding/nghi lộ: xóa recipient + `make env-updatekeys` + **rotate
+  credential thật** (commit cũ vẫn giải được bằng key cũ).
+
+### 5.5. Hotfix khi CD không chạy
+
+Chỉ khi khẩn cấp, có ghi nhận:
 
 ```bash
-mkdir -p "${XDG_CONFIG_HOME:-$HOME/.config}/sops/age"
-age-keygen >> "${XDG_CONFIG_HOME:-$HOME/.config}/sops/age/keys.txt"
-grep '^# public key:' "${XDG_CONFIG_HOME:-$HOME/.config}/sops/age/keys.txt" | tail -n1
+scp deployments/env/staging.env.enc littlecafe-vps:/opt/littlecafe-staging/deployments/env/
+ssh littlecafe-vps
+cd /opt/littlecafe-staging
+SOPS_AGE_KEY_FILE=/opt/littlecafe-staging-secrets/age/keys.txt \
+  sh deployments/scripts/apply-env.sh \
+    deployments/env/staging.env.enc .env.staging .env.staging.example
+# recreate service bị ảnh hưởng
 ```
 
-Dùng nhiều máy: sinh một identity cho mỗi máy, gửi cả hai public key và ghi rõ
-tên máy trong `.sops.yaml`.
+Sau đó vẫn phải đưa thay đổi vào Git để lần deploy sau không ghi đè.
 
-## 6. Sửa env hằng ngày
+### 5.6. Rollback env
 
-```bash
-# từ repo root, với identity đã được cấp quyền
-export EDITOR="code --wait"          # Windows PowerShell: $env:EDITOR="code --wait"
-make env-edit ENV=staging
-git diff -- deployments/env/staging.env.enc
-git add deployments/env/staging.env.enc
-git commit -m "chore(env): <mô tả>"
+- Một bước: `apply-env.sh` giữ `.env.<env>.prev`; copy `.prev` trở lại rồi recreate.
+- Xa hơn: `git revert` commit ciphertext (hoặc checkout commit cũ) rồi deploy.
+- Image: `.env.deploy.prev` hoặc dispatch CD với image cũ.
+
+### 5.7. Cheat sheet
+
+```powershell
+make env-edit ENV=staging     # sửa ciphertext
+make env-check                # parity, không cần key
+make env-verify               # decrypt thử
+make env-apply ENV=staging    # tạo .env.staging local
+make env-updatekeys           # sync recipient sau khi sửa .sops.yaml
+make env-sops-test            # test round-trip apply-env
 ```
 
-- Chỉ sửa qua `sops edit` hoặc `make env-edit`; không sửa trực tiếp file `.enc`.
-- Thêm setting mới: cập nhật `configs/` nếu là hằng số, cập nhật
-  `.env.<env>.example`, rồi thêm key vào `.env.<env>.enc` của từng môi trường.
-- Không đưa giá trị thật vào `.env*.example`, PR description hoặc screenshot.
-- `git diff` chỉ hiện `ENC[...]` cho value; tên key vẫn hiện để review.
+## 6. Key lifecycle
 
-## 7. Cập nhật key (onboarding, rotate, offboarding)
+### 6.1. Thêm dev
 
-Mọi thay đổi recipient đều sửa `.sops.yaml` (chỉ public key) rồi chạy:
+Thêm `age1...` vào rule staging + production trong `.sops.yaml` (kèm comment tên)
+→ `make env-updatekeys` → commit. Không cần deploy lại; dev `git pull` và
+`make env-verify`.
 
-```bash
-make env-updatekeys      # sops updatekeys cho production + staging
-git add .sops.yaml deployments/env/*.env.enc
-git commit -m "chore(env): update SOPS recipients"
-```
+### 6.2. Dev đổi máy/mất key
 
-`updatekeys` chỉ re-wrap data key, **không đổi secret** và **không cần deploy lại**
-service. Người đã bị xóa không đọc được bản mới, nhưng vẫn đọc được commit cũ —
-vì vậy khi thu hồi quyền production phải rotate credential thật (mục 7.3).
+Dev sinh identity mới, gửi public key; lead thêm (giữ/xóa key cũ) → `updatekeys`.
+Máy mất cắp: coi như lộ key production → làm 6.3.
 
-### 7.1. Thêm dev
+### 6.3. Offboarding/nghi lộ
 
-1. Nhận `age1...` + handle + tên máy.
-2. Thêm vào danh sách `age` của rule staging và production trong `.sops.yaml`,
-   kèm comment tên dev.
-3. `make env-updatekeys` → commit → merge.
-4. Dev `git pull` và xác nhận decrypt (mục 4.2 bước 3).
-
-### 7.2. Dev đổi máy hoặc mất key
-
-1. Dev sinh identity mới trên máy mới, gửi public key mới.
-2. Lead thêm key mới; có thể giữ key cũ nếu máy cũ còn dùng, hoặc xóa nếu mất máy.
-3. `make env-updatekeys` → commit.
-4. Nếu máy cũ bị mất cắp: coi như key production bị lộ, làm mục 7.3.
-
-### 7.3. Offboarding / nghi lộ key
-
-1. Xóa public key khỏi `.sops.yaml` (staging + production).
-2. `make env-updatekeys` → commit → merge.
-3. Rotate data key:
+1. Xóa public key khỏi `.sops.yaml` → `make env-updatekeys` → merge.
+2. Rotate data key:
 
    ```bash
    SOPS_MODE=binary sops rotate --input-type dotenv --output-type dotenv -i deployments/env/production.env.enc
@@ -199,93 +184,48 @@ vì vậy khi thu hồi quyền production phải rotate credential thật (mụ
    make env-updatekeys
    ```
 
-4. Rotate credential thật vì commit cũ vẫn giải được bằng key cũ:
-   - Provider: Google OAuth client secret, payOS keys, Brevo API key, Cloudinary.
-   - Hạ tầng: `RABBITMQ_PASSWORD`, `REDIS_PASSWORD`, `POSTGRES_ADMIN_PASSWORD`,
-     `<SERVICE>_DB_PASSWORD` (chạy deploy để `db-init` cập nhật role password).
-5. Ghi ngày rotate + lý do vào ADR hoặc `docs/operations/`.
+3. Rotate credential thật: Google OAuth, payOS, Brevo, Cloudinary,
+   `RABBITMQ_PASSWORD`, `REDIS_PASSWORD`, `POSTGRES_ADMIN_PASSWORD`,
+   `<SERVICE>_DB_PASSWORD`.
+4. Ghi ngày rotate vào ADR hoặc `docs/operations/`.
 
-### 7.4. Đổi key của VPS
+### 6.4. Key VPS
 
-1. Sinh keypair mới trên máy tin cậy, đẩy private key lên đúng path:
-   - production: `/opt/littlecafe-secrets/age/keys.txt`
-   - staging: `/opt/littlecafe-staging-secrets/age/keys.txt`
-   với `umask 077`, mode 600, owner `deploy`.
-2. Thêm public key mới vào `.sops.yaml`, xóa public key cũ, `make env-updatekeys`,
-   commit.
-3. Deploy lại stack liên quan và kiểm tra health; nếu decrypt lỗi, khôi phục key
-   cũ và `.prev` của env file.
+Sinh keypair mới trên máy tin cậy, đẩy private key đúng path (`umask 077`, 600,
+owner `deploy`); thêm public key mới, xóa key cũ trong `.sops.yaml`,
+`updatekeys`, deploy lại và kiểm tra health.
 
-### 7.5. Recovery
+### 6.5. Recovery
 
-- Recovery keypair chỉ là recipient của production; private key cất offline.
-- Diễn tập mỗi năm một lần trên máy sạch:
+Recovery key chỉ là recipient production, private key cất offline. Diễn tập mỗi
+năm trên máy sạch:
 
-  ```bash
-  SOPS_AGE_KEY_FILE=/duong/dan/recovery-prod.txt \
-    sops decrypt --input-type dotenv --output-type dotenv \
-      deployments/env/production.env.enc > /dev/null
-  ```
+```bash
+SOPS_AGE_KEY_FILE=/duong/dan/recovery-prod.txt \
+  sops decrypt --input-type dotenv --output-type dotenv \
+    deployments/env/production.env.enc > /dev/null
+```
 
-- Nếu mất toàn bộ key (lead + VPS + recovery), không thể khôi phục ciphertext
-  trong Git; phải tạo lại env từ backup/credential mới.
+Mất toàn bộ key (lead + VPS + recovery) = không khôi phục được ciphertext.
 
-## 8. VPS và CD
+## 7. VPS và CD
 
-- CD upload `deployments/env/<env>.env.enc`, `.env.<env>.example`,
-  `deployments/scripts/{sops-run.sh,apply-env.sh}`.
-- Step "Apply env from SOPS" chạy trước `deploy-release.sh`:
+- CD upload `.enc`, `.example`, `sops-run.sh`, `apply-env.sh`, rồi chạy step
+  "Apply … env from SOPS" trước `deploy-release.sh`.
+- `apply-env.sh`: decrypt → validate (CR, `sops_`, key parity) → giữ `.prev` →
+  ghi atomic mode 600.
+- `sops-run.sh` dùng image pinned digest, `--network none --read-only
+  --cap-drop ALL`, mount key read-only; không chạy `sops edit` trên VPS.
+- Nâng cấp SOPS: đổi digest trong `sops-run.sh`, `docker pull` trên VPS, deploy
+  staging trước.
 
-  ```bash
-  cd /opt/littlecafe
-  SOPS_AGE_KEY_FILE=/opt/littlecafe-secrets/age/keys.txt \
-    sh deployments/scripts/apply-env.sh \
-      deployments/env/production.env.enc .env.production
-  ```
+## 8. Troubleshooting
 
-- `sops-run.sh` dùng image pinned digest
-  `ghcr.io/getsops/sops:v3.13.3-alpine@sha256:...`, chạy `--network none
-  --read-only --cap-drop ALL`, mount key read-only.
-- Không chạy `sops edit` trên VPS. Không sửa `.env.production` bằng tay; mọi thay
-  đổi đi qua Git + CD.
-- Nâng cấp SOPS: đổi digest trong `deployments/scripts/sops-run.sh`, chạy
-  `docker pull` trên VPS, deploy staging trước.
-
-## 9. Troubleshooting
-
-| Lỗi | Nguyên nhân / cách xử lý |
+| Lỗi | Xử lý |
 | --- | --- |
-| `sops: command not found` | Chưa cài hoặc shell chưa nhận PATH; mở terminal mới, hoặc dùng `SOPS_MODE=docker` |
-| `no matching creation rules found` | Chạy sai thư mục hoặc `path_regex` không khớp; chạy từ repo root, kiểm tra `.sops.yaml` |
-| `no key could decrypt` | Identity không có trong recipient list hoặc sai `SOPS_AGE_KEY_FILE`; kiểm tra `sops decrypt` bằng key đã được cấp |
-| `invalid character '#' looking for beginning of value` | Gọi `sops` trực tiếp trên file `.env.enc` mà thiếu `--input-type dotenv`; dùng `make env-verify`/`make env-edit` |
-| `invalid dotenv input line` | File nguồn có CRLF hoặc dòng không có `=`; chuyển về LF trước khi encrypt |
-| File `.enc` bị hỏng sau khi sửa | MAC không khớp; khôi phục từ Git rồi dùng `make env-edit` |
-| `sops edit` mở editor lạ/không mở | Đặt `EDITOR`: `$env:EDITOR="code --wait"` hoặc `notepad` |
-| Docker mode lỗi mount trên Windows | Dùng binary (`SOPS_MODE=binary`) trên máy dev |
-| Decrypt được nhưng value có `\r` | File nguồn CRLF; tạo lại `.enc` từ file LF |
-| `updatekeys` xong nhưng dev vẫn lỗi | Chưa commit/pull file `.enc` mới, hoặc dev dùng key khác |
-
-## 10. Checklist
-
-**Onboarding dev**
-
-- [ ] Cài `sops` + `age`.
-- [ ] Sinh key, backup private key.
-- [ ] Gửi public key + handle + tên máy.
-- [ ] Lead thêm vào `.sops.yaml`, `make env-updatekeys`, merge.
-- [ ] Dev `git pull`, decrypt staging + production thành công.
-
-**Offboarding**
-
-- [ ] Xóa public key khỏi `.sops.yaml`.
-- [ ] `make env-updatekeys`, merge.
-- [ ] `sops rotate` cả hai file.
-- [ ] Rotate provider/DB/Redis/RabbitMQ credential.
-- [ ] Ghi nhận ngày rotate.
-
-**Recovery drill (hằng năm)**
-
-- [ ] Dùng recovery key decrypt production trên máy sạch.
-- [ ] Xác nhận key VPS vẫn decrypt được sau drill.
-- [ ] Ghi biên bản.
+| `sops: command not found` | Mở terminal mới/cài lại; hoặc `SOPS_MODE=docker` |
+| `no matching creation rules found` | Chạy từ repo root; kiểm tra `path_regex` trong `.sops.yaml` |
+| `no key could decrypt` | Identity chưa được cấp hoặc sai `SOPS_AGE_KEY_FILE` |
+| `invalid dotenv input line` | File nguồn CRLF hoặc dòng thiếu `=`; chuyển LF |
+| `invalid character '#'` | Thiếu `--input-type dotenv`; dùng `make env-verify`/`env-edit` |
+| `sops edit` không mở editor | Đặt `EDITOR` (`code --wait`, `notepad`) |
