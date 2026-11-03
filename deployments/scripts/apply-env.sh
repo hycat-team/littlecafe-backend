@@ -74,6 +74,7 @@ fi
 
 chmod 600 "$tmp"
 mv "$tmp" "$target"
+rm -f "$keys_tmp"
 trap - EXIT
 
 printf 'apply-env: wrote %s (%s keys, mode 600)\n' "$target" "$key_count"

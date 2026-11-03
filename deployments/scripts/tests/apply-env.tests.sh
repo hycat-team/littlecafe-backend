@@ -62,6 +62,11 @@ if [ ! -f "$tmp/target.env.prev" ]; then
   exit 1
 fi
 
+if ls "$tmp"/.envkeys.* >/dev/null 2>&1; then
+  printf 'FAIL: apply-env left temporary key files behind\n' >&2
+  exit 1
+fi
+
 # A wrong identity must fail, not silently produce an empty file.
 if SOPS_AGE_KEY_FILE="$tmp/other-keys.txt" sh deployments/scripts/apply-env.sh \
   "$tmp/fixture.env.enc" "$tmp/target2.env" "$tmp/example.env" >/dev/null 2>&1; then
