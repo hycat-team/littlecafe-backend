@@ -54,13 +54,13 @@ else
 fi
 
 backup="${deploy_file}.prev"
-timestamped="${deploy_file}.bak.$(date -u +%Y%m%dT%H%M%SZ)"
 if [ -f "$deploy_file" ]; then
   cp -a "$deploy_file" "$backup"
-  cp -a "$deploy_file" "$timestamped"
 else
   : > "$deploy_file"
 fi
+# Keep exactly one rollback copy (.prev); drop legacy per-deploy snapshots.
+rm -f "${deploy_file}".bak.*
 chmod 600 "$deploy_file" 2>/dev/null || true
 chmod 600 "$backup" 2>/dev/null || true
 
