@@ -12,8 +12,18 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$keyDir = Join-Path $env:APPDATA 'sops\age'
+$keyDir = Join-Path $HOME '.config\sops\age'
 $keyFile = Join-Path $keyDir 'keys.txt'
+
+$userKeyFile = [Environment]::GetEnvironmentVariable('SOPS_AGE_KEY_FILE', 'User')
+if (-not $userKeyFile) {
+    [Environment]::SetEnvironmentVariable('SOPS_AGE_KEY_FILE', $keyFile, 'User')
+    $env:SOPS_AGE_KEY_FILE = $keyFile
+    Write-Host "Set user environment variable SOPS_AGE_KEY_FILE to $keyFile"
+    Write-Host "Restart the terminal so new sessions pick it up."
+} elseif ($userKeyFile -ne $keyFile) {
+    Write-Warning "SOPS_AGE_KEY_FILE already points to $userKeyFile"
+}
 
 if (-not (Get-Command age-keygen -ErrorAction SilentlyContinue)) {
     throw 'age-keygen not found. Install age first: winget install --id FiloSottile.age -e'
