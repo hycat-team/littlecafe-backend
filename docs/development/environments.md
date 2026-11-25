@@ -135,4 +135,4 @@ workflow, ADR và contract đã duyệt.
 - Env/key: [`sops-keys.md`](sops-keys.md); branch/release:
   [`git-workflow.md`](git-workflow.md).
 - Policy: `.specify/memory/constitution.md` và
-  `littlecafe-docs/deployment/environments.md`; runbook: `local-docs/deploy/`.
+  `littlecafe-docs/deployment/environments.md`; runbook: runbook nội bộ (ngoài repo, local-only).

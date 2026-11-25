@@ -2,47 +2,46 @@
 
 ## 1. Ranh giới
 
-- AI là service độc lập, database riêng `littlecafe_ai` (extension `vector` bật sẵn trong `database/init/00-init.sql`).
-- AI **không thực hiện mutation** nghiệp vụ; chỉ trả lời/retrieval và dẫn người dùng tới chức năng chính (theo `littlecafe-docs/workflows/rag-assistant.md`).
-- Published content được replicate sang pgvector của AI; private/live data đọc qua gRPC read-only sau authorization.
+- AI là service độc lập, database riêng `littlecafe_ai`; extension `vector` trong `database/init/00-init.sql` chỉ là scaffolding.
+- AI **không thực hiện mutation** nghiệp vụ; chỉ retrieval/trả lời và dẫn người dùng tới chức năng chính (WF-008).
+- Published content/private data được đọc theo contract; vector store/retrieval policy **Undecided** (OQ-012), chưa chốt replication hay live read.
 - Không service nào gọi trực tiếp database AI; contract là OpenAPI/AsyncAPI/protobuf như mọi service khác.
 
 ## 2. Quyết định đã chốt
 
 | Nguồn | Nội dung |
-|---|---|
-| `littlecafe-docs/architecture/decisions/001-architecture-decisions.md` (Confirmed) | RAG hybrid với pgvector; Gemini provider interface; Cloudinary cho media 2D |
-| `littlecafe-docs/integrations/rag-assistant.md` | Gemini đứng sau provider interface; **chưa có fallback đa nhà cung cấp**; RAG không mutation |
-| `.specify/memory/constitution.md` mục IV/VIII | AI service độc lập; dữ liệu nhạy cảm không rời hệ thống; quyết định mở không được tự chốt |
+| --- | --- |
+| `littlecafe-docs/architecture/decisions/001-architecture-decisions.md` (DEC-011) | AI provider/model/vector store/retrieval policy **Undecided**; không cam kết provider cụ thể |
+| `littlecafe-docs/integrations/rag-assistant.md` | RAG read-only; source/version; missing/conflict trả "không chắc"; không mutation |
+| `littlecafe-docs/workflows/rag-assistant.md` | WF-008 actor/flow/AC |
+| `.specify/memory/constitution.md` mục VIII | AI provider/model/vector store/retrieval policy là open decision |
+| DEC-020 | Manual evaluation; published content refresh ≤ 15 phút; live private data real-time qua gRPC; conflict behavior |
+| DEC-021 | RAG access boundary + privacy/retention |
 
-## 3. Mâu thuẫn nguồn cần chốt (agent không tự quyết)
+## 3. Chưa chốt
 
-Constitution mục VIII liệt kê **"AI provider/model/vector store/retrieval policy"** là
-Undecided, trong khi ADR-001 (Confirmed) và `integrations/rag-assistant.md` đã chốt
-Gemini provider interface + pgvector. Hai nguồn đang mâu thuẫn.
-
-- Xử lý đúng: dừng ở phần phụ thuộc, ghi rõ ID/phạm vi ảnh hưởng và hỏi developer.
-- Không được tự chọn provider/model/vector store/retrieval policy hay tạo adapter AI
-  trước khi mâu thuẫn này được cập nhật ở nguồn chuẩn.
-
-## 4. Chưa chốt (theo nguồn hiện tại)
-
-- Freshness SLA, evaluation threshold, conflict behavior của RAG (`integrations/rag-assistant.md`).
+- Provider/model/vector store/retrieval policy (OQ-012).
 - Fallback khi provider lỗi/rate limit.
-- Storage asset 3D (ADR-001: Undecided; WF-007: storage/device Undecided).
-- Payout entitlement (ảnh hưởng gián tiếp qua Wallet, không thuộc AI).
+- Ingestion/replication strategy và vector schema chi tiết.
+- Evaluation threshold tự động (hiện manual theo DEC-020).
+- Payout entitlement không thuộc AI; theo DEC-018.
 
-## 5. Trạng thái code
+## 4. Trạng thái code
 
-- `services/ai` có layout Clean Architecture đầy đủ nhưng module rỗng: không entity,
-  use case, endpoint, RPC hay event.
-- `shared` chưa có adapter hay config AI (không có `ai.*` trong `configs/base.yaml`).
-- Đã có sẵn nền tảng dùng lại: `entities.Vector` (map cột `vector`), `JSONField`,
-  outbox/consumer framework, gRPC bridge.
+- `services/ai` có layout Clean Architecture đầy đủ nhưng module rỗng: không entity, use case, endpoint, RPC hay event.
+- `shared` chưa có adapter/config AI (không có `ai.*` trong `configs/base.yaml`).
+- Đã có sẵn nền tảng dùng lại: `entities.Vector` (map cột `vector`), `JSONField`, outbox/consumer framework, gRPC bridge. Đây là scaffolding, không phải cam kết provider/retrieval.
 
-## 6. Điều kiện để bắt đầu implement
+## 5. Điều kiện để bắt đầu implement
 
-1. Chốt mâu thuẫn §3 và cập nhật constitution/ADR cho khớp.
-2. Có requirement/workflow RAG được duyệt kèm acceptance criteria.
-3. Có OpenAPI (HTTP) + AsyncAPI (event) + protobuf (gRPC đồng bộ) contract tương ứng.
+1. Chốt OQ-012 (provider/model/vector store/retrieval policy) và cập nhật DEC/ADR.
+2. Contract OpenAPI/AsyncAPI/protobuf cho RAG.
+3. Requirement/workflow RAG đã duyệt (hiện có WF-008, BR-050..BR-059).
 4. Migration bảng vector/ingestion thuộc AI service, không đặt trong service khác.
+5. Evaluation scenario/source set theo DEC-020.
+
+## 6. Liên kết
+
+- `littlecafe-docs/workflows/rag-assistant.md`
+- `littlecafe-docs/integrations/rag-assistant.md`
+- `littlecafe-docs/requirements/NFR.md`

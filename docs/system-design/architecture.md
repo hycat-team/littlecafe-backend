@@ -18,8 +18,10 @@ Backend là Go workspace (`go.work`, Go 1.26) gồm **6 module**: 4 service,
 | Platform | `services/platform` | `littlecafe_platform` | 8104 | 9104 | Commerce, Experience, AI |
 
 - `Commerce` sở hữu module `identity`, `order`, `wallet`.
+- `Commerce/Identity` sở hữu `Branch` và `AccountRoleGrant`; Order/Wallet dùng `branchId` trong cùng DB; Experience/Platform lưu `branchId` + snapshot, không FK xuyên DB.
+- 4 role `GUARDIAN`/`STAFF`/`MANAGER`/`ADMIN`; multi-role, multi-branch active grant; `STAFF`/`MANAGER` bắt buộc `branchId` (DEC-013).
 - `Experience` sở hữu module `activity`, `content`.
-- `AI` sở hữu module `ai` (RAG, retrieval, pgvector).
+- `AI` sở hữu module `ai` (RAG/retrieval boundary; provider/model/vector store Undecided; pgvector chỉ là scaffolding).
 - `Platform` sở hữu module `notification`, `reporting`.
 - Route `/api/v1/content/**` trỏ về Experience.
 - Nginx local dùng port 8080; production dùng
@@ -102,8 +104,7 @@ thành lỗi build.
   ([`event-driven-design.md`](event-driven-design.md)).
 - **Cloudinary**: media 2D. **Brevo**: email giao dịch. **payOS**: collection/
   payout. **Google OAuth/OIDC**: đăng nhập.
-- AI provider/model/vector store: xem [`ai-service.md`](ai-service.md) — có mâu
-  thuẫn nguồn cần chốt, agent không tự quyết.
+- AI provider/model/vector store/retrieval policy: **Undecided** (DEC-011, OQ-012); xem [`ai-service.md`](ai-service.md). pgvector extension chỉ là scaffolding, không phải cam kết; không tạo adapter/contract AI.
 
 ## 6. Routing
 
@@ -126,7 +127,7 @@ handler đọc header này để điền `traceId` trong Problem Details.
 
 ## 7. Ranh giới và giao tiếp liên service
 
-- **Frontend → Nginx → service**: chỉ HTTP/HTTPS qua API gateway.
+- **Frontend → Nginx → service**: chỉ HTTP/HTTPS qua Nginx.
 - **Đồng bộ service → service**: gRPC mTLS trong `contracts/`; helper ở
   `contracts/grpcx` (dial, metadata, mTLS, error bridge). Không đọc bảng của
   service khác, kể cả cùng PostgreSQL instance. Không dùng HTTP nội bộ.
@@ -143,6 +144,9 @@ handler đọc header này để điền `traceId` trong Problem Details.
 - **User identity**: khi hành động thay người dùng, JWT đi qua metadata
   `x-littlecafe-jwt` (`contracts/grpcx/metadata.go`). HTTP ưu tiên Bearer, fallback
   cookie `access_token`; refresh token dùng cookie `refresh_token`.
+- **Branch/RBAC**: JWT chứa `roles` array với `branchId` cho role branch-scoped;
+  service kiểm tra role + branch + ownership/GuardianLink/assignment; cross-branch
+  trả `403`. Grant/revoke role giữ lịch sử trong `account_role_grants`.
 - **Idempotency**: Redis store dùng chung, scope user+method+path, TTL 24h;
   middleware fail closed (`503`) khi Redis lỗi.
 

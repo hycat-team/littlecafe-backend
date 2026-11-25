@@ -18,7 +18,8 @@ Tài liệu này mô tả các cơ chế bảo mật đang có trong code và c�
 ### 1.3 Access token ES256
 
 - Ký ES256 ở Commerce (module Identity) (`services/commerce/internal/modules/identity/infrastructure/security/jwtsigner`), verify ở `shared/pkg/utils/jwtutils` (`LoadECDSAPublicKey`, `ValidateTokenES256`). **Chỉ Commerce giữ private key** (`signing.private_key_file` trong `configs/commerce.yaml`, bắt buộc ở production theo `Config.Validate`); service khác chỉ nạp public key (`jwt.public_key_file`, bắt buộc ở production theo `validateConfig`).
-- Claims: `sub` (user UUID), `email`, `role_slug`, `type`, `iss`, `aud`, `exp`, `iat`, `jti`.
+- Claims: `sub` (user UUID), `email`, `roles` (array `{role, branchId?}`), `branchId` (nếu có role branch-scoped), `ver`, `type`, `iss`, `aud`, `exp`, `iat`, `jti`.
+- Ghi chú: code scaffold hiện tại còn dùng claim `role_slug` và role `USER`; migration sang `roles` array/4 role thuộc phase implementation.
 - `ValidateTokenES256` chặn sai thuật toán (phải đúng `ES256`) và sai token type; lỗi trả `apperror.ErrInvalidAccessToken`/`ErrUnexpectedSigningToken`.
 
 ### 1.4 Refresh token
@@ -37,10 +38,12 @@ Tài liệu này mô tả các cơ chế bảo mật đang có trong code và c�
 
 ## 3. Phân quyền (RBAC)
 
-- Vai trò hệ thống chỉ có `ADMIN` và `USER` (`shared/domain/constants/roleslug`); không thêm RoleSlug khác.
-- Kết hợp **ownership**, **Guardian-Child** (mọi dữ liệu trẻ em phải qua `GuardianLink`) và **assignment** cho vận hành.
+- Bốn role chính thức: `GUARDIAN`, `STAFF`, `MANAGER`, `ADMIN`; `GUEST` unauthenticated (DEC-013). `USER` trong scaffold hiện tại là legacy, phải migrate; không mở rộng model cũ.
+- Một account có thể multi-role và multi-branch active grant; `STAFF`/`MANAGER` bắt buộc `branchId`; grant/revoke giữ lịch sử trong `account_role_grants`.
+- JWT chứa `roles` array với `branchId` cho role branch-scoped; thay đổi grant bump token version/revoke refresh token.
+- Kết hợp **role + branch**, **ownership**, **Guardian-Child** (mọi dữ liệu trẻ em phải qua `GuardianLink`) và **assignment** cho vận hành; cross-branch trả `403`.
 - Chi tiết actor/quyền theo `littlecafe-docs/business/actors-and-permissions.md` và workflow tương ứng.
-- Helper context: `contextutils.GetUserId`, `GetRoleSlug`, `GetAccessToken` trả `ErrUnauthorized` khi thiếu.
+- Helper context: `contextutils.GetUserId`, `GetRoleSlug` (legacy), `GetAccessToken`; sau migration cần helper đọc role set/branch. Trả `ErrUnauthorized` khi thiếu.
 
 ## 4. Dữ liệu nhạy cảm
 
