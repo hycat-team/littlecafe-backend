@@ -93,7 +93,7 @@ Router phải bật `gin.Engine.ContextWithFallback = true` để `i18n.FromCont
 - Filter/sort và cursor pagination theo §12; `nextCursor` bỏ khi `hasMore=false`.
 - HTTP contract-first: route khai báo trong `contracts/openapi/components.yaml` và generate strict server interface bằng `oapi-codegen` (`make openapi-gen`); không tự thêm route trong handler trước contract.
 - Mutation quan trọng dùng `IdempotencyMiddleware` sau auth; xem §17.
-- **Auth middleware (forward-convention; code do feature Identity implement)**: `Handle()` bắt buộc JWT hợp lệ (401 nếu thiếu/sai), `OptionalHandle()` parse nếu có nhưng không fail khi thiếu. Cả hai set `CtxUserId`/`CtxRoleSlug`/`CtxAccessToken` (`shared/pkg/utils/contextutils`). Phân quyền là middleware riêng `RolesAuthorize(roleslug.ADMIN, roleslug.USER)`; RBAC không thay thế ownership hay Guardian-Child.
+- **Auth middleware (forward-convention; code do feature Identity implement)**: `Handle()` bắt buộc JWT hợp lệ (401 nếu thiếu/sai), `OptionalHandle()` parse nếu có nhưng không fail khi thiếu. Cả hai set `CtxUserId`/`CtxRoles`/`CtxBranchId`/`CtxAccessToken` (`shared/pkg/utils/contextutils`). Phân quyền là middleware riêng `RolesAuthorize(roleslug.GUARDIAN, roleslug.STAFF, roleslug.MANAGER, roleslug.ADMIN)` + branch check; RBAC không thay thế ownership hay Guardian-Child. `USER` trong scaffold là legacy, phải migrate.
 - Message success/error khai báo constant **message key** ở đầu file handler (xem §10.3 và §16).
 
 ## 3. Repository và Unit of Work
@@ -108,7 +108,7 @@ Router phải bật `gin.Engine.ContextWithFallback = true` để `i18n.FromCont
 
 `shared/infrastructure/repositories/generic_impl.go` cung cấp `GenericRepository[T, ID]` implement đủ `IGenericRepository` (gồm `GetByIDs`, `BatchUpdate`, `BatchUpdateMap`):
 
-- Preload cố định lúc khởi tạo: `NewGenericRepository[T, ID](db, "Relation")` để mọi method kế thừa load cùng quan hệ.
+- Preload cố định lúc khởi tạo: `NewGenericRepository[T, ID]` với tham số `db, "Relation"` để mọi method kế thừa load cùng quan hệ.
 - Transaction-aware: `GetDB(ctx)` trả transaction trong context (do `IUnitOfWork.Execute` bind qua `db.InjectTx`) nếu có, ngược lại base DB. Custom query MUST dùng `GetDB(ctx)`/`GetQueryWithPreload(ctx)`.
 - `GetAll`/`GetByIDs` trả slice rỗng (không `nil`) khi không có dữ liệu.
 
@@ -187,7 +187,7 @@ Hai cơ chế Redis, chọn theo ngữ nghĩa (không gộp "cho nhất quán"):
 ### 10.1 Giá trị string
 
 - Hằng số string MUST dùng `UPPER_SNAKE_CASE`: `"NEEDS_REVIEW"`, `"ACCESS_TOKEN"`, `"WALLET_0007"`.
-- Toàn bộ enum nội bộ đã migrate sang UPPER_SNAKE: `roleslug` (`"ADMIN"`, `"USER"`), `jwttype` (`"ACCESS_TOKEN"`, `"REFRESH_TOKEN"`...), outbox status (`"PENDING"`, `"PUBLISHED"`...), context key (`"ACCESS_TOKEN"`, `"USER_ID"`...), workerlog trigger/result (`"CRON"`, `"SUCCESS"`...).
+- Toàn bộ enum nội bộ đã migrate sang UPPER_SNAKE: `roleslug` (`"GUARDIAN"`, `"STAFF"`, `"MANAGER"`, `"ADMIN"`; `"USER"` là legacy scaffold), `jwttype` (`"ACCESS_TOKEN"`, `"REFRESH_TOKEN"`...), outbox status (`"PENDING"`, `"PUBLISHED"`...), context key (`"ACCESS_TOKEN"`, `"USER_ID"`...), workerlog trigger/result (`"CRON"`, `"SUCCESS"`...).
 - Ngoại lệ không đổi value:
   - Literal của protocol/thư viện: AMQP queue type (`"classic"`, `"quorum"`), exchange type (`"topic"`), URL literal (`"https://api.cloudinary.com"`, `"amqps"`, `"https"`), Cloudinary resource type (`"image"`), gRPC metadata key (`"x-littlecafe-jwt"` — gRPC yêu cầu lowercase).
   - Tên exchange/queue/routing key theo quy ước messaging (`littlecafe.events`, `<queue>.dlq`) và Redis key prefix theo namespace (`littlecafe:...`, `rl:...`, `blacklist:...`).
@@ -210,7 +210,7 @@ Hai cơ chế Redis, chọn theo ngữ nghĩa (không gộp "cho nhất quán"):
 
 | Package | Dùng cho |
 |---|---|
-| `contextutils` | `GetUserId`/`GetUserIdOptional`/`GetRoleSlug`/`GetAccessToken` đọc giá trị auth middleware set trên gin context; key ở `key.go` |
+| `contextutils` | `GetUserId`/`GetUserIdOptional`/`GetRoles`/`GetBranchId`/`GetAccessToken` đọc giá trị auth middleware set trên gin context; key ở `key.go`. Scaffold hiện có `GetRoleSlug` legacy, sẽ migrate. |
 | `validation` | `BindJSON`/`BindQuery`/`BindURI`, `GetUUIDParam`/`GetStringParam`/`GetInt64Param`; validator `username`, `neqfield`, `password_complexity`, `nfcmax`; message localize theo request locale |
 | `errorutils` | `ToAppError`, `WrapError`, `FilterStackTraceArray`, `PrimaryStackFrame` |
 | `numberutils` | `FormatBytes` |

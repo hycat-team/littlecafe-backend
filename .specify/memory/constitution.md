@@ -149,10 +149,13 @@ race tests, contract lint, codegen drift, build, and boundary checks appropriate
 to the change scope.
 
 ### VIII. Open Decisions
-3D asset storage, payout entitlement, retention, performance, RPO/RTO,
-accessibility, AI provider/model/vector store/retrieval policy, and any business
-policy marked Undecided in the docs are open. Scaffolding, sample code, and
-available dependencies are not decisions. Agents MUST NOT decide these.
+
+PayOS payout entitlement verification, AI provider/model/vector store/retrieval
+policy, and any business policy marked Undecided in the docs are open.
+Scaffolding, sample code, and available dependencies are not decisions. Agents
+MUST NOT decide these. 3D asset storage, retention, performance, RPO/RTO and
+accessibility are confirmed by DEC-019, DEC-022 and DEC-025; do not treat them
+as open.
 
 ### IX. Branch Discipline
 Before any file mutation, an agent MUST verify the current Git branch. `main`,
@@ -208,8 +211,13 @@ does not belong to the task, the agent MUST ask before writing.
 
 ## Access Control (RBAC) & Data Privacy
 
-- **System roles**: only `ADMIN` and `USER` exist as RoleSlug values; adding a
-  new system role is prohibited.
+- **System roles**: `GUARDIAN`, `STAFF`, `MANAGER` and `ADMIN` are the official
+  roles; `GUEST` is unauthenticated. Multi-role and multi-branch grants with
+  history are defined in DEC-013. The `USER` role in the current scaffold is
+  legacy and MUST be migrated; do not extend it.
+- **Branch scope**: `STAFF`/`MANAGER` grants require `branchId`; branch-scoped
+  access MUST validate an active grant. Ownership/Guardian-Child/assignment
+  checks remain mandatory.
 - **Ownership**: every resource has an owner check; data belonging to a child
   MUST pass the Guardian-Child relationship check before access.
 - **Assignment**: operational actions (staff check-in, service fulfillment)

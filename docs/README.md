@@ -29,6 +29,7 @@ này giữ contract machine-readable, hướng dẫn implementation và vận h�
 | Chủ đề | Canonical | Ghi chú |
 |---|---|---|
 | Bootstrap local | [bootstrap](development/bootstrap.md) | Entry point khi clone |
+| Baseline dự án | `littlecafe-docs/project/register-baseline.md` | Derived từ phiếu đăng ký; không PII |
 | Policy môi trường, gate, trách nhiệm | `littlecafe-docs/deployment/environments.md` | Mức dự án |
 | Quyết định kiến trúc | `littlecafe-docs/architecture/decisions/001-architecture-decisions.md` | ADR-001 |
 | Config/env, pitfall | [environments](development/environments.md) | Giá trị nào ở đâu |
@@ -38,13 +39,13 @@ này giữ contract machine-readable, hướng dẫn implementation và vận h�
 | Gate kỹ thuật | [gates](development/gates.md) | Nguồn chuẩn duy nhất |
 | Git/PR/release | [git-workflow](development/git-workflow.md) | Branch model |
 | Spec Kit | [spec-kit-workflow](development/spec-kit-workflow.md) | Team model |
-| Runbook VPS | `local-docs/deploy/` | Ngoài repository |
+| Runbook VPS | Runbook nội bộ (ngoài repo, local-only) | Ngoài repository |
 
 ## Quy tắc tài liệu
 
 1. Một chủ đề chỉ có một file canonical; file khác tối đa 1–2 câu rồi link.
-2. `littlecafe-docs` là policy/why; backend là implementation/how; `local-docs` là
-   runbook. Policy không chứa command.
+2. `littlecafe-docs` là policy/why; backend là implementation/how; runbook vận hành
+   là local-only, ngoài repo. Policy không chứa command.
 3. Không lặp bảng, command hoặc contract giữa các file; sửa canonical trước.
 4. Link trong repo dùng đường dẫn tương đối; link sang repo khác dùng path trong
    backtick (``littlecafe-backend/docs/...``).
