@@ -182,5 +182,5 @@ docker compose --env-file .env.staging --env-file .env.staging.deploy \
 
 ## 8. Runbook ngoài repo
 
-Runbook đầy đủ: `local-docs/deploy/` (variables, bootstrap, operations,
+Runbook đầy đủ: runbook nội bộ (ngoài repo, local-only; variables, bootstrap, operations,
 troubleshooting). Branch/release: [`../development/git-workflow.md`](../development/git-workflow.md).

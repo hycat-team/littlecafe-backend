@@ -10,6 +10,10 @@
   **không tạo bảng** và là bootstrap dev; production provision role/database/
   extension một lần theo `docs/operations/deployment.md` mục "Provision database
   lần đầu", credential quản lý ngoài Git.
+- `Branch` và `AccountRoleGrant` thuộc Commerce/Identity; branch-scoped data dùng
+  `branchId` + snapshot, không FK xuyên database (DEC-013/014).
+- `vector` extension và `entities.Vector` chỉ là scaffolding AI; schema/retrieval
+  policy chưa chốt (OQ-012).
 - Kết nối app dùng `database.*` trong `configs/base.yaml`;
   `TimeZone=Asia/Ho_Chi_Minh`; `sslmode` cấu hình theo môi trường.
 

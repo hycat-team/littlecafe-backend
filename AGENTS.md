@@ -33,10 +33,10 @@
 
 ## 2. Sources
 
-- Requirements/ADRs: `littlecafe-docs`; contracts: `contracts/`.
+- Requirements/ADRs: `littlecafe-docs`; baseline: `littlecafe-docs/project/register-baseline.md`; contracts: `contracts/`.
 - Environment/release policy: `littlecafe-docs/deployment/environments.md`.
 - Conflict priority: Constitution > littlecafe-docs > contracts > specs > source.
-- Source/tests are evidence; stop and report conflicts.
+- Source/tests are evidence; stop and report conflicts. Do not copy PII or machine-local paths.
 
 ## 3. Invariants
 
@@ -80,8 +80,8 @@
 - **Language**: i18n via `shared/pkg/i18n`; identifiers/logs English; specs and
   reports Vietnamese; `.env*` comments English.
 - **Docs**: one topic = one canonical file; link instead of duplicating. Policy
-  lives in `littlecafe-docs`, implementation here, runbooks in `local-docs`. See
-  `docs/README.md` §Quy tắc tài liệu.
+  lives in `littlecafe-docs`, implementation here; runbooks are local-only and
+  live outside the repositories. See `docs/README.md` §Quy tắc tài liệu.
 - **Paths**: relative only.
 
 ## 4. Gate
