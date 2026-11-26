@@ -200,8 +200,9 @@ Chỉ sửa khi `plan.md` khai báo và không feature đang mở nào khác s�
 - `$speckit-orchestrate` có standing authorization cho đúng một commit mỗi phase
   đã qua gate và `fixup!` đã verify; worker không có quyền này.
 - Chỉ commit trên branch của task (`feat/<slug>`, `fix/<slug>`,
-  `chore/<slug>`, `hotfix/<slug>`); không commit `main`/`develop`,
-  `.specify/owner.json`,
+  `chore/<slug>`, `hotfix/<slug>`); không commit `main`. Small chore ngoài Spec
+  Kit được commit trực tiếp trên `develop` theo
+  [`git-workflow.md`](git-workflow.md) §0; không commit `.specify/owner.json`,
   `.specify/feature.json`, hoặc `specs/**` của feature khác.
 - Managed `.agents/skills/**` và `.specify/templates/*-template.md` MUST remain
   upstream. Không sửa tay; team delta nằm trong

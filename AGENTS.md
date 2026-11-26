@@ -11,10 +11,12 @@
   permission adapter.
 - **Branch preflight (mandatory)**: before any file mutation - write/edit,
   codegen, format, migration, config/env/deploy change, dependency install, or
-  Git staging - check the current branch. `main`, `master`, `develop`, `trunk`,
-  and detached HEAD are protected: STOP, ask the developer, and wait for
-  approval. Read-only work is allowed. Never create, switch, or stash a branch
-  without permission.
+  Git staging - check the current branch. `main`, `master`, `trunk`, and
+  detached HEAD are protected: STOP, ask the developer, and wait for approval.
+  `develop` remains protected, but small chores defined in
+  `docs/development/git-workflow.md` §0 have the developer's standing approval
+  for direct commits; all other changes on `develop` stop and ask. Read-only
+  work is allowed. Never create, switch, or stash a branch without permission.
 - **Spec Kit overlays**: managed `.agents/skills/**` and managed
   `.specify/templates/*-template.md` MUST remain upstream. Before any managed
   `speckit-*` skill, read `docs/development/speckit-overrides/README.md`,
@@ -67,11 +69,16 @@
   conclusion in `tasks.md` when the surface is unchanged.
 - **Secrets**: never commit; `.env.*` local/VPS mode 600.
 - **Git**: no commit/push/tag/branch/reset/release unless requested; never
-  write on protected branches (see Startup). `$speckit-orchestrate` gets one
-  commit per gated phase + verified `fixup!`; workers never. Commit only on the
-  task branch (`feat/<slug>`, `fix/<slug>`, `chore/<slug>`, or
-  `hotfix/<slug>`); never commit
+  write on `main`. On `develop`, write only for small chores defined in
+  `docs/development/git-workflow.md` §0. `$speckit-orchestrate` gets one commit
+  per gated phase + verified `fixup!`; workers never. Commit only on the task
+  branch (`feat/<slug>`, `fix/<slug>`, `chore/<slug>`, or `hotfix/<slug>`) or
+  directly on `develop` for a small chore; never commit
   `.specify/owner.json`, `.specify/feature.json`, or another feature's `specs/**`.
+- **Promotion**: work stops at `develop`. Do not push, merge, or fast-forward
+  `main`, and do not create tags, unless the developer explicitly requests a
+  promotion/release. Promote only after `origin/develop` CI is green; use a
+  fast-forward from `develop`.
 - **Managed skills/templates**: never hand-edit managed `.agents/skills/**`
   (`speckit-orchestrate` and `speckit-worker` are repo-owned exceptions) or
   managed `.specify/templates/*-template.md`. Team deltas live in
@@ -111,8 +118,9 @@
 
 - Use the `question` tool for developer decisions, with consequences and
   "(Recommended)"; prose only for open-ended questions.
-- **Branch question** before any mutation on a protected branch. Offer concrete
-  choices, for example:
+- **Branch question** before any mutation on a protected branch, except a small
+  chore on `develop` (commit directly, per `git-workflow.md` §0). For other
+  changes, offer concrete choices, for example:
   1. Create `feat/<slug>` from `develop` (Recommended for a feature)
   2. Create `fix/<slug>` from `develop` (bug fix)
   3. Create `chore/<slug>` from `develop` (docs/config/CI/tooling)

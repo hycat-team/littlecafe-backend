@@ -11,7 +11,7 @@ on:
             - "Makefile"
             - ".github/workflows/contracts.yml"
     push:
-        branches: [main, develop]
+        branches: [develop]
         paths:
             - "contracts/**"
             - "buf.yaml"

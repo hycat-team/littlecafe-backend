@@ -13,8 +13,21 @@ tra branch hiện tại:
 git branch --show-current
 ```
 
-- **Protected**: `main`, `master`, `develop`, `trunk`, detached HEAD.
-- Trên protected branch:
+- **Protected**: `main`, `master`, `trunk`, detached HEAD.
+- `develop` là integration branch và vẫn là protected branch; developer cấp
+  **standing approval** để commit trực tiếp **chỉ với small chore**:
+  - `docs/**`, các file `*.md` ở root (README, AGENTS.md)
+  - `.github/**`
+  - `Makefile`, `.editorconfig`, `.gitattributes`, `.gitignore`, `.dockerignore`
+  - `scripts/**` (trừ `scripts/speckit/**`)
+  - Không đụng `services/**`, `shared/**`, `contracts/**`, `database/**`,
+    `configs/**`, `deployments/**`, `.env*`, `.sops.yaml`, `specs/**`,
+    `.specify/**`, `.agents/**`.
+  - Một mục đích; không đổi runtime/contract/DB/secret/deploy logic; CI xanh;
+    không tag, không đụng `main`.
+  - Nếu chạm cả path được phép và không được phép → tạo `chore/<slug>`.
+- Trên `main`/`master`/`trunk`/detached HEAD, hoặc thay đổi không phải small
+  chore trên `develop`:
   - Không sửa file.
   - Hỏi developer bằng `question` tool.
   - Chỉ tạo/switch branch sau khi được duyệt.
@@ -26,8 +39,9 @@ git branch --show-current
   1. Tạo branch từ HEAD hiện tại để giữ thay đổi
   2. Stash → switch `develop` → tạo branch → pop
   3. Dừng
-- Nếu developer chủ động yêu cầu làm trên `main`/`develop`, agent phải cảnh báo
-  và yêu cầu xác nhận rõ ràng; mặc định vẫn đề xuất tách branch.
+- Nếu developer chủ động yêu cầu làm trên `main`, agent phải cảnh báo và yêu
+  cầu xác nhận rõ ràng; mặc định vẫn đề xuất tách branch. Trên `develop`, small
+  chore được commit trực tiếp; việc khác vẫn tách branch.
 
 Base branch:
 
@@ -39,26 +53,28 @@ Base branch:
 | Branch | Vai trò | Quy tắc |
 |---|---|---|
 | `main` | Production/release | Protected; không commit trực tiếp; chỉ nhận `develop`/`hotfix/*`; tag `v*` |
-| `develop` | Integration/staging | Protected; không commit trực tiếp; push trigger CD staging |
+| `develop` | Integration/staging | Small chore được commit trực tiếp (§0); việc khác tạo nhánh từ `develop`; push trigger CD staging |
 | `feat/<slug>` | Feature | Tạo từ `develop`; PR về `develop`; 1 owner |
 | `fix/<slug>` | Bug fix trên develop | Tạo từ `develop`; PR về `develop` |
-| `chore/*` | Hạ tầng/skills/docs | Tạo từ `develop`; PR về `develop` |
+| `chore/*` | Hạ tầng/skills/docs | Tạo từ `develop`; PR về `develop` (small chore có thể commit trực tiếp) |
 | `hotfix/<slug>` | Sửa gấp production | Tạo từ `main`; PR về `main`; tag; back-merge `develop` |
 
 ## 2. Flow
 
 ```text
 feat/<slug>|fix/<slug>|chore/* --PR--> develop --push--> CI + CD staging --> UAT
-develop --PR/FF--> main --tag v*--> CD production
+develop --(dev request, FF)--> main --tag v*--> CD production
 hotfix/<slug> --PR--> main --tag--> CD production
 main --back-merge--> develop
 ```
 
-- CI chạy trên PR/push vào `main`/`develop`.
-- Staging deploy khi push `develop` hoặc dispatch; docs-only bỏ qua.
+- CI chạy trên PR vào `main`/`develop` và push `develop`; `main` không có push
+  CI (promotion bằng fast-forward từ `develop`).
+- Staging deploy khi push `develop` hoặc dispatch; docs/CI-only bỏ qua.
 - Production chỉ deploy từ tag `v*` hoặc dispatch; **không** deploy khi push
   `main`.
-- Không commit trực tiếp lên `main`/`develop`.
+- Không commit trực tiếp lên `main`; `develop` chỉ nhận small chore trực tiếp
+  (theo §0).
 
 ### Dependabot
 
@@ -78,6 +94,20 @@ git push
 
 - `Check module tidy state` fail → chạy `make tidy`.
 - `Verify workspace sums are committed` fail → chạy `make generate`.
+
+### Promotion `develop` -> `main`
+
+Chỉ thực hiện khi developer yêu cầu rõ ràng và CI trên `develop` đã xanh.
+
+```bash
+git fetch origin
+git merge-base --is-ancestor origin/main origin/develop
+git push origin develop:main
+```
+
+- Fast-forward, không tạo merge commit.
+- Không tạo tag ở bước này; tag `v*` trên `main` mới trigger CD production.
+- Hotfix vào `main` vẫn qua PR để có CI; sau đó back-merge `main` vào `develop`.
 
 ## 3. Tag và release
 

@@ -16,14 +16,15 @@
 
 ## 2. CI (`.github/workflows/ci.yml`)
 
-Chạy khi PR/push `main`/`develop` (bỏ qua `docs/**` và `*.md`):
+Chạy khi PR vào `main`/`develop` và push `develop` (bỏ qua `docs/**` và `*.md`);
+`main` không có push CI — promotion bằng fast-forward từ `develop`.
 
 | Job | Chạy trên | Nội dung |
 |---|---|---|
-| static | PR + push | `make fmt-check`, `make tidy-check`, `make generate`, drift generated + `go.work.sum`, `make env-check`, `bash -n`, actionlint |
-| test | PR + push | `make coverage-check` (unit test + coverage gate), `make vet`, `check-boundaries.sh` |
-| test-race | push only | `make test-race TEST_FLAGS=-short` |
-| infra | PR + push | `make env-sops-test`, validate Compose local/production/staging |
+| static | PR + push `develop` | `make fmt-check`, `make tidy-check`, `make generate`, drift generated + `go.work.sum`, `make env-check`, `bash -n`, actionlint |
+| test | PR + push `develop` | `make coverage-check` (unit test + coverage gate), `make vet`, `check-boundaries.sh` |
+| test-race | push `develop` | `make test-race TEST_FLAGS=-short` |
+| infra | PR + push `develop` | `make env-sops-test`, validate Compose local/production/staging |
 
 Workflow phụ:
 

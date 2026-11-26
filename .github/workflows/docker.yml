@@ -9,7 +9,7 @@ on:
             - ".dockerignore"
             - ".github/workflows/docker.yml"
     push:
-        branches: [main, develop]
+        branches: [develop]
         paths:
             - "services/*/Dockerfile"
             - "go.work"
