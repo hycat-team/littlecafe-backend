@@ -1,0 +1,23 @@
+name: Setup Go with workspace cache
+description: Install Go and restore module/build caches with a fallback key so dependency bumps reuse the previous cache.
+
+inputs:
+    go-version:
+        description: Go toolchain version.
+        required: true
+
+runs:
+    using: composite
+    steps:
+        - uses: actions/setup-go@v6
+          with:
+              go-version: ${{ inputs.go-version }}
+              cache: false
+        - uses: actions/cache@v6
+          with:
+              path: |
+                  ~/go/pkg/mod
+                  ~/.cache/go-build
+              key: go-${{ runner.os }}-${{ hashFiles('go.work.sum', 'shared/go.sum', 'contracts/go.sum', 'services/*/go.sum') }}
+              restore-keys: |
+                  go-${{ runner.os }}-

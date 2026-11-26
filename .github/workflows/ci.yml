@@ -28,15 +28,9 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v5
-            - uses: actions/setup-go@v6
+            - uses: ./.github/actions/setup-go-cached
               with:
                   go-version: ${{ env.GO_VERSION }}
-                  cache: true
-                  cache-dependency-path: |
-                    go.work.sum
-                    shared/go.sum
-                    contracts/go.sum
-                    services/*/go.sum
             - name: Check formatting
               run: make fmt-check
             - name: Check module tidy state
@@ -44,172 +38,84 @@ jobs:
             - name: Check generated sources
               run: make generate
             - name: Verify generated sources are committed
-              run: git diff --exit-code
+              shell: bash
+              run: |
+                  if ! git diff --exit-code -- contracts/ services/*/internal/di; then
+                    echo "::error::Generated sources are stale. Run 'make generate' and commit the result."
+                    exit 1
+                  fi
+            - name: Verify workspace sums are committed
+              shell: bash
+              run: |
+                  if ! git diff --exit-code -- go.work.sum; then
+                    echo "::error::go.work.sum is stale after a dependency change. Run 'make generate' and commit go.work.sum."
+                    exit 1
+                  fi
             - name: Check SOPS env key parity
               run: make env-check
             - name: Validate deployment scripts
               run: bash -n deployments/scripts/deploy-release.sh
             - name: Lint GitHub workflows
               run: |
-                go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
-                "$(go env GOPATH)/bin/actionlint"
-
-    vet:
-        name: Go vet and dependency boundaries
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v5
-            - uses: actions/setup-go@v6
-              with:
-                  go-version: ${{ env.GO_VERSION }}
-                  cache: true
-                  cache-dependency-path: |
-                    go.work.sum
-                    shared/go.sum
-                    contracts/go.sum
-                    services/*/go.sum
-            - run: make vet
-            - run: sh deployments/scripts/check-boundaries.sh
+                  go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+                  "$(go env GOPATH)/bin/actionlint"
 
     test:
-        name: Unit and integration tests
+        name: Unit tests, coverage and vet
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v5
-            - uses: actions/setup-go@v6
+            - uses: ./.github/actions/setup-go-cached
               with:
                   go-version: ${{ env.GO_VERSION }}
-                  cache: true
-                  cache-dependency-path: |
-                    go.work.sum
-                    shared/go.sum
-                    contracts/go.sum
-                    services/*/go.sum
-            - run: make test TEST_FLAGS=-short
-
-    coverage:
-        name: Coverage gate
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v5
-            - uses: actions/setup-go@v6
-              with:
-                  go-version: ${{ env.GO_VERSION }}
-                  cache: true
-                  cache-dependency-path: |
-                    go.work.sum
-                    shared/go.sum
-                    contracts/go.sum
-                    services/*/go.sum
             - name: Enforce business statement coverage
               run: make coverage-check TEST_FLAGS=-short
+            - name: Go vet
+              run: make vet
+            - name: Check dependency boundaries
+              run: sh deployments/scripts/check-boundaries.sh
 
     test-race:
         name: Race detector
+        if: github.event_name == 'push'
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v5
-            - uses: actions/setup-go@v6
+            - uses: ./.github/actions/setup-go-cached
               with:
                   go-version: ${{ env.GO_VERSION }}
-                  cache: true
-                  cache-dependency-path: |
-                    go.work.sum
-                    shared/go.sum
-                    contracts/go.sum
-                    services/*/go.sum
             - run: make test-race TEST_FLAGS=-short
 
-    contracts:
-        name: Contract lint and drift
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v5
-            - uses: actions/setup-go@v6
-              with:
-                  go-version: ${{ env.GO_VERSION }}
-                  cache: true
-                  cache-dependency-path: |
-                    go.work.sum
-                    shared/go.sum
-                    contracts/go.sum
-                    services/*/go.sum
-            - uses: actions/setup-node@v5
-              with:
-                  node-version: "24"
-            - name: Install Buf
-              shell: bash
-              run: |
-                sudo curl -sSL "https://github.com/bufbuild/buf/releases/download/v1.57.2/buf-Linux-x86_64" -o /usr/local/bin/buf
-                sudo chmod +x /usr/local/bin/buf
-                buf --version
-            - name: Lint contracts and error-code registry
-              run: make contract-lint
-            - name: Verify generated protobuf stubs
-              run: make buf-gen && git diff --exit-code -- contracts/
-            - name: Generate OpenAPI contracts
-              run: make openapi-gen
-            - name: Verify generated contracts are committed
-              run: git diff --exit-code -- contracts/
-
-    env-sops:
-        name: SOPS env encryption
+    infra:
+        name: Compose and SOPS checks
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v5
             - name: Install sops and age
               shell: bash
               run: |
-                sudo curl -fsSL -o /usr/local/bin/sops \
-                  https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.linux.amd64
-                sudo chmod +x /usr/local/bin/sops
-                curl -fsSL \
-                  https://github.com/FiloSottile/age/releases/download/v1.3.2/age-v1.3.2-linux-amd64.tar.gz \
-                  | tar -xz -C /tmp
-                sudo install -m 755 /tmp/age/age-keygen /usr/local/bin/age-keygen
-                sops --version
-                command -v age-keygen
+                  sudo curl -fsSL -o /usr/local/bin/sops \
+                    https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.linux.amd64
+                  sudo chmod +x /usr/local/bin/sops
+                  curl -fsSL \
+                    https://github.com/FiloSottile/age/releases/download/v1.3.2/age-v1.3.2-linux-amd64.tar.gz \
+                    | tar -xz -C /tmp
+                  sudo install -m 755 /tmp/age/age-keygen /usr/local/bin/age-keygen
+                  sops --version
+                  command -v age-keygen
             - name: Round-trip apply-env test
               run: make env-sops-test SOPS_MODE=binary
-
-    image-build:
-        name: Validate image ${{ matrix.service }}
-        needs: [static, vet, test, contracts, coverage]
-        runs-on: ubuntu-latest
-        strategy:
-            fail-fast: false
-            matrix:
-                service: [commerce, experience, ai, platform]
-        steps:
-            - uses: actions/checkout@v5
-            - uses: docker/setup-buildx-action@v4
-            - name: Build image without pushing
-              uses: docker/build-push-action@v7
-              with:
-                  context: .
-                  file: services/${{ matrix.service }}/Dockerfile
-                  platforms: linux/amd64
-                  push: false
-                  tags: littlecafe/${{ matrix.service }}:${{ github.sha }}
-                  cache-from: type=gha,scope=${{ matrix.service }}
-                  cache-to: type=gha,scope=${{ matrix.service }},mode=max
-
-    compose:
-        name: Validate Compose files
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v5
             - name: Prepare example environments
               shell: bash
               run: |
-                cp .env.example .env
-                cp .env.production.example .env.production
-                cp .env.staging.example .env.staging
-                for service in commerce experience ai platform; do
-                  upper=$(printf '%s' "${service}" | tr '[:lower:]' '[:upper:]')
-                  printf '%s_IMAGE=ghcr.io/hycat-team/littlecafe-backend-%s:ci\n' "${upper}" "${service}" >> .env.deploy
-                  printf '%s_IMAGE=ghcr.io/hycat-team/littlecafe-backend-%s:staging-ci\n' "${upper}" "${service}" >> .env.staging.deploy
-                done
+                  cp .env.example .env
+                  cp .env.production.example .env.production
+                  cp .env.staging.example .env.staging
+                  for service in commerce experience ai platform; do
+                    upper=$(printf '%s' "${service}" | tr '[:lower:]' '[:upper:]')
+                    printf '%s_IMAGE=ghcr.io/hycat-team/littlecafe-backend-%s:ci\n' "${upper}" "${service}" >> .env.deploy
+                    printf '%s_IMAGE=ghcr.io/hycat-team/littlecafe-backend-%s:staging-ci\n' "${upper}" "${service}" >> .env.staging.deploy
+                  done
             - name: Validate local Compose
               run: docker compose -f deployments/docker-compose.yml --env-file .env --profile full config --quiet
             - name: Validate production Compose

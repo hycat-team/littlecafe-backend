@@ -11,6 +11,12 @@ documents or skills.
 
 - `make check` includes `generate-check`, workspace `test-race`, and
   `team-check`; never run it inside a task or phase loop.
+- PR CI runs unit tests, coverage, and vet only; the race detector runs on push
+  to `develop`/`main`. Integration tests (when added) use a separate build tag
+  and do not run in PR CI.
+- The drift gate covers generated sources (`contracts/`,
+  `services/*/internal/di`) and `go.work.sum`; regenerate both with
+  `make generate`.
 - `make check` also runs `coverage-check`: business-code statement coverage
   must stay at or above `COVER_MIN` (default `80`). The scope excludes `cmd/`,
   `internal/di/`, `internal/bootstrap/`, `database/migrations/`, generated
