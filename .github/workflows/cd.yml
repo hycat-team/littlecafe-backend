@@ -1,4 +1,4 @@
-name: CD - VPS
+name: CD
 
 on:
     workflow_dispatch:

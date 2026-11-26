@@ -113,7 +113,7 @@ chạy `make env-local-check`.
 
 5. Merge `develop` → CD staging tự chạy (apply env + rollout + smoke). Kiểm tra
    health `https://staging-api.littlecafe.kids:8443/api/v1/health` và CORS.
-6. Merge `develop` → `main`, tag `v*` (release) hoặc dispatch `CD - VPS` nếu
+6. Merge `develop` → `main`, tag `v*` (release) hoặc dispatch `CD` nếu
    khẩn cấp; CD production apply env + rollout.
 7. Kiểm tra health `https://api.littlecafe.kids:8444/api/v1/health`, container,
    log. Không `docker compose down -v`.

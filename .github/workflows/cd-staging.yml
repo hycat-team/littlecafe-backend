@@ -1,4 +1,4 @@
-name: CD Staging - VPS
+name: CD Staging
 
 on:
     workflow_dispatch:
