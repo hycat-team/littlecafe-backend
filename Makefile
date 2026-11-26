@@ -161,13 +161,13 @@ fmt-check:
 
 tidy:
 	@echo "Tidying Go modules (workspace)..."
+	@go work sync
 	@cd shared && go mod tidy
 	@cd contracts && go mod tidy
 	@cd services/commerce && go mod tidy
 	@cd services/experience && go mod tidy
 	@cd services/ai && go mod tidy
 	@cd services/platform && go mod tidy
-	@go work sync
 	@echo Go module tidy finished.
 
 tidy-check:
@@ -183,7 +183,8 @@ tidy-check:
 generate-check:
 	@echo Checking generated Wire and OpenAPI sources...
 	@$(MAKE) generate
-	@git diff --exit-code -- contracts/openapi services/commerce/internal/di services/experience/internal/di services/ai/internal/di services/platform/internal/di
+	@git diff --exit-code -- contracts/openapi go.work.sum services/commerce/internal/di services/experience/internal/di services/ai/internal/di services/platform/internal/di || \
+		{ echo "Generated files or go.work.sum are stale; run 'make generate' and commit the result."; exit 1; }
 	@echo Generated files are up to date.
 
 vet:
