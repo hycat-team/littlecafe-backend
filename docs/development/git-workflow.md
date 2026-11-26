@@ -60,6 +60,25 @@ main --back-merge--> develop
   `main`.
 - Không commit trực tiếp lên `main`/`develop`.
 
+### Dependabot
+
+Security updates của Dependabot nhắm default branch (`main`); cấu hình
+`.github/dependabot.yml` gộp các bản vá Go thành một PR và tắt version updates.
+Dependabot không cập nhật `go.work.sum`.
+
+Khi PR Dependabot đỏ ở `Static checks`:
+
+```bash
+gh pr checkout <PR>
+make tidy       # lan version sang module dùng chung (contracts/shared)
+make generate   # cập nhật go.work.sum nếu lệch
+git add -A && git commit -m "chore(deps): sync workspace versions"
+git push
+```
+
+- `Check module tidy state` fail → chạy `make tidy`.
+- `Verify workspace sums are committed` fail → chạy `make generate`.
+
 ## 3. Tag và release
 
 - Chỉ tag trên `main`, format `vX.Y.Z`.
