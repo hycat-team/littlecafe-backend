@@ -161,13 +161,13 @@ fmt-check:
 
 tidy:
 	@echo "Tidying Go modules (workspace)..."
+	@go work sync
 	@cd shared && go mod tidy
 	@cd contracts && go mod tidy
 	@cd services/commerce && go mod tidy
 	@cd services/experience && go mod tidy
 	@cd services/ai && go mod tidy
 	@cd services/platform && go mod tidy
-	@go work sync
 	@echo Go module tidy finished.
 
 tidy-check:
