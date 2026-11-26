@@ -1,0 +1,22 @@
+# Group Go security updates so one advisory produces a single PR across every
+# module instead of one PR per module. Version updates stay disabled; this repo
+# only takes security-driven dependency bumps. Dependabot does not update
+# go.work.sum, so run `make generate` on the PR if the workspace sums drift.
+version: 2
+updates:
+    - package-ecosystem: "gomod"
+      directories:
+          - "/shared"
+          - "/contracts"
+          - "/services/commerce"
+          - "/services/experience"
+          - "/services/ai"
+          - "/services/platform"
+      schedule:
+          interval: "weekly"
+      open-pull-requests-limit: 0
+      groups:
+          go-security:
+              applies-to: security-updates
+              patterns:
+                  - "*"

@@ -172,12 +172,12 @@ tidy:
 
 tidy-check:
 	@echo Checking whether go.mod and go.sum files are tidy...
-	@cd shared && go mod tidy -diff
-	@cd contracts && go mod tidy -diff
-	@cd services/commerce && go mod tidy -diff
-	@cd services/experience && go mod tidy -diff
-	@cd services/ai && go mod tidy -diff
-	@cd services/platform && go mod tidy -diff
+	@for module in shared contracts services/commerce services/experience services/ai services/platform; do \
+		( cd "$$module" && go mod tidy -diff ) || { \
+			echo "$$module is not tidy; run 'make tidy' and commit the result."; \
+			exit 1; \
+		}; \
+	done
 	@echo Go module files are tidy.
 
 generate-check:
