@@ -16,17 +16,25 @@
 
 ## 2. CI (`.github/workflows/ci.yml`)
 
-Chạy khi PR/push `main` (bỏ qua `docs/**` và `*.md`):
+Chạy khi PR/push `main`/`develop` (bỏ qua `docs/**` và `*.md`):
 
-| Job | Nội dung |
-|---|---|
-| static | `make fmt-check`, `make tidy-check`, `make generate`, kiểm tra generated committed |
-| vet | `make vet`, `deployments/scripts/check-boundaries.sh` |
-| test | `make test TEST_FLAGS=-short` |
-| test-race | `make test-race TEST_FLAGS=-short` |
-| contracts | `make buf-lint`, `make buf-gen` drift, `make openapi-gen`, Redocly lint OpenAPI, AsyncAPI validate, drift generated |
-| image-build | build image `linux/amd64` (không push) |
-| compose | `docker compose config --quiet` cho local + production compose |
+| Job | Chạy trên | Nội dung |
+|---|---|---|
+| static | PR + push | `make fmt-check`, `make tidy-check`, `make generate`, drift generated + `go.work.sum`, `make env-check`, `bash -n`, actionlint |
+| test | PR + push | `make coverage-check` (unit test + coverage gate), `make vet`, `check-boundaries.sh` |
+| test-race | push only | `make test-race TEST_FLAGS=-short` |
+| infra | PR + push | `make env-sops-test`, validate Compose local/production/staging |
+
+Workflow phụ:
+
+- `contracts.yml`: chỉ chạy khi `contracts/**`, `buf.yaml`, `buf.gen.yaml`,
+  `.redocly.yaml` hoặc `Makefile` đổi — buf/OpenAPI/AsyncAPI lint và drift
+  generated.
+- `docker.yml`: chỉ chạy khi `services/*/Dockerfile`, `go.work`, `.dockerignore`
+  hoặc chính workflow đổi — build image `linux/amd64` (không push).
+
+Image staging/production do CD build và push (`cd-staging.yml`, `cd.yml`);
+PR CI không build lại image.
 
 ## 3. CD (`.github/workflows/cd.yml`)
 

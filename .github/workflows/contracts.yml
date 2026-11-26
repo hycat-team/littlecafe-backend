@@ -1,0 +1,61 @@
+name: Contracts
+
+on:
+    pull_request:
+        branches: [main, develop]
+        paths:
+            - "contracts/**"
+            - "buf.yaml"
+            - "buf.gen.yaml"
+            - ".redocly.yaml"
+            - "Makefile"
+            - ".github/workflows/contracts.yml"
+    push:
+        branches: [main, develop]
+        paths:
+            - "contracts/**"
+            - "buf.yaml"
+            - "buf.gen.yaml"
+            - ".redocly.yaml"
+            - "Makefile"
+            - ".github/workflows/contracts.yml"
+
+permissions:
+    contents: read
+
+concurrency:
+    group: contracts-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    contracts:
+        name: Contract lint and drift
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v5
+            - uses: ./.github/actions/setup-go-cached
+              with:
+                  go-version: "1.26.x"
+            - uses: actions/setup-node@v5
+              with:
+                  node-version: "24"
+            - uses: actions/cache@v6
+              with:
+                  path: ~/.npm
+                  key: npm-${{ runner.os }}-${{ hashFiles('Makefile') }}
+                  restore-keys: |
+                      npm-${{ runner.os }}-
+            - name: Install Buf
+              shell: bash
+              run: |
+                  sudo curl -sSL "https://github.com/bufbuild/buf/releases/download/v1.57.2/buf-Linux-x86_64" -o /usr/local/bin/buf
+                  sudo chmod +x /usr/local/bin/buf
+                  buf --version
+            - name: Lint contracts and error-code registry
+              run: make contract-lint
+            - name: Verify generated protobuf stubs
+              run: make buf-gen && git diff --exit-code -- contracts/
+            - name: Generate OpenAPI contracts
+              run: make openapi-gen
+            - name: Verify generated contracts are committed
+              run: git diff --exit-code -- contracts/
