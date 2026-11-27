@@ -74,7 +74,7 @@ name := $(or $(name),$(NAME))
 SVC_REQ = $(if $(filter $(SVC),$(SERVICES)),,$(error This target requires svc=<$(SERVICES)> — e.g. make $@ svc=commerce))
 unexport SVC_REQ
 
-.PHONY: help install-tools install-goose wire wire-all buf-gen buf-lint openapi-gen openapi-lint asyncapi-lint openapi-check docs-build docs-preview error-codes-check contract-lint generate generate-check fmt fmt-check tidy tidy-check vet test test-race test-cover test-cover-html coverage-check lint check team-check team-list team-test build build-all run dev clean migrate-status migrate-up migrate-down migrate-create migrate-version docker-infra-up docker-dev-up docker-dev-stop docker-dev-down docker-prod-up docker-prod-stop docker-prod-down nginx-reload-local env-local env-local-check env-edit env-updatekeys env-check env-verify env-sops-test
+.PHONY: help install-tools install-goose wire wire-all buf-gen buf-lint openapi-gen openapi-lint asyncapi-lint openapi-check docs-build docs-preview error-codes-check contract-lint generate generate-check fmt fmt-check tidy tidy-check vet test test-race test-cover test-cover-html coverage-check lint check team-check team-list team-test build build-all run dev clean migrate-status migrate-up migrate-down migrate-create migrate-version docker-infra-up docker-dev-up docker-dev-stop docker-dev-down docker-prod-up docker-prod-stop docker-prod-down nginx-reload-local env-local env-local-check env-local-format env-edit env-updatekeys env-check env-verify env-sops-test
 
 help:
 	@echo "========================================================================"
@@ -86,6 +86,7 @@ help:
 	@echo "  make coverage-check : fail when business coverage is below $(COVER_MIN)%"
 	@echo "  make test-cover-html : generate HTML coverage report -> $(COVER_HTML)"
 	@echo "  make docs-preview : serve OpenAPI docs locally (127.0.0.1:$(DOCS_PORT))"
+	@echo "  make env-local-format : re-render .env in .env.example order/comments"
 	@echo "  make check      : full quality gate (fmt, tidy, vet, race tests, build, specs)"
 	@echo "  make team-check : validate the specs/<owner>-<NNN>-<slug> layout (strict)"
 	@echo "  make team-list  : print the feature table from meta.json files"
@@ -265,6 +266,13 @@ env-local:
 
 env-local-check:
 	@sh scripts/env/check-local-env.sh
+
+env-local-format:
+	@test -f .env || { echo ".env not found; run 'make env-local'"; exit 1; }
+	@tmp=$$(mktemp); \
+		sh deployments/scripts/render-env.sh .env.example .env "$$tmp" || { rm -f "$$tmp"; exit 1; }; \
+		mv "$$tmp" .env; \
+		sh scripts/env/check-local-env.sh
 
 env-edit:
 	@if [ -z "$(ENV)" ]; then echo "usage: make env-edit ENV=staging|production"; exit 64; fi

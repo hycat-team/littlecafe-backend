@@ -62,6 +62,8 @@ cập nhật env và age key: [`sops-keys.md`](sops-keys.md); policy mức dự 
 - `.env.<env>.example` là template cho thứ tự key, section comment và blank line;
   `apply-env.sh` render `.env.<env>` theo template này. Comment/thứ tự trong
   `.enc` không điều khiển runtime.
+- `.env.example` là template cho `.env` local; chạy `make env-local-format` để
+  render lại order/comment mà không đổi value.
 - Vị trí secret trên VPS:
   - Production: `/opt/littlecafe-secrets/{certs,jwt,acme,age}` + `vercel.token`.
   - Staging: `/opt/littlecafe-staging-secrets/{certs,jwt,age}`.

@@ -104,6 +104,7 @@ Quy trình đầy đủ: [`sops-keys.md`](sops-keys.md) §4.
 | Chạy 1 service trên host | `make run svc=commerce` |
 | Generate Wire/OpenAPI | `make generate` |
 | Xem OpenAPI docs | `make docs-preview` |
+| Format `.env` local | `make env-local-format` |
 | Test | `make test`, `make test-race`, `make test-cover` |
 | Coverage gate | `make coverage-check` |
 | Lint | `make lint` |

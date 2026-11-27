@@ -83,7 +83,8 @@ Không dùng script: `age-keygen -o <path>` rồi copy vào `keys.txt`; xem docs
 ### 5.1. Local
 
 Sửa trực tiếp `.env`; không commit, không cần SOPS. Khi `.env.example` thêm key,
-chạy `make env-local-check`.
+chạy `make env-local-check`. Chạy `make env-local-format` để chuẩn hoá order/comment
+mà không đổi value.
 
 ### 5.2. Staging/production — luồng chuẩn
 
