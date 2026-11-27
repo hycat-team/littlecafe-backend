@@ -14,4 +14,6 @@
 - Auth khai báo `bearerAuth`, `accessTokenCookie`, `refreshTokenCookie`.
 - SSE resume dùng parameter `LastEventId` (`Last-Event-ID`).
 - Chưa có endpoint nghiệp vụ trong bootstrap; mỗi contract được thêm cùng workflow đã duyệt.
+- Local preview: `make docs-preview` (dừng bằng Ctrl+C). Staging docs (basic auth): xem
+  [`docs/operations/deployment.md`](../../docs/operations/deployment.md) §7.
 - Quy ước đầy đủ: `littlecafe-docs/api/conventions.md`.

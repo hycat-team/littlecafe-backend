@@ -65,6 +65,9 @@ Tạo environment `production`/`staging`, bật Required reviewers nếu cần a
 
 Variable tùy chọn: `PRODUCTION_HEALTH_URL`, `STAGING_HEALTH_URL`.
 
+API docs staging dùng basic auth; credential nằm trong SOPS staging env
+(`DOCS_BASIC_AUTH_USER`, `DOCS_BASIC_AUTH_PASSWORD`), không phải GitHub secret.
+
 Env staging/production là ciphertext SOPS trong Git; CD giải mã trên VPS thành
 `.env.staging`/`.env.production` (mode 600). Compose nạp qua `env_file`; biến bắt
 buộc dùng `${VAR:?...}` nên thiếu giá trị fail ngay khi parse. Không đưa secret
@@ -168,6 +171,15 @@ curl -i -X OPTIONS https://staging-api.littlecafe.kids:8443/api/v1/health \
 
 Phải thấy `Access-Control-Allow-Origin: http://localhost:3000`. Kiểm tra
 `docker stats --no-stream`, `free -h`, `df -h` để tránh ảnh hưởng stack khác.
+
+### API docs (staging)
+
+- URL: `https://staging-api.littlecafe.kids:8443/docs/` (basic auth).
+- Credential: `DOCS_BASIC_AUTH_USER` / `DOCS_BASIC_AUTH_PASSWORD` trong
+  `deployments/env/staging.env.enc`; CD render `docs-auth/docs.htpasswd` trên VPS.
+- Build: `cd-staging.yml` chạy `make docs-build` với server URL staging rồi mount
+  `docs-site/` vào nginx. Docs chỉ có ở staging; production trả 404.
+- Rotation: `make env-edit ENV=staging` → đổi password → re-run `CD Staging`.
 
 ### Rollback
 
