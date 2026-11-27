@@ -266,6 +266,8 @@ services:
         volumes:
             - ./nginx/staging.conf:/etc/nginx/templates/default.conf.template:ro
             - ${TLS_DIR:-/opt/littlecafe-tls}:/etc/nginx/tls:ro
+            - ${DOCS_DIR:-/opt/littlecafe-staging/docs-site}:/usr/share/nginx/html/docs:ro
+            - ${DOCS_AUTH_DIR:-/opt/littlecafe-staging/docs-auth}:/etc/nginx/auth:ro
         security_opt: *security
         logging: *logging
 

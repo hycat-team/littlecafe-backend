@@ -8,6 +8,10 @@ BUF_VERSION := v1.57.2
 OAPI_CODEGEN_VERSION := v2.4.1
 REDOCLY_VERSION := 1.34.5
 ASYNCAPI_VERSION := 6.2.1
+DOCS_SPEC ?= contracts/openapi/components.yaml
+DOCS_OUT ?= docs-site
+DOCS_PORT ?= 8090
+DOCS_TITLE ?= LittleCafe API
 GO_BUILD_FLAGS := -trimpath -ldflags="-s -w"
 BIN_DIR := bin
 PROTO_FILES := $(wildcard contracts/proto/*.proto contracts/proto/*/*.proto contracts/proto/*/*/*.proto contracts/proto/*/*/*/*.proto)
@@ -70,7 +74,7 @@ name := $(or $(name),$(NAME))
 SVC_REQ = $(if $(filter $(SVC),$(SERVICES)),,$(error This target requires svc=<$(SERVICES)> — e.g. make $@ svc=commerce))
 unexport SVC_REQ
 
-.PHONY: help install-tools install-goose wire wire-all buf-gen buf-lint openapi-gen openapi-lint asyncapi-lint openapi-check error-codes-check contract-lint generate generate-check fmt fmt-check tidy tidy-check vet test test-race test-cover test-cover-html coverage-check lint check team-check team-list team-test build build-all run dev clean migrate-status migrate-up migrate-down migrate-create migrate-version docker-infra-up docker-dev-up docker-dev-stop docker-dev-down docker-prod-up docker-prod-stop docker-prod-down nginx-reload-local env-local env-local-check env-edit env-updatekeys env-check env-verify env-sops-test
+.PHONY: help install-tools install-goose wire wire-all buf-gen buf-lint openapi-gen openapi-lint asyncapi-lint openapi-check docs-build docs-preview error-codes-check contract-lint generate generate-check fmt fmt-check tidy tidy-check vet test test-race test-cover test-cover-html coverage-check lint check team-check team-list team-test build build-all run dev clean migrate-status migrate-up migrate-down migrate-create migrate-version docker-infra-up docker-dev-up docker-dev-stop docker-dev-down docker-prod-up docker-prod-stop docker-prod-down nginx-reload-local env-local env-local-check env-edit env-updatekeys env-check env-verify env-sops-test
 
 help:
 	@echo "========================================================================"
@@ -81,6 +85,7 @@ help:
 	@echo "  make test       : run all workspace tests"	@echo "  make test-cover : run workspace statement coverage -> $(COVER_PROFILE)"
 	@echo "  make coverage-check : fail when business coverage is below $(COVER_MIN)%"
 	@echo "  make test-cover-html : generate HTML coverage report -> $(COVER_HTML)"
+	@echo "  make docs-preview : serve OpenAPI docs locally (127.0.0.1:$(DOCS_PORT))"
 	@echo "  make check      : full quality gate (fmt, tidy, vet, race tests, build, specs)"
 	@echo "  make team-check : validate the specs/<owner>-<NNN>-<slug> layout (strict)"
 	@echo "  make team-list  : print the feature table from meta.json files"
@@ -138,6 +143,15 @@ asyncapi-lint:
 
 openapi-check: openapi-gen
 	@git diff --exit-code -- contracts/openapi
+
+docs-build:
+	@echo Building OpenAPI docs...
+	@mkdir -p "$(DOCS_OUT)"
+	@npx --yes @redocly/cli@$(REDOCLY_VERSION) build-docs "$(DOCS_SPEC)" -o "$(DOCS_OUT)/index.html" --title "$(DOCS_TITLE)"
+
+docs-preview:
+	@echo OpenAPI docs: http://127.0.0.1:$(DOCS_PORT)
+	@npx --yes @redocly/cli@$(REDOCLY_VERSION) preview-docs "$(DOCS_SPEC)" --host 127.0.0.1 --port $(DOCS_PORT) --use-community-edition
 	@echo Generated OpenAPI sources are up to date.
 
 error-codes-check:

@@ -103,6 +103,7 @@ Quy trình đầy đủ: [`sops-keys.md`](sops-keys.md) §4.
 | Full stack | `make docker-dev-up` / `make docker-dev-down` |
 | Chạy 1 service trên host | `make run svc=commerce` |
 | Generate Wire/OpenAPI | `make generate` |
+| Xem OpenAPI docs | `make docs-preview` |
 | Test | `make test`, `make test-race`, `make test-cover` |
 | Coverage gate | `make coverage-check` |
 | Lint | `make lint` |

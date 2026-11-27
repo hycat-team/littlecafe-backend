@@ -19,6 +19,9 @@ coverage.*
 profile.cov
 *.prof
 
+# Generated API docs (make docs-build)
+/docs-site/
+
 # Dependency directories (uncomment `vendor/` to commit vendored deps instead)
 # vendor/
 
