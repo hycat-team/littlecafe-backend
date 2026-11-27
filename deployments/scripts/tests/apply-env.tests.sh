@@ -74,4 +74,59 @@ if SOPS_AGE_KEY_FILE="$tmp/other-keys.txt" sh deployments/scripts/apply-env.sh \
   exit 1
 fi
 
+# The example controls key order/comments; keys absent from the example are
+# appended under an extra-keys section.
+cat >"$tmp/source2.env" <<'EOF'
+C=3
+A=left=right
+B=hello world
+D=extra
+EOF
+
+cat >"$tmp/example2.env" <<'EOF'
+# section one
+A=placeholder
+B=placeholder
+# section two
+C=placeholder
+EOF
+
+(
+  cd "$tmp"
+  sh "$root/deployments/scripts/sops-run.sh" encrypt \
+    --input-type dotenv --output-type dotenv --age "$pub" source2.env \
+    >source2.env.enc
+)
+
+sh deployments/scripts/apply-env.sh \
+  "$tmp/source2.env.enc" "$tmp/target3.env" "$tmp/example2.env" >/dev/null
+
+cat >"$tmp/expected2.env" <<'EOF'
+# section one
+A=left=right
+B=hello world
+# section two
+C=3
+
+# Extra keys not present in the example
+D=extra
+EOF
+
+if ! diff -u "$tmp/expected2.env" "$tmp/target3.env" >"$tmp/diff2.txt"; then
+  printf 'FAIL: rendered order/comments mismatch\n' >&2
+  cat "$tmp/diff2.txt" >&2
+  exit 1
+fi
+
+# The renderer must fail when the example declares a key without a value.
+cat >"$tmp/example3.env" <<'EOF'
+A=placeholder
+MISSING=placeholder
+EOF
+if sh deployments/scripts/render-env.sh \
+  "$tmp/example3.env" "$tmp/source2.env" "$tmp/target4.env" >/dev/null 2>&1; then
+  printf 'FAIL: render-env should fail on a missing value\n' >&2
+  exit 1
+fi
+
 printf 'PASS: apply-env round-trip and failure paths\n'

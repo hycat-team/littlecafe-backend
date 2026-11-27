@@ -5,6 +5,7 @@
 #   apply-env.sh <encrypted-file> <target-file> [example-file]
 #
 # - Decrypts to a private temporary file in the target directory.
+# - Renders the runtime file in the key order and comments of the example file.
 # - Verifies there are no CR bytes, no leftover SOPS metadata, and that every
 #   key documented in the example file is present.
 # - Keeps the previous target as <target>.prev for rollback.
@@ -37,7 +38,8 @@ umask 077
 target_dir=$(cd "$(dirname "$target")" && pwd)
 tmp=$(mktemp "${target_dir}/.envtmp.XXXXXX")
 keys_tmp=$(mktemp "${target_dir}/.envkeys.XXXXXX")
-cleanup() { rm -f "$tmp" "$keys_tmp"; }
+ordered=""
+cleanup() { rm -f "$tmp" "$keys_tmp"; [ -z "$ordered" ] || rm -f "$ordered"; }
 trap cleanup EXIT
 
 SOPS_MODE=${SOPS_MODE:-docker} sh "$sops_run" \
@@ -67,14 +69,20 @@ done <"$keys_tmp"
 
 key_count=$(grep -cE '^[A-Za-z_][A-Za-z0-9_]*=' "$tmp" || true)
 
+render="${script_dir}/render-env.sh"
+[ -f "$render" ] || fail "missing helper: $render"
+ordered=$(mktemp "${target_dir}/.envordered.XXXXXX")
+sh "$render" "$example" "$tmp" "$ordered"
+
 if [ -f "$target" ]; then
   cp -p "$target" "${target}.prev"
   chmod 600 "${target}.prev" 2>/dev/null || true
 fi
 
-chmod 600 "$tmp"
-mv "$tmp" "$target"
-rm -f "$keys_tmp"
+chmod 600 "$ordered"
+mv "$ordered" "$target"
+ordered=""
+rm -f "$tmp" "$keys_tmp"
 trap - EXIT
 
 printf 'apply-env: wrote %s (%s keys, mode 600)\n' "$target" "$key_count"

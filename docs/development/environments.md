@@ -59,6 +59,9 @@ cập nhật env và age key: [`sops-keys.md`](sops-keys.md); policy mức dự 
   `/opt/littlecafe-staging/.env.staging`, mode 600), do CD giải mã bằng
   `deployments/scripts/apply-env.sh`; không sửa tay.
 - `.env*.example` chỉ chứa placeholder; comment trong `.env*` viết tiếng Anh.
+- `.env.<env>.example` là template cho thứ tự key, section comment và blank line;
+  `apply-env.sh` render `.env.<env>` theo template này. Comment/thứ tự trong
+  `.enc` không điều khiển runtime.
 - Vị trí secret trên VPS:
   - Production: `/opt/littlecafe-secrets/{certs,jwt,acme,age}` + `vercel.token`.
   - Staging: `/opt/littlecafe-staging-secrets/{certs,jwt,age}`.

@@ -140,6 +140,7 @@ jobs:
                   deployments/scripts/init-db.sh \
                   deployments/scripts/issue-certs.sh \
                   deployments/scripts/render-docs-auth.sh \
+                  deployments/scripts/render-env.sh \
                   deployments/scripts/renew-certs.sh \
                   deployments/scripts/sops-run.sh \
                   .env.staging.example

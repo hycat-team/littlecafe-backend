@@ -13,7 +13,9 @@ Phân loại giá trị: [`environments.md`](environments.md); deploy/rollback:
 | Staging | `deployments/env/staging.env.enc` | Dev được cấp, lead, VPS staging |
 | Production | `deployments/env/production.env.enc` | Dev được cấp, lead, VPS production, recovery key |
 
-- SOPS mã hóa value; tên key và comment `#` vẫn đọc được để review diff.
+- SOPS mã hóa value; tên key và comment `#` vẫn đọc được để review diff. Tuy
+  nhiên comment/thứ tự runtime lấy từ `.env.<env>.example` (qua
+  `apply-env.sh`), không lấy từ `.enc`.
 - File `.enc` có metadata `sops_*` và MAC; sửa tay sẽ hỏng file.
 - Plaintext runtime chỉ tồn tại trên VPS (mode 600), do CD giải mã từ Git.
 
@@ -219,8 +221,8 @@ Mất toàn bộ key (lead + VPS + recovery) = không khôi phục được ciph
 
 - CD upload `.enc`, `.example`, `sops-run.sh`, `apply-env.sh`, rồi chạy step
   "Apply … env from SOPS" trước `deploy-release.sh`.
-- `apply-env.sh`: decrypt → validate (CR, `sops_`, key parity) → giữ `.prev` →
-  ghi atomic mode 600.
+- `apply-env.sh`: decrypt → validate (CR, `sops_`, key parity) → render theo
+  `.env.<env>.example` (order/comment) → giữ `.prev` → ghi atomic mode 600.
 - `sops-run.sh` dùng image pinned digest, `--network none --read-only
   --cap-drop ALL`, mount key read-only; không chạy `sops edit` trên VPS.
 - Nâng cấp SOPS: đổi digest trong `sops-run.sh`, `docker pull` trên VPS, deploy
