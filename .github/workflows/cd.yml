@@ -184,6 +184,7 @@ jobs:
         name: Smoke container ${{ matrix.service }}
         needs: deploy
         runs-on: ubuntu-latest
+        timeout-minutes: 5
         environment: production
         strategy:
             fail-fast: false
@@ -202,7 +203,9 @@ jobs:
               shell: bash
               run: |
                 for _ in $(seq 1 12); do
-                  status=$(ssh -p "${{ secrets.DEPLOY_PORT }}" \
+                  status=$(timeout 20s ssh \
+                    -o ConnectTimeout=5 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 \
+                    -p "${{ secrets.DEPLOY_PORT }}" \
                     "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
                     "cd /opt/littlecafe && id=\$(docker compose --env-file .env.production --env-file .env.deploy -f deployments/docker-compose.prod.yml ps -q ${{ matrix.service }}); \
                      test -n \"\$id\"; \
@@ -219,6 +222,7 @@ jobs:
         name: Smoke production API from VPS
         needs: deploy
         runs-on: ubuntu-latest
+        timeout-minutes: 5
         environment: production
         steps:
             - name: Prepare SSH
@@ -233,7 +237,9 @@ jobs:
               shell: bash
               run: |
                 for _ in $(seq 1 12); do
-                  if ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+                  if timeout 30s ssh \
+                    -o ConnectTimeout=5 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 \
+                    -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
                     "curl --fail --silent --show-error --max-time 15 \
                      --resolve api.littlecafe.kids:8444:127.0.0.1 \
                      https://api.littlecafe.kids:8444/api/v1/health" >/dev/null; then
